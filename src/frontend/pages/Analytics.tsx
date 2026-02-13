@@ -34,7 +34,7 @@ function Analytics() {
     { name: 'Medical Record Documentation', status: 'Completed', hours: '22 hrs' },
   ];
 
-  // Generate mock chart data
+  // Mock Data Chart
   const chartData = Array.from({ length: 32 }, (_, i) => ({
     x: i,
     y: Math.random() * 15 + 5 + Math.sin(i / 3) * 5,
@@ -83,7 +83,7 @@ function Analytics() {
           </Card>
         ))}
         
-        {/* Workload Indicators Card */}
+        {/* Workload Indicator Card*/}
         <Card
           sx={{
             flex: '1 1 200px',
