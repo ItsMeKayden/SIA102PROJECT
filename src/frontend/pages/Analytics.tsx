@@ -46,14 +46,15 @@ function Analytics() {
   });
 
   const createChartPath = () => {
-    const width = 1000;
-    const height = 180;
+    const width = 970; // Reduced to account for Y-axis offset
+    const height = 200;
+    const xOffset = 30; // Offset for Y-axis
     const points = chartData.map((point, i) => {
-      const x = (i / 31) * width;
+      const x = xOffset + (i / 31) * width;
       const y = height - ((point.y - 5) / 20) * height;
       return `${x},${y}`;
     });
-    return `M 0,${height} L ${points.join(' L ')} L ${width},${height} Z`;
+    return `M ${xOffset},${height} L ${points.join(' L ')} L ${xOffset + width},${height} Z`;
   };
 
   return (
@@ -97,13 +98,24 @@ function Analytics() {
               backgroundColor: card.bgColor,
               boxShadow: 'none',
               borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            <CardContent sx={{ textAlign: 'center', pt: 2.5, pb: 2 }}>
-              <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: 400, mb: 1.5, color: '#000' }}>
+            <CardContent sx={{ 
+              textAlign: 'center', 
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px !important',
+            }}>
+              <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: 400, mb: 1, color: '#000' }}>
                 {card.title}
               </Typography>
-              <Typography variant="h3" sx={{ fontWeight: 'bold', fontSize: '36px', color: '#000' }}>
+              <Typography variant="h3" sx={{ fontWeight: 'bold', fontSize: '36px', color: '#000', lineHeight: 1 }}>
                 {card.value}
               </Typography>
             </CardContent>
@@ -168,31 +180,34 @@ function Analytics() {
           border: '1px solid #e5e7eb'
         }}>
           <CardContent sx={{ p: 2 }}>
-            <svg width="100%" height="220" viewBox="0 0 1000 200" preserveAspectRatio="none" style={{ display: 'block' }}>
+            <svg width="100%" height="240" viewBox="0 0 1000 220" preserveAspectRatio="none" style={{ display: 'block' }}>
               <defs>
                 <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.5" />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02" />
                 </linearGradient>
               </defs>
               {/* Grid lines */}
-              <line x1="0" y1="180" x2="1000" y2="180" stroke="#e5e7eb" strokeWidth="1" />
-              <line x1="0" y1="90" x2="1000" y2="90" stroke="#e5e7eb" strokeWidth="1" />
-              <line x1="0" y1="0" x2="1000" y2="0" stroke="#e5e7eb" strokeWidth="1" />
+              <line x1="30" y1="200" x2="1000" y2="200" stroke="#e5e7eb" strokeWidth="1" />
+              <line x1="30" y1="100" x2="1000" y2="100" stroke="#e5e7eb" strokeWidth="1" />
+              <line x1="30" y1="0" x2="1000" y2="0" stroke="#e5e7eb" strokeWidth="1" />
               
-              {/* Chart path */}
-              <path d={createChartPath()} fill="url(#chartGradient)" stroke="#3b82f6" strokeWidth="3" />
+              {/* Y-axis line */}
+              <line x1="30" y1="0" x2="30" y2="200" stroke="#9ca3af" strokeWidth="1.5" />
+              
+              {/* Chart path with offset for Y-axis */}
+              <path d={createChartPath()} fill="url(#chartGradient)" stroke="#3b82f6" strokeWidth="2.5" />
               
               {/* X-axis labels */}
-              <text x="0" y="196" fontSize="11" fill="#6b7280" fontFamily="sans-serif">0</text>
-              <text x="320" y="196" fontSize="11" fill="#6b7280" fontFamily="sans-serif">10</text>
-              <text x="645" y="196" fontSize="11" fill="#6b7280" fontFamily="sans-serif">20</text>
-              <text x="990" y="196" fontSize="11" fill="#6b7280" fontFamily="sans-serif" textAnchor="end">31</text>
+              <text x="30" y="216" fontSize="11" fill="#6b7280" fontFamily="sans-serif">0</text>
+              <text x="345" y="216" fontSize="11" fill="#6b7280" fontFamily="sans-serif">10</text>
+              <text x="660" y="216" fontSize="11" fill="#6b7280" fontFamily="sans-serif">20</text>
+              <text x="990" y="216" fontSize="11" fill="#6b7280" fontFamily="sans-serif" textAnchor="end">31</text>
               
               {/* Y-axis labels */}
-              <text x="8" y="8" fontSize="11" fill="#6b7280" fontFamily="sans-serif">25</text>
-              <text x="8" y="98" fontSize="11" fill="#6b7280" fontFamily="sans-serif">15</text>
-              <text x="8" y="188" fontSize="11" fill="#6b7280" fontFamily="sans-serif">0</text>
+              <text x="10" y="6" fontSize="11" fill="#6b7280" fontFamily="sans-serif">25</text>
+              <text x="10" y="106" fontSize="11" fill="#6b7280" fontFamily="sans-serif">15</text>
+              <text x="18" y="206" fontSize="11" fill="#6b7280" fontFamily="sans-serif">0</text>
             </svg>
           </CardContent>
         </Card>
@@ -238,8 +253,8 @@ function Analytics() {
         borderRadius: '8px',
         border: '1px solid #e5e7eb'
       }}>
-        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body1" sx={{ fontWeight: 400, fontSize: '14px' }}>
+        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1, borderBottom: '1px solid #e5e7eb' }}>
+          <Typography variant="body1" sx={{ fontWeight: 400, fontSize: '14px', color: '#111827' }}>
             Staff: <span style={{ fontStyle: 'italic', fontWeight: 600 }}>John Doe</span>
           </Typography>
           <Typography variant="body2" sx={{ color: '#6b7280', fontSize: '13px' }}>
