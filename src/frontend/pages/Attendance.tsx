@@ -111,7 +111,7 @@ function Attendance() {
 
       {/* Attendance Log Table */}
       <h2 className="tableTitle">Attendance Log Table</h2>
-      <TableContainer component={Paper} sx={{ mt: 2, width: '100%' }}>
+      <TableContainer component={Paper} sx={{ mt: 4, width: '100%' }}>
         <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
           <TableHead sx={{ backgroundColor: 'blue' }}>
             <TableRow>

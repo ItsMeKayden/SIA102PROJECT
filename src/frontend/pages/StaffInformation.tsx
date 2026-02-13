@@ -161,7 +161,7 @@ function StaffInformation() {
             }}
           />
           
-          <FormControl size="small" sx={{ minWidth: 120, flex: '0 1 auto', backgroundColor: 'white', borderRadius: '6px' }}>
+          <FormControl size="small" sx={{ minWidth: 120, maxWidth: 160, flex: '0 1 auto', backgroundColor: 'white', borderRadius: '6px' }}>
             <Select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
@@ -175,7 +175,7 @@ function StaffInformation() {
             </Select>
           </FormControl>
 
-          <FormControl size="small" sx={{ minWidth: 100, flex: '0 1 auto', backgroundColor: 'white', borderRadius: '6px' }}>
+          <FormControl size="small" sx={{ minWidth: 100, maxWidth: 140, flex: '0 1 auto', backgroundColor: 'white', borderRadius: '6px', marginRight: '12px' }}>
             <Select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
