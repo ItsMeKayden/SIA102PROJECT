@@ -1,0 +1,14 @@
+.analytics-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.Header {
+  background-color: #ffffff;
+  padding: 30px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin: -20px -20px 24px calc(-20px - 240px);
+  width: calc(100% + 40px);
+  padding-left: calc(240px);
+}
