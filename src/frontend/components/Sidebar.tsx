@@ -9,7 +9,7 @@ import {
   FiClipboard,
   FiBell,
 } from 'react-icons/fi';
-import styles from '../styles/Sidebar.module.css';
+import '../styles/Sidebar.css';
 
 type MenuItem = {
   label: string;
@@ -29,23 +29,23 @@ const menuItems: MenuItem[] = [
 
 const Sidebar: React.FC = () => {
   return (
-    <aside className={styles.sidebar}>
-      <div className={styles.logo}>
-        <span className={styles.logoIcon}>❤️</span>
+    <aside className="sidebar">
+      <div className="logo">
+        <span className="logoIcon">❤️</span>
         CLINIKA+
       </div>
 
-      <nav className={styles.nav}>
+      <nav className="nav">
         {menuItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             end={item.path === '/'}
             className={({ isActive }) =>
-              isActive ? `${styles.menuItem} ${styles.active}` : styles.menuItem
+              isActive ? 'menuItem active' : 'menuItem'
             }
           >
-            <span className={styles.icon}>{item.icon}</span>
+            <span className="icon">{item.icon}</span>
             {item.label}
           </NavLink>
         ))}

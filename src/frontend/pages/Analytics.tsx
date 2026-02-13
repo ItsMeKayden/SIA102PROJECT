@@ -1,3 +1,5 @@
+import '../styles/Pages.css';
+
 function Analytics() {
   return (
     <div>
