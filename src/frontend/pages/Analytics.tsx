@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {Container, Box, Typography, Card, CardContent, Select, MenuItem, Table, TableBody,
-        TableCell, TableContainer, TableHead, TableRow, FormControl, InputLabel,} from '@mui/material';
+        TableCell, TableContainer, TableHead, TableRow, FormControl, InputLabel, Stack} from '@mui/material';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -186,7 +186,7 @@ const Analytics = () => {
               <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
                 {selectedStaff}
               </Typography>
-              <Box sx={{ textAlign: 'center' }}>
+              
                 <Typography variant="body1" sx={{ mb: 1 }}>
                   <strong>Department:</strong>
                 </Typography>
@@ -199,7 +199,7 @@ const Analytics = () => {
                 <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                   Jan 1 - Jan 31
                 </Typography>
-              </Box>
+              
             </CardContent>
           </Card>
         </Box>
@@ -208,12 +208,15 @@ const Analytics = () => {
       {/* Tasks Table */}
       <Card>
         <CardContent>
-          <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}
+          >
+          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2 }}>
             Staff: {selectedStaff}
           </Typography>
-          <Typography variant="caption" sx={{ display: 'block', mb: 2, color: 'textSecondary' }}>
+          <Typography variant="subtitle1" sx={{ display: 'block', mb: 2}}>
             Date: January 2026
           </Typography>
+          </Stack>
           <TableContainer>
             <Table>
               <TableHead>
