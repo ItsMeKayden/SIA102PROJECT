@@ -96,14 +96,15 @@ function Schedule() {
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '100%', overflow: 'hidden' }}>
+    <div style={{ padding: '20px', width: '100%', maxWidth: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
       {/* Top Search Bar */}
       <Box sx={{ marginBottom: '20px', display: 'flex', justifyContent: 'flex-end' }}>
         <TextField
           placeholder="Search..."
           size="small"
           sx={{ 
-            width: '280px',
+            width: '100%',
+            maxWidth: '280px',
             backgroundColor: 'white',
             borderRadius: '6px',
             '& .MuiOutlinedInput-root': {
@@ -113,7 +114,7 @@ function Schedule() {
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <FiSearch style={{ color: '#6b7280', fontSize: '18px' }} />
+                <FiSearch style={{ color: '#6b7280', fontSize: '16px' }} />
               </InputAdornment>
             ),
           }}
@@ -135,8 +136,8 @@ function Schedule() {
         </Typography>
         <Box sx={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-          gap: '16px' 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', 
+          gap: '14px' 
         }}>
           {summaryCards.map((card, index) => (
             <Card 
@@ -148,13 +149,13 @@ function Schedule() {
                 border: `1px solid ${card.borderColor}`
               }}
             >
-              <CardContent sx={{ padding: '20px !important' }}>
+              <CardContent sx={{ padding: '18px !important' }}>
                 <Typography 
                   sx={{ 
-                    fontSize: '13px', 
+                    fontSize: '12px', 
                     fontWeight: 500,
                     color: card.textColor,
-                    marginBottom: '10px',
+                    marginBottom: '8px',
                     opacity: 0.85
                   }}
                 >
@@ -162,7 +163,7 @@ function Schedule() {
                 </Typography>
                 <Typography 
                   sx={{ 
-                    fontSize: '32px', 
+                    fontSize: '28px', 
                     fontWeight: 700,
                     color: card.textColor,
                   }}
@@ -176,7 +177,7 @@ function Schedule() {
       </Box>
 
       {/* Weekly Schedule */}
-      <Box sx={{ marginBottom: '24px' }}>
+      <Box sx={{ marginBottom: '24px', width: '100%' }}>
         <Typography 
           variant="h6" 
           sx={{ 
@@ -196,7 +197,7 @@ function Schedule() {
               borderRadius: '8px',
               boxShadow: 'none',
               border: '1px solid #e5e7eb',
-              minWidth: '900px'
+              minWidth: '780px'
             }}
           >
             <Table size="small">
@@ -207,9 +208,9 @@ function Schedule() {
                       fontWeight: 600, 
                       backgroundColor: '#f9fafb',
                       borderRight: '1px solid #e5e7eb',
-                      width: '90px',
+                      width: '80px',
                       color: '#374151',
-                      fontSize: '13px'
+                      fontSize: '12px'
                     }}
                   >
                     Time
@@ -222,8 +223,8 @@ function Schedule() {
                         fontWeight: 600,
                         backgroundColor: day === 'Sun' ? '#fee2e2' : '#f9fafb',
                         color: '#374151',
-                        minWidth: '110px',
-                        fontSize: '13px'
+                        minWidth: '100px',
+                        fontSize: '12px'
                       }}
                     >
                       {day}
@@ -240,7 +241,7 @@ function Schedule() {
                         backgroundColor: '#f9fafb',
                         borderRight: '1px solid #e5e7eb',
                         color: '#4b5563',
-                        fontSize: '12px'
+                        fontSize: '11px'
                       }}
                     >
                       {time}
@@ -291,7 +292,7 @@ function Schedule() {
       </Box>
 
       {/* Conflict Resolution Table */}
-      <Box>
+      <Box sx={{ width: '100%' }}>
         <Typography 
           variant="h6" 
           sx={{ 
@@ -303,41 +304,44 @@ function Schedule() {
         >
           Conflict Resolution
         </Typography>
-        <TableContainer 
-          component={Paper}
-          sx={{ 
-            borderRadius: '8px',
-            boxShadow: 'none',
-            border: '1px solid #e5e7eb'
-          }}
-        >
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ backgroundColor: '#f9fafb' }}>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '20%' }}>Staff Name</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '15%' }}>Role</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '50%' }}>Conflict Type</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '15%' }}>Action</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {conflicts.map((conflict, index) => (
-                <TableRow 
-                  key={index}
-                  sx={{ 
-                    '&:hover': { backgroundColor: '#f9fafb' },
-                    borderBottom: '1px solid #f3f4f6'
-                  }}
-                >
-                  <TableCell sx={{ color: '#1f2937', fontWeight: 500, fontSize: '13px' }}>{conflict.staffName}</TableCell>
-                  <TableCell sx={{ color: '#6b7280', fontSize: '13px' }}>{conflict.role}</TableCell>
-                  <TableCell sx={{ color: '#6b7280', fontSize: '13px' }}>{conflict.conflictType}</TableCell>
-                  <TableCell sx={{ color: '#059669', fontWeight: 600, fontSize: '13px' }}>{conflict.action}</TableCell>
+        <Box sx={{ overflowX: 'auto', width: '100%' }}>
+          <TableContainer 
+            component={Paper}
+            sx={{ 
+              borderRadius: '8px',
+              boxShadow: 'none',
+              border: '1px solid #e5e7eb',
+              minWidth: '600px'
+            }}
+          >
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ backgroundColor: '#f9fafb' }}>
+                  <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '20%' }}>Staff Name</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '15%' }}>Role</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '50%' }}>Conflict Type</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '15%' }}>Action</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {conflicts.map((conflict, index) => (
+                  <TableRow 
+                    key={index}
+                    sx={{ 
+                      '&:hover': { backgroundColor: '#f9fafb' },
+                      borderBottom: '1px solid #f3f4f6'
+                    }}
+                  >
+                    <TableCell sx={{ color: '#1f2937', fontWeight: 500, fontSize: '12px' }}>{conflict.staffName}</TableCell>
+                    <TableCell sx={{ color: '#6b7280', fontSize: '12px' }}>{conflict.role}</TableCell>
+                    <TableCell sx={{ color: '#6b7280', fontSize: '12px' }}>{conflict.conflictType}</TableCell>
+                    <TableCell sx={{ color: '#059669', fontWeight: 600, fontSize: '12px' }}>{conflict.action}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
       </Box>
     </div>
   );

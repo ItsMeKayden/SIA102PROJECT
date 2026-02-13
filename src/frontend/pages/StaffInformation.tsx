@@ -44,6 +44,7 @@ function StaffInformation() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [selectedStaffId, setSelectedStaffId] = useState('');
   const [formData, setFormData] = useState<StaffFormData>({
     name: '',
     role: '',
@@ -80,12 +81,31 @@ function StaffInformation() {
     setModalMode(mode);
     if (mode === 'add') {
       setFormData({ name: '', role: '', department: '', status: 'On Duty' });
+      setSelectedStaffId('');
+    } else {
+      // Reset to empty for staff selection
+      setSelectedStaffId('');
+      setFormData({ name: '', role: '', department: '', status: 'On Duty' });
     }
     setOpenModal(true);
   };
 
+  const handleStaffSelection = (staffId: string) => {
+    const staff = staffData.find(s => s.id === staffId);
+    if (staff) {
+      setSelectedStaffId(staffId);
+      setFormData({
+        name: staff.name,
+        role: staff.role,
+        department: staff.department,
+        status: staff.status
+      });
+    }
+  };
+
   const handleCloseModal = () => {
     setOpenModal(false);
+    setSelectedStaffId('');
   };
 
   const handleSubmit = () => {
@@ -95,16 +115,16 @@ function StaffInformation() {
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '100%', overflow: 'hidden' }}>
+    <div style={{ padding: '20px', width: '100%', maxWidth: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
       <Box sx={{ 
         backgroundColor: '#f8f9fa', 
         borderRadius: '8px', 
-        padding: '24px',
+        padding: { xs: '16px', sm: '20px', md: '24px' },
         marginBottom: '20px'
       }}>
         <h2 style={{ 
           margin: '0 0 20px 0', 
-          fontSize: '24px', 
+          fontSize: 'clamp(18px, 4vw, 24px)', 
           fontWeight: '600',
           color: '#1f2937'
         }}>
@@ -123,9 +143,9 @@ function StaffInformation() {
             onChange={(e) => setSearchQuery(e.target.value)}
             size="small"
             sx={{ 
-              flex: '1 1 200px',
-              minWidth: '200px',
-              maxWidth: '300px',
+              flex: '1 1 180px',
+              minWidth: '150px',
+              maxWidth: '280px',
               backgroundColor: 'white',
               borderRadius: '6px',
               '& .MuiOutlinedInput-root': {
@@ -135,32 +155,32 @@ function StaffInformation() {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <FiSearch style={{ color: '#6b7280', fontSize: '18px' }} />
+                  <FiSearch style={{ color: '#6b7280', fontSize: '16px' }} />
                 </InputAdornment>
               ),
             }}
           />
           
-          <FormControl size="small" sx={{ minWidth: 130, backgroundColor: 'white', borderRadius: '6px' }}>
+          <FormControl size="small" sx={{ minWidth: 120, flex: '0 1 auto', backgroundColor: 'white', borderRadius: '6px' }}>
             <Select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
               displayEmpty
-              sx={{ borderRadius: '6px' }}
+              sx={{ borderRadius: '6px', fontSize: '14px' }}
             >
-              <MenuItem value="all">All Departments</MenuItem>
+              <MenuItem value="all">All Depts</MenuItem>
               <MenuItem value="Pharmacy">Pharmacy</MenuItem>
               <MenuItem value="Emergency">Emergency</MenuItem>
               <MenuItem value="Surgery">Surgery</MenuItem>
             </Select>
           </FormControl>
 
-          <FormControl size="small" sx={{ minWidth: 110, backgroundColor: 'white', borderRadius: '6px' }}>
+          <FormControl size="small" sx={{ minWidth: 100, flex: '0 1 auto', backgroundColor: 'white', borderRadius: '6px' }}>
             <Select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               displayEmpty
-              sx={{ borderRadius: '6px' }}
+              sx={{ borderRadius: '6px', fontSize: '14px' }}
             >
               <MenuItem value="all">All Status</MenuItem>
               <MenuItem value="On Duty">On Duty</MenuItem>
@@ -169,7 +189,7 @@ function StaffInformation() {
             </Select>
           </FormControl>
 
-          <Box sx={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+          <Box sx={{ marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <Button
               variant="contained"
               startIcon={<FiPlus size={16} />}
@@ -179,8 +199,8 @@ function StaffInformation() {
                 borderRadius: '6px',
                 textTransform: 'none',
                 fontWeight: 500,
-                padding: '6px 18px',
-                fontSize: '14px',
+                padding: '6px 16px',
+                fontSize: '13px',
                 '&:hover': {
                   backgroundColor: '#2563eb',
                 }
@@ -198,8 +218,8 @@ function StaffInformation() {
                 borderRadius: '6px',
                 textTransform: 'none',
                 fontWeight: 500,
-                padding: '6px 18px',
-                fontSize: '14px',
+                padding: '6px 16px',
+                fontSize: '13px',
                 '&:hover': {
                   borderColor: '#9ca3af',
                   backgroundColor: '#f9fafb',
@@ -212,62 +232,65 @@ function StaffInformation() {
         </Box>
       </Box>
 
-      <TableContainer 
-        component={Paper} 
-        sx={{ 
-          borderRadius: '8px',
-          boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-          border: '1px solid #e5e7eb'
-        }}
-      >
-        <Table>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: '#f9fafb' }}>
-              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '10%' }}>ID</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '30%' }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '20%' }}>Role</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '20%' }}>Department</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '20%' }}>Status</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredStaff.map((staff) => (
-              <TableRow 
-                key={staff.id}
-                sx={{ 
-                  '&:hover': { backgroundColor: '#f9fafb' },
-                  borderBottom: '1px solid #f3f4f6'
-                }}
-              >
-                <TableCell sx={{ color: '#6b7280', fontSize: '13px' }}>{staff.id}</TableCell>
-                <TableCell sx={{ color: '#1f2937', fontSize: '13px', fontWeight: 500 }}>{staff.name}</TableCell>
-                <TableCell sx={{ color: '#6b7280', fontSize: '13px' }}>{staff.role}</TableCell>
-                <TableCell sx={{ color: '#6b7280', fontSize: '13px' }}>{staff.department}</TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Box
-                      sx={{
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        backgroundColor: getStatusColor(staff.status),
-                      }}
-                    />
-                    <span style={{ color: '#6b7280', fontSize: '13px' }}>{staff.status}</span>
-                  </Box>
-                </TableCell>
+      <Box sx={{ width: '100%', overflowX: 'auto' }}>
+        <TableContainer 
+          component={Paper} 
+          sx={{ 
+            borderRadius: '8px',
+            boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+            border: '1px solid #e5e7eb',
+            minWidth: '600px'
+          }}
+        >
+          <Table>
+            <TableHead>
+              <TableRow sx={{ backgroundColor: '#f9fafb' }}>
+                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '10%' }}>ID</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '30%' }}>Name</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '20%' }}>Role</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '20%' }}>Department</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '20%' }}>Status</TableCell>
               </TableRow>
-            ))}
-            {filteredStaff.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4, color: '#9ca3af' }}>
-                  No staff members found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {filteredStaff.map((staff) => (
+                <TableRow 
+                  key={staff.id}
+                  sx={{ 
+                    '&:hover': { backgroundColor: '#f9fafb' },
+                    borderBottom: '1px solid #f3f4f6'
+                  }}
+                >
+                  <TableCell sx={{ color: '#6b7280', fontSize: '13px' }}>{staff.id}</TableCell>
+                  <TableCell sx={{ color: '#1f2937', fontSize: '13px', fontWeight: 500 }}>{staff.name}</TableCell>
+                  <TableCell sx={{ color: '#6b7280', fontSize: '13px' }}>{staff.role}</TableCell>
+                  <TableCell sx={{ color: '#6b7280', fontSize: '13px' }}>{staff.department}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Box
+                        sx={{
+                          width: '6px',
+                          height: '6px',
+                          borderRadius: '50%',
+                          backgroundColor: getStatusColor(staff.status),
+                        }}
+                      />
+                      <span style={{ color: '#6b7280', fontSize: '13px' }}>{staff.status}</span>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredStaff.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} align="center" sx={{ py: 4, color: '#9ca3af' }}>
+                    No staff members found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
 
       {/* Add/Edit Modal */}
       <Dialog 
@@ -278,6 +301,9 @@ function StaffInformation() {
         PaperProps={{
           sx: {
             borderRadius: '12px',
+            margin: '16px',
+            width: 'calc(100% - 32px)',
+            maxWidth: '500px'
           }
         }}
       >
@@ -286,7 +312,7 @@ function StaffInformation() {
           justifyContent: 'space-between', 
           alignItems: 'center',
           pb: 2,
-          fontSize: '20px',
+          fontSize: '18px',
           fontWeight: 600,
           color: '#1f2937'
         }}>
@@ -297,6 +323,38 @@ function StaffInformation() {
         </DialogTitle>
         <DialogContent dividers sx={{ py: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            {/* Staff Selection Dropdown - Only in Edit Mode */}
+            {modalMode === 'edit' && (
+              <Box>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '6px', 
+                  fontSize: '13px', 
+                  fontWeight: 500,
+                  color: '#374151'
+                }}>
+                  Select Staff to Edit
+                </label>
+                <FormControl fullWidth size="small">
+                  <Select
+                    value={selectedStaffId}
+                    onChange={(e) => handleStaffSelection(e.target.value)}
+                    displayEmpty
+                    sx={{ borderRadius: '6px' }}
+                  >
+                    <MenuItem value="" disabled>
+                      <em>Choose a staff member</em>
+                    </MenuItem>
+                    {staffData.map((staff) => (
+                      <MenuItem key={staff.id} value={staff.id}>
+                        {staff.name} - {staff.role}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            )}
+
             <Box>
               <label style={{ 
                 display: 'block', 
@@ -313,6 +371,7 @@ function StaffInformation() {
                 placeholder="Enter full name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                disabled={modalMode === 'edit' && !selectedStaffId}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: '6px',
@@ -336,6 +395,7 @@ function StaffInformation() {
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   displayEmpty
+                  disabled={modalMode === 'edit' && !selectedStaffId}
                   sx={{ borderRadius: '6px' }}
                 >
                   <MenuItem value="">Select role</MenuItem>
@@ -361,6 +421,7 @@ function StaffInformation() {
                   value={formData.department}
                   onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                   displayEmpty
+                  disabled={modalMode === 'edit' && !selectedStaffId}
                   sx={{ borderRadius: '6px' }}
                 >
                   <MenuItem value="">Select department</MenuItem>
@@ -385,6 +446,7 @@ function StaffInformation() {
                 <Select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as 'On Leave' | 'On Duty' | 'Off Duty' })}
+                  disabled={modalMode === 'edit' && !selectedStaffId}
                   sx={{ borderRadius: '6px' }}
                 >
                   <MenuItem value="On Duty">On Duty</MenuItem>
@@ -402,6 +464,7 @@ function StaffInformation() {
               textTransform: 'none',
               color: '#6b7280',
               fontWeight: 500,
+              fontSize: '14px',
               '&:hover': {
                 backgroundColor: '#f3f4f6'
               }
@@ -412,13 +475,19 @@ function StaffInformation() {
           <Button 
             onClick={handleSubmit}
             variant="contained"
+            disabled={modalMode === 'edit' && !selectedStaffId}
             sx={{
               backgroundColor: '#3b82f6',
               textTransform: 'none',
               fontWeight: 500,
+              fontSize: '14px',
               px: 3,
               '&:hover': {
                 backgroundColor: '#2563eb',
+              },
+              '&:disabled': {
+                backgroundColor: '#e5e7eb',
+                color: '#9ca3af'
               }
             }}
           >
