@@ -184,111 +184,114 @@ function Schedule() {
             marginBottom: '14px',
             textAlign: 'center',
             color: '#1f2937',
-            fontSize: '15px',
+            fontSize: '14px',
             fontWeight: 600
           }}
         >
-          Weekly Schedule: <span style={{ fontWeight: 700 }}>February 9 - February 14</span>
+          Weekly Schedule: <span style={{ fontWeight: 700 }}>Feb 9 - 14</span>
         </Typography>
-        <Box sx={{ overflowX: 'auto', width: '100%' }}>
-          <TableContainer 
-            component={Paper}
-            sx={{ 
-              borderRadius: '8px',
-              boxShadow: 'none',
-              border: '1px solid #e5e7eb',
-              minWidth: '780px'
-            }}
-          >
-            <Table size="small">
-              <TableHead>
-                <TableRow>
+        <TableContainer 
+          component={Paper}
+          sx={{ 
+            borderRadius: '8px',
+            boxShadow: 'none',
+            border: '1px solid #e5e7eb',
+            width: '100%'
+          }}
+        >
+          <Table size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
+            <TableHead>
+              <TableRow>
+                <TableCell 
+                  sx={{ 
+                    fontWeight: 600, 
+                    backgroundColor: '#f9fafb',
+                    borderRight: '1px solid #e5e7eb',
+                    width: '8%',
+                    color: '#374151',
+                    fontSize: '10px',
+                    padding: '6px 4px'
+                  }}
+                >
+                  Time
+                </TableCell>
+                {weekDays.map((day) => (
                   <TableCell 
+                    key={day}
+                    align="center"
                     sx={{ 
-                      fontWeight: 600, 
-                      backgroundColor: '#f9fafb',
-                      borderRight: '1px solid #e5e7eb',
-                      width: '80px',
+                      fontWeight: 600,
+                      backgroundColor: day === 'Sun' ? '#fee2e2' : '#f9fafb',
                       color: '#374151',
-                      fontSize: '12px'
+                      width: '13.14%',
+                      fontSize: '10px',
+                      padding: '6px 2px'
                     }}
                   >
-                    Time
+                    {day}
                   </TableCell>
-                  {weekDays.map((day) => (
-                    <TableCell 
-                      key={day}
-                      align="center"
-                      sx={{ 
-                        fontWeight: 600,
-                        backgroundColor: day === 'Sun' ? '#fee2e2' : '#f9fafb',
-                        color: '#374151',
-                        minWidth: '100px',
-                        fontSize: '12px'
-                      }}
-                    >
-                      {day}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {timeSlots.map((time) => (
-                  <TableRow key={time}>
-                    <TableCell 
-                      sx={{ 
-                        fontWeight: 500,
-                        backgroundColor: '#f9fafb',
-                        borderRight: '1px solid #e5e7eb',
-                        color: '#4b5563',
-                        fontSize: '11px'
-                      }}
-                    >
-                      {time}
-                    </TableCell>
-                    {weekDays.map((day, idx) => {
-                      const fullDay = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][idx];
-                      const shifts = scheduleData[time][fullDay] || [];
-                      return (
-                        <TableCell 
-                          key={`${time}-${day}`}
-                          sx={{ 
-                            backgroundColor: day === 'Sun' ? '#fef2f2' : 'white',
-                            padding: '6px',
-                            verticalAlign: 'top'
-                          }}
-                        >
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {shifts.map((shift, shiftIdx) => {
-                              const lines = shift.split('\n');
-                              return (
-                                <Box 
-                                  key={shiftIdx}
-                                  sx={{
-                                    backgroundColor: '#fef9c3',
-                                    padding: '6px',
-                                    borderRadius: '4px',
-                                    fontSize: '10px',
-                                    lineHeight: '1.3',
-                                    border: '1px solid #fde68a'
-                                  }}
-                                >
-                                  <div style={{ fontWeight: 600, color: '#713f12' }}>{lines[0]}</div>
-                                  <div style={{ color: '#92400e', fontSize: '9px' }}>{lines[1]}</div>
-                                  <div style={{ color: '#92400e', fontSize: '9px' }}>{lines[2]}</div>
-                                </Box>
-                              );
-                            })}
-                          </Box>
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
                 ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Box>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {timeSlots.map((time) => (
+                <TableRow key={time}>
+                  <TableCell 
+                    sx={{ 
+                      fontWeight: 500,
+                      backgroundColor: '#f9fafb',
+                      borderRight: '1px solid #e5e7eb',
+                      color: '#4b5563',
+                      fontSize: '9px',
+                      padding: '6px 4px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {time}
+                  </TableCell>
+                  {weekDays.map((day, idx) => {
+                    const fullDay = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][idx];
+                    const shifts = scheduleData[time][fullDay] || [];
+                    return (
+                      <TableCell 
+                        key={`${time}-${day}`}
+                        sx={{ 
+                          backgroundColor: day === 'Sun' ? '#fef2f2' : 'white',
+                          padding: '4px 2px',
+                          verticalAlign: 'top'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          {shifts.map((shift, shiftIdx) => {
+                            const lines = shift.split('\n');
+                            return (
+                              <Box 
+                                key={shiftIdx}
+                                sx={{
+                                  backgroundColor: '#fef9c3',
+                                  padding: '3px',
+                                  borderRadius: '3px',
+                                  fontSize: '8px',
+                                  lineHeight: '1.2',
+                                  border: '1px solid #fde68a',
+                                  overflow: 'hidden'
+                                }}
+                              >
+                                <div style={{ fontWeight: 600, color: '#713f12', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lines[0]}</div>
+                                <div style={{ color: '#92400e', fontSize: '7px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lines[1]}</div>
+                                <div style={{ color: '#92400e', fontSize: '7px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lines[2]}</div>
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Box>
 
       {/* Conflict Resolution Table */}
@@ -298,50 +301,48 @@ function Schedule() {
           sx={{ 
             marginBottom: '14px',
             color: '#374151',
-            fontSize: '15px',
+            fontSize: '14px',
             fontWeight: 600
           }}
         >
           Conflict Resolution
         </Typography>
-        <Box sx={{ overflowX: 'auto', width: '100%' }}>
-          <TableContainer 
-            component={Paper}
-            sx={{ 
-              borderRadius: '8px',
-              boxShadow: 'none',
-              border: '1px solid #e5e7eb',
-              minWidth: '600px'
-            }}
-          >
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ backgroundColor: '#f9fafb' }}>
-                  <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '20%' }}>Staff Name</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '15%' }}>Role</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '50%' }}>Conflict Type</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '15%' }}>Action</TableCell>
+        <TableContainer 
+          component={Paper}
+          sx={{ 
+            borderRadius: '8px',
+            boxShadow: 'none',
+            border: '1px solid #e5e7eb',
+            width: '100%'
+          }}
+        >
+          <Table size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
+            <TableHead>
+              <TableRow sx={{ backgroundColor: '#f9fafb' }}>
+                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '11px', width: '20%', padding: '8px 6px' }}>Staff</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '11px', width: '15%', padding: '8px 6px' }}>Role</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '11px', width: '50%', padding: '8px 6px' }}>Conflict Type</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '11px', width: '15%', padding: '8px 6px' }}>Action</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {conflicts.map((conflict, index) => (
+                <TableRow 
+                  key={index}
+                  sx={{ 
+                    '&:hover': { backgroundColor: '#f9fafb' },
+                    borderBottom: '1px solid #f3f4f6'
+                  }}
+                >
+                  <TableCell sx={{ color: '#1f2937', fontWeight: 500, fontSize: '11px', padding: '8px 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{conflict.staffName}</TableCell>
+                  <TableCell sx={{ color: '#6b7280', fontSize: '11px', padding: '8px 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{conflict.role}</TableCell>
+                  <TableCell sx={{ color: '#6b7280', fontSize: '11px', padding: '8px 6px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{conflict.conflictType}</TableCell>
+                  <TableCell sx={{ color: '#059669', fontWeight: 600, fontSize: '11px', padding: '8px 6px', whiteSpace: 'nowrap' }}>{conflict.action}</TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {conflicts.map((conflict, index) => (
-                  <TableRow 
-                    key={index}
-                    sx={{ 
-                      '&:hover': { backgroundColor: '#f9fafb' },
-                      borderBottom: '1px solid #f3f4f6'
-                    }}
-                  >
-                    <TableCell sx={{ color: '#1f2937', fontWeight: 500, fontSize: '12px' }}>{conflict.staffName}</TableCell>
-                    <TableCell sx={{ color: '#6b7280', fontSize: '12px' }}>{conflict.role}</TableCell>
-                    <TableCell sx={{ color: '#6b7280', fontSize: '12px' }}>{conflict.conflictType}</TableCell>
-                    <TableCell sx={{ color: '#059669', fontWeight: 600, fontSize: '12px' }}>{conflict.action}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Box>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Box>
     </div>
   );

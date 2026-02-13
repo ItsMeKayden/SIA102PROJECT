@@ -232,65 +232,64 @@ function StaffInformation() {
         </Box>
       </Box>
 
-      <Box sx={{ width: '100%', overflowX: 'auto' }}>
-        <TableContainer 
-          component={Paper} 
-          sx={{ 
-            borderRadius: '8px',
-            boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-            border: '1px solid #e5e7eb',
-            minWidth: '600px'
-          }}
-        >
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: '#f9fafb' }}>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '10%' }}>ID</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '30%' }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '20%' }}>Role</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '20%' }}>Department</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '13px', width: '20%' }}>Status</TableCell>
+      <TableContainer 
+        component={Paper} 
+        sx={{ 
+          borderRadius: '8px',
+          boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+          border: '1px solid #e5e7eb',
+          width: '100%'
+        }}
+      >
+        <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
+          <TableHead>
+            <TableRow sx={{ backgroundColor: '#f9fafb' }}>
+              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '8%', padding: '10px 8px' }}>ID</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '28%', padding: '10px 8px' }}>Name</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '22%', padding: '10px 8px' }}>Role</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '22%', padding: '10px 8px' }}>Department</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '20%', padding: '10px 8px' }}>Status</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredStaff.map((staff) => (
+              <TableRow 
+                key={staff.id}
+                sx={{ 
+                  '&:hover': { backgroundColor: '#f9fafb' },
+                  borderBottom: '1px solid #f3f4f6'
+                }}
+              >
+                <TableCell sx={{ color: '#6b7280', fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{staff.id}</TableCell>
+                <TableCell sx={{ color: '#1f2937', fontSize: '12px', fontWeight: 500, padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{staff.name}</TableCell>
+                <TableCell sx={{ color: '#6b7280', fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{staff.role}</TableCell>
+                <TableCell sx={{ color: '#6b7280', fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{staff.department}</TableCell>
+                <TableCell sx={{ padding: '10px 8px' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Box
+                      sx={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: getStatusColor(staff.status),
+                        flexShrink: 0
+                      }}
+                    />
+                    <span style={{ color: '#6b7280', fontSize: '11px', whiteSpace: 'nowrap' }}>{staff.status}</span>
+                  </Box>
+                </TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredStaff.map((staff) => (
-                <TableRow 
-                  key={staff.id}
-                  sx={{ 
-                    '&:hover': { backgroundColor: '#f9fafb' },
-                    borderBottom: '1px solid #f3f4f6'
-                  }}
-                >
-                  <TableCell sx={{ color: '#6b7280', fontSize: '13px' }}>{staff.id}</TableCell>
-                  <TableCell sx={{ color: '#1f2937', fontSize: '13px', fontWeight: 500 }}>{staff.name}</TableCell>
-                  <TableCell sx={{ color: '#6b7280', fontSize: '13px' }}>{staff.role}</TableCell>
-                  <TableCell sx={{ color: '#6b7280', fontSize: '13px' }}>{staff.department}</TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Box
-                        sx={{
-                          width: '6px',
-                          height: '6px',
-                          borderRadius: '50%',
-                          backgroundColor: getStatusColor(staff.status),
-                        }}
-                      />
-                      <span style={{ color: '#6b7280', fontSize: '13px' }}>{staff.status}</span>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredStaff.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 4, color: '#9ca3af' }}>
-                    No staff members found
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
+            ))}
+            {filteredStaff.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} align="center" sx={{ py: 4, color: '#9ca3af' }}>
+                  No staff members found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       {/* Add/Edit Modal */}
       <Dialog 
