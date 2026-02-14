@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import type { MouseEvent } from 'react';
+import type { MouseEvent, ChangeEvent } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './frontend/components/Sidebar';
-import { Menu, MenuItem, Button } from '@mui/material';
+import { Menu, MenuItem, Button, IconButton, TextField } from '@mui/material';
+import { FiMenu, FiSearch } from 'react-icons/fi';
 
 const Layout = () => {
   const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const [staffAnchorEl, setStaffAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedStaff, setSelectedStaff] = useState('John Doe');
@@ -15,6 +17,8 @@ const Layout = () => {
   const [selectedDateRange, setSelectedDateRange] = useState(
     'Jan 01 - Jan 31 2026',
   );
+
+  const [searchQuery, setSearchQuery] = useState('');
 
   const dateOpen = Boolean(dateAnchorEl);
   const staffList = ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Williams'];
@@ -51,6 +55,15 @@ const Layout = () => {
     handleDateClose();
   };
 
+  /* 
+  THIS IS FOR GETTING THE VALUE INSIDE THE SEARCHBAR,
+  ITO NALANG GAMITIN NATIN SA PAGKUHA NG LAMAN NG SEARCHBAR
+  PARA DI NA HUMABA YUNG CODE
+  */
+  const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
+  };
+
   const getPageTitle = () => {
     const path = location.pathname;
     switch (path) {
@@ -77,9 +90,12 @@ const Layout = () => {
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '240px 1fr',
+        gridTemplateColumns: sidebarOpen ? '240px 1fr' : '0 1fr',
         gridTemplateRows: 'auto 1fr',
         height: '100vh',
+        width: '100vw',
+        overflow: 'hidden',
+        transition: 'grid-template-columns 0.3s ease',
       }}
     >
       {/* Sidebar */}
@@ -88,11 +104,14 @@ const Layout = () => {
           gridColumn: '1',
           gridRow: '1 / 3',
           overflowY: 'auto',
+          overflowX: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          width: sidebarOpen ? '240px' : '0',
+          transition: 'width 0.3s ease',
         }}
       >
-        <Sidebar />
+        {sidebarOpen && <Sidebar />}
       </div>
 
       {/* Navigation Bar */}
@@ -102,18 +121,28 @@ const Layout = () => {
           gridRow: '1',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between', // Keep this
+          justifyContent: 'space-between',
           width: '100%',
           backgroundColor: '#fff',
           borderBottom: '1px solid #ddd',
-          padding: '12px 20px',
+          padding: '20px 20px',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           boxSizing: 'border-box',
           flexShrink: 0,
         }}
       >
-        <div>
-          <h2 style={{ margin: 0, fontSize: '16px', color: '#333' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <IconButton 
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            size="small"
+            sx={{ 
+              color: '#374151',
+              '&:hover': { backgroundColor: '#f3f4f6' }
+            }}
+          >
+            <FiMenu size={20} />
+          </IconButton>
+          <h2 style={{ margin: 0, fontSize: '25px', color: '#333' }}>
             <span style={{ fontWeight: 'lighter' }}>ACOWIS: </span>
             {getPageTitle()}
           </h2>
@@ -244,6 +273,31 @@ const Layout = () => {
             </Menu>
           </div>
         )}
+
+      {/* FOR SEARCHBAR IN NOIFICATION */}
+        {location.pathname === '/notification' && (
+          <TextField
+            placeholder="Search notifications..."
+            value={searchQuery}
+            onChange={handleSearchChange}
+            size="small"
+            sx={{
+              width: '300px',
+              height: '32px',
+              '& .MuiOutlinedInput-root': {
+                height: '32px',
+              },
+              '& .MuiInputBase-input::placeholder': {
+                opacity: 0.7,
+              },
+            }}
+            InputProps={{
+              startAdornment: (
+                <FiSearch size={16} style={{ marginRight: '8px', color: '#666' }} />
+              ),
+            }}
+          />
+        )}
       </nav>
 
       {/* Main Content */}
@@ -251,9 +305,12 @@ const Layout = () => {
         style={{
           gridColumn: '2',
           gridRow: '2',
-          padding: '20px',
+          padding: '0',
           overflowY: 'auto',
+          overflowX: 'hidden',
           scrollbarGutter: 'stable',
+          width: '100%',
+          boxSizing: 'border-box',
         }}
       >
         <Outlet />
