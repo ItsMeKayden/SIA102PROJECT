@@ -2,8 +2,16 @@ import { useState } from 'react';
 import type { MouseEvent, ChangeEvent } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './frontend/components/Sidebar';
-import { Menu, MenuItem, Button, IconButton, TextField } from '@mui/material';
+import {
+  Menu,
+  MenuItem,
+  Button,
+  IconButton,
+  TextField,
+  InputAdornment,
+} from '@mui/material';
 import { FiMenu, FiSearch } from 'react-icons/fi';
+import SearchIcon from '@mui/icons-material/Search';
 
 const Layout = () => {
   const location = useLocation();
@@ -86,6 +94,190 @@ const Layout = () => {
     }
   };
 
+  const getCurrentDate = () => {
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    };
+    return new Date().toLocaleDateString('en-US', options);
+  };
+
+  const renderNavbarContent = () => {
+    const path = location.pathname;
+
+    if (path === '/attendance' || path === '/analytics') {
+      return (
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          {/* Staff Dropdown */}
+          <span style={{ fontSize: '12px', color: '#666' }}>Staff:</span>
+          <Button
+            onClick={handleStaffClick}
+            endIcon={<span style={{ fontSize: '12px' }}>▼</span>}
+            sx={{
+              fontSize: '12px',
+              color: '#333',
+              textTransform: 'none',
+              fontWeight: 600,
+              padding: '2px 6px',
+              minWidth: 'auto',
+              minHeight: 'auto',
+              '&:hover': {
+                backgroundColor: '#f0f0f0',
+              },
+              '& .MuiButton-endIcon': {
+                marginLeft: '2px',
+              },
+            }}
+          >
+            {selectedStaff}
+          </Button>
+
+          {/* Date Range Dropdown */}
+          <Button
+            onClick={handleDateClick}
+            endIcon={<span style={{ fontSize: '12px' }}>▼</span>}
+            sx={{
+              fontSize: '12px',
+              color: '#333',
+              textTransform: 'none',
+              padding: '2px 6px',
+              minWidth: 'auto',
+              minHeight: 'auto',
+              '&:hover': {
+                backgroundColor: '#f0f0f0',
+              },
+              '& .MuiButton-endIcon': {
+                marginLeft: '2px',
+              },
+            }}
+          >
+            {selectedDateRange}
+          </Button>
+
+          {/* Menus */}
+          <Menu
+            anchorEl={staffAnchorEl}
+            open={staffOpen}
+            onClose={handleStaffClose}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'left',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'left',
+            }}
+            slotProps={{
+              paper: {
+                sx: {
+                  minWidth: '100px',
+                  width: 'auto',
+                },
+              },
+            }}
+          >
+            {staffList.map((staff) => (
+              <MenuItem
+                key={staff}
+                onClick={() => handleStaffSelect(staff)}
+                selected={staff === selectedStaff}
+                sx={{
+                  fontSize: '12px',
+                  padding: '4px 10px',
+                  minHeight: 'auto',
+                }}
+              >
+                {staff}
+              </MenuItem>
+            ))}
+          </Menu>
+
+          <Menu
+            anchorEl={dateAnchorEl}
+            open={dateOpen}
+            onClose={handleDateClose}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+            slotProps={{
+              paper: {
+                sx: {
+                  minWidth: '140px',
+                  width: 'auto',
+                },
+              },
+            }}
+          >
+            {dateRanges.map((range) => (
+              <MenuItem
+                key={range}
+                onClick={() => handleDateSelect(range)}
+                selected={range === selectedDateRange}
+                sx={{
+                  fontSize: '12px',
+                  padding: '4px 10px',
+                  minHeight: 'auto',
+                }}
+              >
+                {range}
+              </MenuItem>
+            ))}
+          </Menu>
+        </div>
+      );
+    }
+
+    if (path === '/appointments') {
+      return (
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {/* Search Bar */}
+          <TextField
+            placeholder="Search appointments..."
+            size="small"
+            sx={{
+              width: '280px',
+              '& .MuiOutlinedInput-root': {
+                height: '32px',
+                fontSize: '12px',
+              },
+              '& .MuiOutlinedInput-input': {
+                textAlign: 'center',
+                padding: '6px 10px',
+                paddingLeft: '0px',
+                '&::placeholder': {
+                  textAlign: 'center',
+                  opacity: 1,
+                },
+              },
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start" style={{ marginRight: -200 }}>
+                  <SearchIcon sx={{ fontSize: '16px', color: '#666' }} />
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          {/* Current Date */}
+          <span style={{ fontSize: '12px', color: '#666', fontWeight: 500 }}>
+            {getCurrentDate()}
+          </span>
+        </div>
+      );
+    }
+
+    // For other pages - return null or empty div
+    return null;
+  };
+
   return (
     <div
       style={{
@@ -132,12 +324,12 @@ const Layout = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <IconButton 
+          <IconButton
             onClick={() => setSidebarOpen(!sidebarOpen)}
             size="small"
-            sx={{ 
+            sx={{
               color: '#374151',
-              '&:hover': { backgroundColor: '#f3f4f6' }
+              '&:hover': { backgroundColor: '#f3f4f6' },
             }}
           >
             <FiMenu size={20} />
@@ -274,7 +466,7 @@ const Layout = () => {
           </div>
         )}
 
-      {/* FOR SEARCHBAR IN NOIFICATION */}
+        {/* FOR SEARCHBAR IN NOIFICATION */}
         {location.pathname === '/notification' && (
           <TextField
             placeholder="Search notifications..."
@@ -293,11 +485,16 @@ const Layout = () => {
             }}
             InputProps={{
               startAdornment: (
-                <FiSearch size={16} style={{ marginRight: '8px', color: '#666' }} />
+                <FiSearch
+                  size={16}
+                  style={{ marginRight: '8px', color: '#666' }}
+                />
               ),
             }}
           />
         )}
+        {/* Render different content based on current route */}
+        {renderNavbarContent()}
       </nav>
 
       {/* Main Content */}
