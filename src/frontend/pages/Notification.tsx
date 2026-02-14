@@ -1,19 +1,6 @@
 import { useState } from 'react';
-import {
-  Container,
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Button,
-  Checkbox,
-} from '@mui/material';
+import { Container, Box, Typography, Card, CardContent, Table, TableBody, TableCell, TableContainer,
+          TableHead, TableRow, Button, Checkbox, } from '@mui/material';
 import '../styles/NotificationStyles.css';
 
 interface Notification {

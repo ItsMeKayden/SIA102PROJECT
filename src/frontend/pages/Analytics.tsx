@@ -2,8 +2,6 @@ import { useState } from 'react';
 import {Container, Box, Typography, Card, CardContent, Table, TableBody,
         TableCell, TableContainer, TableHead, TableRow, Stack} from '@mui/material';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import '../styles/AnalyticsStyles.css';
 
@@ -33,7 +31,7 @@ const Analytics = () => {
   ];
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs}>
+    
     <Container maxWidth={false} className="analytics-container" sx={{ py: 3 }}>
 
       {/* Staff Activity Overview */}
@@ -204,7 +202,6 @@ const Analytics = () => {
         </CardContent>
       </Card>
     </Container>
-    </LocalizationProvider>
   );
 };
 
