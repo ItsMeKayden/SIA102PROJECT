@@ -1,17 +1,16 @@
 import { useState } from 'react';
-import {Container, Box, Typography, Card, CardContent, Select, MenuItem, Table, TableBody,
-        TableCell, TableContainer, TableHead, TableRow, FormControl, InputLabel, Stack} from '@mui/material';
+import {Container, Box, Typography, Card, CardContent, Table, TableBody,
+        TableCell, TableContainer, TableHead, TableRow, Stack} from '@mui/material';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import '../styles/AnalyticsStyles.css';
 
 const Analytics = () => {
-  const [selectedStaff, setSelectedStaff] = useState('John Doe');
-  const [startDate, setStartDate] = useState(dayjs('2026-01-01'));
-  const [endDate, setEndDate] = useState(dayjs('2026-01-31'));
+  const [selectedStaff] = useState('John Doe');
+  const [startDate] = useState(dayjs('2026-01-01'));
+  const [endDate] = useState(dayjs('2026-01-31'));
 
   // Mock data for the productivity chart
   const productivityData = [
