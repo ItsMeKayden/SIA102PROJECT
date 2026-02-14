@@ -75,12 +75,14 @@ function Attendance() {
     <>
       {/* Staff Activity Overview */}
       <h2 className="activityTitle">Staff Activity Overview</h2>
-      <Box className="activityOverview" sx={{ gap: 2 }}>
+      <Box className="activityOverview" sx={{ gap: '12px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
         {cardData.map((card, index) => (
           <Card
             key={index}
             sx={{
-              width: 200,
+              flex: '1 1 160px',
+              minWidth: '160px',
+              maxWidth: '200px',
               height: 100,
               backgroundColor: card.bgColor,
               textAlign: 'center',
@@ -89,7 +91,7 @@ function Attendance() {
             }}
           >
             <CardContent>
-              <Typography variant="body2" color="textSecondary" gutterBottom>
+              <Typography variant="body2" color="textSecondary" gutterBottom sx={{ fontSize: '13px' }}>
                 {card.title}
               </Typography>
               <Typography
@@ -97,6 +99,7 @@ function Attendance() {
                 sx={{
                   fontWeight: 'bold',
                   marginTop: 1,
+                  fontSize: '24px'
                 }}
               >
                 {card.value}
@@ -108,43 +111,43 @@ function Attendance() {
 
       {/* Attendance Log Table */}
       <h2 className="tableTitle">Attendance Log Table</h2>
-      <TableContainer component={Paper} sx={{ mt: 2 }}>
-        <Table>
+      <TableContainer component={Paper} sx={{ mt: 4, width: '100%' }}>
+        <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
           <TableHead sx={{ backgroundColor: 'blue' }}>
             <TableRow>
               <TableCell
                 align="center"
-                sx={{ color: 'white', fontWeight: 'bold' }}
+                sx={{ color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '10px 8px', width: '12%' }}
               >
                 Time
               </TableCell>
               <TableCell
                 align="center"
-                sx={{ color: 'white', fontWeight: 'bold' }}
+                sx={{ color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '10px 8px', width: '16%' }}
               >
                 Time In
               </TableCell>
               <TableCell
                 align="center"
-                sx={{ color: 'white', fontWeight: 'bold' }}
+                sx={{ color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '10px 8px', width: '16%' }}
               >
                 Time Out
               </TableCell>
               <TableCell
                 align="center"
-                sx={{ color: 'white', fontWeight: 'bold' }}
+                sx={{ color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '10px 8px', width: '18%' }}
               >
                 Shift
               </TableCell>
               <TableCell
                 align="center"
-                sx={{ color: 'white', fontWeight: 'bold' }}
+                sx={{ color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '10px 8px', width: '20%' }}
               >
                 Hours Worked
               </TableCell>
               <TableCell
                 align="center"
-                sx={{ color: 'white', fontWeight: 'bold' }}
+                sx={{ color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '10px 8px', width: '18%' }}
               >
                 Status
               </TableCell>
@@ -154,12 +157,12 @@ function Attendance() {
           <TableBody>
             {attendanceData.map((row, index) => (
               <TableRow key={index}>
-                <TableCell align="center">{row.date}</TableCell>
-                <TableCell align="center">{row.timeIn}</TableCell>
-                <TableCell align="center">{row.timeOut}</TableCell>
-                <TableCell align="center">{row.shift}</TableCell>
-                <TableCell align="center">{row.hours}</TableCell>
-                <TableCell align="center">{row.status}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.date}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.timeIn}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.timeOut}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.shift}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.hours}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.status}</TableCell>
               </TableRow>
             ))}
           </TableBody>

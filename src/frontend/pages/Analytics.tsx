@@ -36,46 +36,11 @@ const Analytics = () => {
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
     <Container maxWidth={false} className="analytics-container">
-      {/* HEADERRRRRRRR */}
-      <Box className="Header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flex: 1 }}>
-          <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'black'}}>
-            ACOWIS: Analytics
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel>Staff</InputLabel>
-            <Select
-              value={selectedStaff}
-              label="Staff"
-              onChange={(e) => setSelectedStaff(e.target.value)}
-            >
-              <MenuItem value="John Doe">John Doe</MenuItem>
-              <MenuItem value="Jane Smith">Jane Smith</MenuItem>
-              <MenuItem value="Bob Johnson">Bob Johnson</MenuItem>
-            </Select>
-          </FormControl>
-          <DatePicker
-            label="Start Date"
-            value={startDate}
-            onChange={(newValue: any) => newValue && setStartDate(newValue)}
-            slotProps={{ textField: { size: 'small' } }}
-          />
-          <DatePicker
-            label="End Date"
-            value={endDate}
-            onChange={(newValue: any) => newValue && setEndDate(newValue)}
-            slotProps={{ textField: { size: 'small' } }}
-          />
-        </Box>
-      </Box>
-      {/* END OF HEADERRRRRRRR */}
 
       {/* Staff Activity Overview */}
-      <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2, textAlign: 'center', color: 'black' }}>
+      <h2 className='Title'>
         Staff Activity Overview
-      </Typography>
+      </h2>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 4 }}>
         {/* Hours Worked Card */}
         <Box>
@@ -208,13 +173,13 @@ const Analytics = () => {
       {/* Tasks Table */}
       <Card>
         <CardContent>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}
+          <Stack direction="row" alignItems="center" sx={{ mb: 2, gap: 155 }}
           >
-          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 0 }}>
             Staff: {selectedStaff}
           </Typography>
-          <Typography variant="subtitle1" sx={{ display: 'block', mb: 2}}>
-            Date: January 2026
+          <Typography variant="subtitle1" sx={{ mb: 0, whiteSpace: 'nowrap', textAlign: 'right'}}>
+            Date: {startDate.format('MMM D')} - {endDate.format('MMM D')}
           </Typography>
           </Stack>
           <TableContainer>
