@@ -1,7 +1,27 @@
 import { useState } from 'react';
-import {Container, Box, Typography, Card, CardContent, Table, TableBody,
-        TableCell, TableContainer, TableHead, TableRow, Stack} from '@mui/material';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  Container,
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Stack,
+} from '@mui/material';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 import dayjs from 'dayjs';
 import '../styles/AnalyticsStyles.css';
 
@@ -23,25 +43,44 @@ const Analytics = () => {
 
   // Mock data for task table
   const taskData = [
-    { name: 'Patient Vital Signs Monitoring', status: 'Completed', hours: '42 hrs' },
+    {
+      name: 'Patient Vital Signs Monitoring',
+      status: 'Completed',
+      hours: '42 hrs',
+    },
     { name: 'Patient Care & Assistance', status: 'Completed', hours: '60 hrs' },
     { name: 'Medication Administration', status: 'Completed', hours: '38 hrs' },
     { name: 'Wound Dressing & Care', status: 'Completed', hours: '26 hrs' },
-    { name: 'Medical Record Documentation', status: 'Completed', hours: '22 hrs' },
+    {
+      name: 'Medical Record Documentation',
+      status: 'Completed',
+      hours: '22 hrs',
+    },
   ];
 
   return (
-    
     <Container maxWidth={false} className="analytics-container" sx={{ py: 3 }}>
-
       {/* Staff Activity Overview */}
-      <h2 className='analytics-title'>
-        Staff Activity Overview
-      </h2>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 4 }}>
+      <h2 className="analytics-title">Staff Activity Overview</h2>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: '1fr 1fr',
+            md: 'repeat(4, 1fr)',
+          },
+          gap: 2,
+          mb: 4,
+        }}
+      >
         {/* Hours Worked Card */}
         <Box>
-          <Card sx={{ background: 'linear-gradient(135deg, #a8e6e3 0%, #7dd3cd 100%)' }}>
+          <Card
+            sx={{
+              background: 'linear-gradient(135deg, #a8e6e3 0%, #7dd3cd 100%)',
+            }}
+          >
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
                 Hours Worked
@@ -55,7 +94,11 @@ const Analytics = () => {
 
         {/* Tasks Completed Card */}
         <Box>
-          <Card sx={{ background: 'linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%)' }}>
+          <Card
+            sx={{
+              background: 'linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%)',
+            }}
+          >
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
                 Tasks Completed
@@ -69,7 +112,11 @@ const Analytics = () => {
 
         {/* Attendance Rate Card */}
         <Box>
-          <Card sx={{ background: 'linear-gradient(135deg, #f8bbd0 0%, #f48fb1 100%)' }}>
+          <Card
+            sx={{
+              background: 'linear-gradient(135deg, #f8bbd0 0%, #f48fb1 100%)',
+            }}
+          >
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
                 Attendance Rate
@@ -85,19 +132,47 @@ const Analytics = () => {
         <Box>
           <Card>
             <CardContent>
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+              <Typography
+                variant="subtitle2"
+                sx={{ fontWeight: 'bold', mb: 1 }}
+              >
                 Workload Indicators
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Box sx={{ width: 12, height: 12, backgroundColor: '#4caf50', borderRadius: '2px' }} />
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+              >
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    backgroundColor: '#4caf50',
+                    borderRadius: '2px',
+                  }}
+                />
                 <Typography variant="body2">Assigned Tasks: 18</Typography>
               </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Box sx={{ width: 12, height: 12, backgroundColor: '#ffc107', borderRadius: '2px' }} />
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+              >
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    backgroundColor: '#ffc107',
+                    borderRadius: '2px',
+                  }}
+                />
                 <Typography variant="body2">Pending Tasks: 3</Typography>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 12, height: 12, backgroundColor: '#f44336', borderRadius: '2px' }} />
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    backgroundColor: '#f44336',
+                    borderRadius: '2px',
+                  }}
+                />
                 <Typography variant="body2">Overtime Hours: 12</Typography>
               </Box>
             </CardContent>
@@ -106,19 +181,39 @@ const Analytics = () => {
       </Box>
 
       {/* Productivity Chart and Staff Info */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2, mb: 4 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' },
+          gap: 2,
+          mb: 4,
+        }}
+      >
         <Box>
           <Card>
             <CardContent>
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, textAlign: 'center' }}>
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 'bold', mb: 2, textAlign: 'center' }}
+              >
                 Staff Productivity Over Time
               </Typography>
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={productivityData}>
                   <defs>
-                    <linearGradient id="colorProductivity" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient
+                      id="colorProductivity"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
                       <stop offset="5%" stopColor="#2196f3" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#2196f3" stopOpacity={0.1} />
+                      <stop
+                        offset="95%"
+                        stopColor="#2196f3"
+                        stopOpacity={0.1}
+                      />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -148,20 +243,19 @@ const Analytics = () => {
               <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
                 {selectedStaff}
               </Typography>
-              
-                <Typography variant="body1" sx={{ mb: 1 }}>
-                  <strong>Department:</strong>
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 2, fontWeight: 'bold' }}>
-                  Nurse
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 1 }}>
-                  <strong>Date:</strong>
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                  Jan 1 - Jan 31
-                </Typography>
-              
+
+              <Typography variant="body1" sx={{ mb: 1 }}>
+                <strong>Department:</strong>
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 2, fontWeight: 'bold' }}>
+                Nurse
+              </Typography>
+              <Typography variant="body1" sx={{ mb: 1 }}>
+                <strong>Date:</strong>
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                Jan 1 - Jan 31
+              </Typography>
             </CardContent>
           </Card>
         </Box>
@@ -170,14 +264,16 @@ const Analytics = () => {
       {/* Tasks Table */}
       <Card>
         <CardContent>
-          <Stack direction="row" alignItems="center" sx={{ mb: 2, gap: 155 }}
-          >
-          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 0 }}>
-            Staff: {selectedStaff}
-          </Typography>
-          <Typography variant="subtitle1" sx={{ mb: 0, whiteSpace: 'nowrap', textAlign: 'right'}}>
-            Date: {startDate.format('MMM D')} - {endDate.format('MMM D')}
-          </Typography>
+          <Stack direction="row" alignItems="center" sx={{ mb: 2, gap: 155 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 0 }}>
+              Staff: {selectedStaff}
+            </Typography>
+            <Typography
+              variant="subtitle1"
+              sx={{ mb: 0, whiteSpace: 'nowrap', textAlign: 'right' }}
+            >
+              Date: {startDate.format('MMM D')} - {endDate.format('MMM D')}
+            </Typography>
           </Stack>
           <TableContainer>
             <Table>
