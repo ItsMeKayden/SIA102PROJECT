@@ -142,7 +142,7 @@ const Layout = () => {
           >
             <FiMenu size={20} />
           </IconButton>
-          <h2 style={{ margin: 0, fontSize: '16px', color: '#333' }}>
+          <h2 style={{ margin: 0, fontSize: '25px', color: '#333' }}>
             <span style={{ fontWeight: 'lighter' }}>ACOWIS: </span>
             {getPageTitle()}
           </h2>

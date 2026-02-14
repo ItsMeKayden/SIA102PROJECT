@@ -169,7 +169,6 @@ function Notification() {
               <TableHead>
                 <TableRow className="notification-table-head">
                   <TableCell sx={{ width: '50px', fontWeight: 'bold' }}>
-                    <Checkbox />
                   </TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>From</TableCell>
