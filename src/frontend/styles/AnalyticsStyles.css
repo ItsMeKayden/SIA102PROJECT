@@ -4,20 +4,11 @@
   flex-direction: column;
 }
 
-.Header {
-  background-color: #ffffff;
-  padding: 30px 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  margin: -20px -20px 24px calc(-20px - 240px);
-  width: calc(100% + 40px);
-  padding-left: calc(240px);
-}
-
-.Title {
+.analytics-title {
   margin: 0 0 20px 0;
   font-size: 20px;
   text-align: center;
   color: #333;
   font-weight: 600;
-  justify-self: center;
+  font-size: x-large;
 }

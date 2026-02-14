@@ -34,10 +34,10 @@ const Analytics = () => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-    <Container maxWidth={false} className="analytics-container">
+    <Container maxWidth={false} className="analytics-container" sx={{ py: 3 }}>
 
       {/* Staff Activity Overview */}
-      <h2 className='Title'>
+      <h2 className='analytics-title'>
         Staff Activity Overview
       </h2>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 4 }}>

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import type { MouseEvent } from 'react';
+import type { MouseEvent, ChangeEvent } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './frontend/components/Sidebar';
-import { Menu, MenuItem, Button, IconButton } from '@mui/material';
-import { FiMenu } from 'react-icons/fi';
+import { Menu, MenuItem, Button, IconButton, TextField } from '@mui/material';
+import { FiMenu, FiSearch } from 'react-icons/fi';
 
 const Layout = () => {
   const location = useLocation();
@@ -17,6 +17,8 @@ const Layout = () => {
   const [selectedDateRange, setSelectedDateRange] = useState(
     'Jan 01 - Jan 31 2026',
   );
+
+  const [searchQuery, setSearchQuery] = useState('');
 
   const dateOpen = Boolean(dateAnchorEl);
   const staffList = ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Williams'];
@@ -51,6 +53,15 @@ const Layout = () => {
   const handleDateSelect = (dateRange: string) => {
     setSelectedDateRange(dateRange);
     handleDateClose();
+  };
+
+  /* 
+  THIS IS FOR GETTING THE VALUE INSIDE THE SEARCHBAR,
+  ITO NALANG GAMITIN NATIN SA PAGKUHA NG LAMAN NG SEARCHBAR
+  PARA DI NA HUMABA YUNG CODE
+  */
+  const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
   };
 
   const getPageTitle = () => {
@@ -114,7 +125,7 @@ const Layout = () => {
           width: '100%',
           backgroundColor: '#fff',
           borderBottom: '1px solid #ddd',
-          padding: '12px 20px',
+          padding: '20px 20px',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           boxSizing: 'border-box',
           flexShrink: 0,
@@ -261,6 +272,31 @@ const Layout = () => {
               ))}
             </Menu>
           </div>
+        )}
+
+      {/* FOR SEARCHBAR IN NOIFICATION */}
+        {location.pathname === '/notification' && (
+          <TextField
+            placeholder="Search notifications..."
+            value={searchQuery}
+            onChange={handleSearchChange}
+            size="small"
+            sx={{
+              width: '300px',
+              height: '32px',
+              '& .MuiOutlinedInput-root': {
+                height: '32px',
+              },
+              '& .MuiInputBase-input::placeholder': {
+                opacity: 0.7,
+              },
+            }}
+            InputProps={{
+              startAdornment: (
+                <FiSearch size={16} style={{ marginRight: '8px', color: '#666' }} />
+              ),
+            }}
+          />
         )}
       </nav>
 
