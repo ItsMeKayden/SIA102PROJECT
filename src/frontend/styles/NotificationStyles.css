@@ -2,6 +2,8 @@
   width: 100%;
   display: flex;
   flex-direction: column;
+  padding: 0 24px !important;
+  box-sizing: border-box;
 }
 
 .notification-title {
@@ -53,7 +55,15 @@
 }
 
 .notification-table-wrapper {
-  margin-top: 24px;
+  margin-top: 10px;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.notification-table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto !important;
 }
 
 .notification-button {
