@@ -191,11 +191,11 @@ const Analytics = () => {
       >
         <Box>
           <Card>
-            <CardContent>
+            <CardContent sx={{ p: 2, boxSizing: 'border-box' }}>
               <Typography
                 variant="subtitle1"
                 sx={{ fontWeight: 'bold', mb: 2, textAlign: 'center' }}
-              >
+              > 
                 Staff Productivity Over Time
               </Typography>
               <ResponsiveContainer width="100%" height={300}>
@@ -263,19 +263,19 @@ const Analytics = () => {
 
       {/* Tasks Table */}
       <Card>
-        <CardContent>
-          <Stack direction="row" alignItems="center" sx={{ mb: 2, gap: 155 }}>
+        <CardContent sx={{ p: 2, boxSizing: 'border-box' }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2, width: '100%' }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 0 }}>
               Staff: {selectedStaff}
             </Typography>
             <Typography
               variant="subtitle1"
-              sx={{ mb: 0, whiteSpace: 'nowrap', textAlign: 'right' }}
+              sx={{ textAlign: 'right' }}
             >
               Date: {startDate.format('MMM D')} - {endDate.format('MMM D')}
             </Typography>
           </Stack>
-          <TableContainer>
+          <TableContainer sx={{ maxWidth: '100%', boxSizing: 'border-box' }}>
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
