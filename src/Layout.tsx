@@ -320,6 +320,7 @@ const Layout = () => {
           padding: '20px',
           overflowY: 'auto',
           scrollbarGutter: 'stable',
+          backgroundColor: 'white',
         }}
       >
         <Outlet />
