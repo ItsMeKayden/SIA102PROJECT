@@ -61,8 +61,6 @@ const Layout = () => {
   const getPageTitle = () => {
     const path = location.pathname;
     switch (path) {
-      case '/':
-        return 'Overview';
       case '/staff':
         return 'Staff Information';
       case '/attendance':

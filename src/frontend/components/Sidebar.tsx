@@ -18,7 +18,6 @@ type MenuItem = {
 };
 
 const menuItems: MenuItem[] = [
-  { label: 'Overview', path: '/', icon: <FiHome /> },
   { label: 'Staff Information', path: 'staff', icon: <FiUsers /> },
   { label: 'Attendance', path: 'attendance', icon: <FiClock /> },
   { label: 'Analytics', path: 'analytics', icon: <FiBarChart2 /> },

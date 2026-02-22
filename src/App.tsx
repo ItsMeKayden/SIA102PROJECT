@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './Layout';
 
-import Overview from './frontend/pages/Overview';
 import StaffInformation from './frontend/pages/StaffInformation';
 import Attendance from './frontend/pages/Attendance';
 import Analytics from './frontend/pages/Analytics';
@@ -13,7 +12,6 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
-          <Route index element={<Overview />} />
           <Route path="staff" element={<StaffInformation />} />
           <Route path="attendance" element={<Attendance />} />
           <Route path="analytics" element={<Analytics />} />
