@@ -221,6 +221,98 @@ function Attendance() {
               <MenuItem key={y} value={y}>
                 {y}
               </MenuItem>
+    <>
+      {/* Staff Activity Overview */}
+      <h2 className="activityTitle">Staff Activity Overview</h2>
+      <Box className="activityOverview" sx={{ gap: '12px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
+        {cardData.map((card, index) => (
+          <Card
+            key={index}
+            sx={{
+              flex: '1 1 160px',
+              minWidth: '160px',
+              maxWidth: '200px',
+              height: 100,
+              backgroundColor: card.bgColor,
+              textAlign: 'center',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              display: 'flex',
+            }}
+          >
+            <CardContent>
+              <Typography variant="body2" color="textSecondary" gutterBottom sx={{ fontSize: '13px' }}>
+                {card.title}
+              </Typography>
+              <Typography
+                variant="h5"
+                sx={{
+                  fontWeight: 'bold',
+                  marginTop: 1,
+                  fontSize: '24px'
+                }}
+              >
+                {card.value}
+              </Typography>
+            </CardContent>
+          </Card>
+        ))}
+      </Box>
+
+      {/* Attendance Log Table */}
+      <h2 className="tableTitle">Attendance Log Table</h2>
+      <TableContainer component={Paper} sx={{ mt: 4, width: '100%' }}>
+        <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
+          <TableHead sx={{ backgroundColor: 'blue' }}>
+            <TableRow>
+              <TableCell
+                align="center"
+                sx={{ color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '10px 8px', width: '12%' }}
+              >
+                Time
+              </TableCell>
+              <TableCell
+                align="center"
+                sx={{ color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '10px 8px', width: '16%' }}
+              >
+                Time In
+              </TableCell>
+              <TableCell
+                align="center"
+                sx={{ color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '10px 8px', width: '16%' }}
+              >
+                Time Out
+              </TableCell>
+              <TableCell
+                align="center"
+                sx={{ color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '10px 8px', width: '18%' }}
+              >
+                Shift
+              </TableCell>
+              <TableCell
+                align="center"
+                sx={{ color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '10px 8px', width: '20%' }}
+              >
+                Hours Worked
+              </TableCell>
+              <TableCell
+                align="center"
+                sx={{ color: 'white', fontWeight: 'bold', fontSize: '12px', padding: '10px 8px', width: '18%' }}
+              >
+                Status
+              </TableCell>
+            </TableRow>
+          </TableHead>
+
+          <TableBody>
+            {attendanceData.map((row, index) => (
+              <TableRow key={index}>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.date}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.timeIn}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.timeOut}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.shift}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.hours}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.status}</TableCell>
+              </TableRow>
             ))}
           </Select>
         </Box>
