@@ -21,14 +21,12 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import '../styles/AnalyticsStyles.css';
 
 const Analytics = () => {
-  const [period, setPeriod] = useState('all');
   const [month, setMonth] = useState('current');
   const [year, setYear] = useState('2026');
 
@@ -78,7 +76,9 @@ const Analytics = () => {
         p: 2.5,
         background: 'linear-gradient(135deg, #f0f4ff 0%, #f5f0ff 100%)',
         borderRadius: '12px',
-        border: '1px solid #e5e7eb'
+        border: '1px solid #e5e7eb',
+        width: '100%',
+        boxSizing: 'border-box'
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <EventNoteIcon sx={{ color: '#3b82f6', fontSize: '24px' }} />
@@ -355,7 +355,7 @@ const Analytics = () => {
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {workDistributionData.map((entry, index) => (
+                    {workDistributionData.map((_entry, index) => (
                       <Cell key={`cell-${index}`} fill={pieColors[index]} />
                     ))}
                   </Pie>
