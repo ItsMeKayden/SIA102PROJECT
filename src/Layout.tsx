@@ -710,6 +710,7 @@ const Layout = () => {
                   width: '100%',
                   boxSizing: 'border-box',
                   minWidth: 0,
+                  backgroundColor: '#fff',
                 }}
               >
                 {/* First Row: Checkbox, Badge, Title, Date */}
