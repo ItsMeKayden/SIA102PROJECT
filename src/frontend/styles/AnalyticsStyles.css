@@ -12,3 +12,10 @@
   font-weight: 600;
   font-size: x-large;
 }
+
+.UpperCards {
+  background: linear-gradient(90deg, #d6e1ff 15%, #84a7ff 100%) !important;
+  min-height: 165px !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
