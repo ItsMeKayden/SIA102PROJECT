@@ -1164,7 +1164,9 @@ function Appointments() {
         <Box sx={{ minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
             <CalendarMonthIcon sx={{ color: '#e53935', fontSize: '1.2rem' }} />
-            <Typography sx={{ fontWeight: 700, fontSize: '1rem' }}>
+            <Typography
+              sx={{ fontWeight: 700, fontSize: '1rem', color: 'black' }}
+            >
               Pick a{' '}
               <Box component="span" sx={{ color: '#e53935' }}>
                 Date
@@ -1382,7 +1384,9 @@ function Appointments() {
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
             <AccessTimeIcon sx={{ color: '#e53935', fontSize: '1.2rem' }} />
-            <Typography sx={{ fontWeight: 700, fontSize: '1rem' }}>
+            <Typography
+              sx={{ fontWeight: 700, fontSize: '1rem', color: 'black' }}
+            >
               Pick a{' '}
               <Box component="span" sx={{ color: '#e53935' }}>
                 Time
