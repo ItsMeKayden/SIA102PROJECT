@@ -202,8 +202,6 @@ const Layout = () => {
   const getPageTitle = () => {
     const path = location.pathname;
     switch (path) {
-      case '/':
-        return 'Overview';
       case '/staff':
         return 'Staff Information';
       case '/attendance':
@@ -648,8 +646,7 @@ const Layout = () => {
           overflowY: 'auto',
           overflowX: 'hidden',
           scrollbarGutter: 'stable',
-          width: '100%',
-          boxSizing: 'border-box',
+          backgroundColor: 'white',
         }}
       >
         <Outlet />
