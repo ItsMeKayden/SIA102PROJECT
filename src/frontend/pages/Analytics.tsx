@@ -1,4 +1,5 @@
 import '../styles/Pages.css';
+import { useEffect, useState } from 'react';
 import {
   Box,
   Card,
@@ -10,71 +11,182 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
+import { getAllAttendance } from '../../backend/services/attendanceService';
+import { getAppointmentStats } from '../../backend/services/appointmentService';
 
 function Analytics() {
-  const activityCards = [
-    { title: 'Hours Worked', value: '160hrs', bgColor: '#67e8f9' },
-    { title: 'Tasks Completed', value: '48 tasks', bgColor: '#86efac' },
-    { title: 'Attendance Rate', value: '92%', bgColor: '#fca5a5' },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activityCards, setActivityCards] = useState([
+    { title: 'Hours Worked', value: '0hrs', bgColor: '#67e8f9' },
+    { title: 'Tasks Completed', value: '0 tasks', bgColor: '#86efac' },
+    { title: 'Attendance Rate', value: '0%', bgColor: '#fca5a5' },
+  ]);
+  const [workloadData, setWorkloadData] = useState([
+    { label: 'Assigned Tasks:', value: 0, color: '#10b981' },
+    { label: 'Pending Tasks:', value: 0, color: '#f59e0b' },
+    { label: 'Overtime Hours:', value: 0, color: '#ef4444' },
+  ]);
+  const [taskData, setTaskData] = useState<Array<{ name: string; status: string; hours: string }>>([]);
+  const [chartData, setChartData] = useState<Array<{ x: number; y: number }>>([]);
 
-  const workloadData = [
-    { label: 'Assigned Tasks:', value: 18, color: '#10b981' },
-    { label: 'Pending Tasks:', value: 3, color: '#f59e0b' },
-    { label: 'Overtime Hours:', value: 12, color: '#ef4444' },
-  ];
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, []);
 
-  const taskData = [
-    { name: 'Patient Vital Signs Monitoring', status: 'Completed', hours: '42 hrs' },
-    { name: 'Patient Care & Assistance', status: 'Completed', hours: '60 hrs' },
-    { name: 'Medication Administration', status: 'Completed', hours: '38 hrs' },
-    { name: 'Wound Dressing & Care', status: 'Completed', hours: '26 hrs' },
-    { name: 'Medical Record Documentation', status: 'Completed', hours: '22 hrs' },
-  ];
+  const fetchAnalyticsData = async () => {
+    setLoading(true);
+    try {
+      // Fetch attendance data
+      const { data: attendanceRecords, error: attendanceError } = await getAllAttendance();
+      
+      // Fetch appointment stats
+      const { data: appointmentStats, error: appointmentError } = await getAppointmentStats();
+      
+      if (attendanceError || appointmentError) {
+        setError('Failed to load analytics data');
+        return;
+      }
 
-  // Generate realistic productivity data
-  const chartData = Array.from({ length: 32 }, (_, i) => {
-    const baseValue = 12;
-    const variation = Math.sin(i / 2) * 4 + Math.cos(i / 5) * 3;
-    const noise = (Math.random() - 0.5) * 2;
-    return {
-      x: i,
-      y: Math.max(5, Math.min(22, baseValue + variation + noise)),
-    };
-  });
+      if (attendanceRecords) {
+        // Helper function to calculate hours between two times
+        const calculateHours = (timeIn: string | null, timeOut: string | null): number => {
+          if (!timeIn || !timeOut) return 0;
+          const start = new Date(`2000-01-01T${timeIn}`);
+          const end = new Date(`2000-01-01T${timeOut}`);
+          const diffMs = end.getTime() - start.getTime();
+          return diffMs / (1000 * 60 * 60);
+        };
+
+        // Calculate total hours worked
+        const totalHours = attendanceRecords.reduce((sum, record) => {
+          const hours = calculateHours(record.time_in, record.time_out);
+          return sum + hours;
+        }, 0);
+
+        // Calculate attendance rate
+        const presentCount = attendanceRecords.filter(r => r.status === 'Present').length;
+        const attendanceRate = attendanceRecords.length > 0 
+          ? (presentCount / attendanceRecords.length) * 100 
+          : 0;
+
+        // Calculate overtime hours
+        const overtimeHours = attendanceRecords.reduce((sum, record) => {
+          const hours = calculateHours(record.time_in, record.time_out);
+          return sum + (hours > 8 ? hours - 8 : 0);
+        }, 0);
+
+        setActivityCards([
+          { title: 'Hours Worked', value: `${Math.round(totalHours)}hrs`, bgColor: '#67e8f9' },
+          { title: 'Tasks Completed', value: `${appointmentStats?.completed || 0} tasks`, bgColor: '#86efac' },
+          { title: 'Attendance Rate', value: `${Math.round(attendanceRate)}%`, bgColor: '#fca5a5' },
+        ]);
+
+        setWorkloadData([
+          { label: 'Assigned Tasks:', value: appointmentStats?.total || 0, color: '#10b981' },
+          { label: 'Pending Tasks:', value: appointmentStats?.scheduled || 0, color: '#f59e0b' },
+          { label: 'Overtime Hours:', value: Math.round(overtimeHours), color: '#ef4444' },
+        ]);
+
+        // Generate task breakdown from recent attendance
+        const recentRecords = attendanceRecords.slice(0, 5);
+        const tasks = recentRecords.map((record, idx) => ({
+          name: `Task ${idx + 1} - ${new Date(record.date).toLocaleDateString()}`,
+          status: record.status === 'Present' ? 'Completed' : record.status,
+          hours: `${calculateHours(record.time_in, record.time_out).toFixed(1)} hrs`,
+        }));
+        
+        setTaskData(tasks.length > 0 ? tasks : [
+          { name: 'No tasks available', status: 'N/A', hours: '0 hrs' }
+        ]);
+
+        // Generate chart data from attendance records (last 32 days)
+        const last32Days = attendanceRecords.slice(0, 32).reverse();
+        const generatedChartData = last32Days.map((record, i) => {
+          const hours = calculateHours(record.time_in, record.time_out);
+          return {
+            x: i,
+            y: Math.max(5, Math.min(22, hours + (Math.random() - 0.5) * 2)),
+          };
+        });
+        
+        setChartData(generatedChartData.length > 0 ? generatedChartData : 
+          Array.from({ length: 32 }, (_, i) => ({
+            x: i,
+            y: Math.max(5, Math.min(22, 12 + (Math.random() - 0.5) * 4)),
+          }))
+        );
+      }
+
+    } catch (err) {
+      setError('Failed to load analytics data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const createChartPath = () => {
-    const width = 970; // Reduced to account for Y-axis offset
+    const width = 940;
     const height = 200;
-    const xOffset = 30; // Offset for Y-axis
+    const xOffset = 30;
     const points = chartData.map((point, i) => {
-      const x = xOffset + (i / 31) * width;
+      const x = xOffset + (i / Math.max(chartData.length - 1, 1)) * width;
       const y = height - ((point.y - 5) / 20) * height;
       return `${x},${y}`;
     });
     return `M ${xOffset},${height} L ${points.join(' L ')} L ${xOffset + width},${height} Z`;
   };
 
+  if (loading) {
+    return (
+      <div style={{ 
+        padding: '24px', 
+        width: '100%', 
+        maxWidth: '1400px',
+        margin: '0 auto',
+        boxSizing: 'border-box',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '400px'
+      }}>
+        <CircularProgress />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ 
+        padding: '24px', 
+        width: '100%', 
+        maxWidth: '1400px',
+        margin: '0 auto',
+        boxSizing: 'border-box'
+      }}>
+        <Alert severity="error">{error}</Alert>
+      </div>
+    );
+  }
+
   return (
     <div style={{ 
-      padding: '20px', 
+      padding: '24px', 
       width: '100%', 
-      maxWidth: '100%', 
-      boxSizing: 'border-box', 
-      overflowX: 'hidden',
-      backgroundColor: '#d1d5db',
-      minHeight: 'calc(100vh - 40px)'
+      maxWidth: '1400px',
+      margin: '0 auto',
+      boxSizing: 'border-box'
     }}>
       {/* Staff Activity Overview */}
       <Box sx={{ 
-        backgroundColor: '#d1d5db', 
         padding: '12px 0', 
         mb: 2,
         textAlign: 'center'
       }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, fontStyle: 'italic', fontSize: '18px', color: '#374151' }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '18px', color: '#1a202c' }}>
           Staff Activity Overview
         </Typography>
       </Box>
@@ -83,9 +195,8 @@ function Analytics() {
         display: 'flex', 
         gap: '16px', 
         mb: 3, 
-        flexWrap: 'nowrap',
-        justifyContent: 'center',
-        overflowX: 'auto'
+        flexWrap: 'wrap',
+        justifyContent: 'center'
       }}>
         {activityCards.map((card, index) => (
           <Card
@@ -172,15 +283,16 @@ function Analytics() {
       <Box sx={{ display: 'flex', gap: '16px', mb: 3, flexWrap: 'wrap' }}>
         {/* Chart - Takes up most of the width */}
         <Card sx={{ 
-          flex: '1 1 700px', 
-          minWidth: '600px',
+          flex: '1 1 100%',
+          width: '100%',
           backgroundColor: 'white',
           boxShadow: 'none',
           borderRadius: '8px',
           border: '1px solid #e5e7eb'
         }}>
-          <CardContent sx={{ p: 2 }}>
-            <svg width="100%" height="240" viewBox="0 0 1000 220" preserveAspectRatio="none" style={{ display: 'block' }}>
+          <CardContent sx={{ p: 2, overflow: 'hidden' }}>
+            <Box sx={{ width: '100%', overflowX: 'auto' }}>
+              <svg width="100%" height="240" viewBox="0 0 1000 220" preserveAspectRatio="xMidYMid meet" style={{ display: 'block', minWidth: '300px' }}>
               <defs>
                 <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                   <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
@@ -208,8 +320,7 @@ function Analytics() {
               <text x="10" y="6" fontSize="11" fill="#6b7280" fontFamily="sans-serif">25</text>
               <text x="10" y="106" fontSize="11" fill="#6b7280" fontFamily="sans-serif">15</text>
               <text x="18" y="206" fontSize="11" fill="#6b7280" fontFamily="sans-serif">0</text>
-            </svg>
-          </CardContent>
+            </svg>            </Box>          </CardContent>
         </Card>
 
         {/* Staff Info Card - Small card on the right */}
@@ -262,7 +373,7 @@ function Analytics() {
           </Typography>
         </Box>
 
-        <TableContainer sx={{ border: '1px solid #e5e7eb', borderRadius: '4px' }}>
+        <TableContainer sx={{ border: '1px solid #e5e7eb', borderRadius: '4px', overflowX: 'auto' }}>
           <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
             <TableHead sx={{ backgroundColor: '#f9fafb' }}>
               <TableRow>

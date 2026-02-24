@@ -1,5 +1,6 @@
 import '../styles/Pages.css';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   Table, 
   TableBody, 
@@ -19,73 +20,95 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton
+  IconButton,
+  Snackbar,
+  Alert,
+  CircularProgress
 } from '@mui/material';
-import { FiSearch, FiPlus, FiEdit, FiX } from 'react-icons/fi';
-
-interface Staff {
-  id: string;
-  name: string;
-  role: string;
-  department: string;
-  status: 'On Leave' | 'On Duty' | 'Off Duty';
-}
-
-interface StaffFormData {
-  name: string;
-  role: string;
-  department: string;
-  status: 'On Leave' | 'On Duty' | 'Off Duty';
-}
+import { FiSearch, FiPlus, FiEdit, FiX, FiTrash2 } from 'react-icons/fi';
+import type { Staff, StaffFormData } from '../../types';
+import { 
+  getAllStaff, 
+  createStaff, 
+  updateStaff, 
+  deleteStaff
+} from '../../backend/services';
 
 function StaffInformation() {
+  const { staffProfile, isAdmin } = useAuth();
+  const [staffData, setStaffData] = useState<Staff[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [specializationFilter, setSpecializationFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [formData, setFormData] = useState<StaffFormData>({
     name: '',
     role: '',
-    department: '',
-    status: 'On Duty'
+    specialization: '',
+    status: 'Active',
+    email: '',
+    phone: ''
   });
 
-  const staffData: Staff[] = [
-    { id: '01', name: 'Janna Depp', role: 'Receptionist', department: 'Pharmacy', status: 'On Leave' },
-    { id: '02', name: 'John Doe', role: 'Nurse', department: 'Pharmacy', status: 'On Duty' },
-    { id: '03', name: 'John Dir', role: 'Doctor', department: 'Pharmacy', status: 'On Duty' },
-    { id: '04', name: 'Ana Reyes', role: 'Nurse', department: 'Pharmacy', status: 'Off Duty' },
-    { id: '05', name: 'Jane Cruz', role: 'Doctor', department: 'Pharmacy', status: 'Off Duty' },
-  ];
+  // Fetch staff data on mount
+  useEffect(() => {
+    fetchStaff();
+  }, []);
+
+  // Fetch all staff
+  const fetchStaff = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await getAllStaff();
+      if (error) {
+        showSnackbar(error, 'error');
+      } else {
+        setStaffData(data || []);
+      }
+    } catch (err) {
+      showSnackbar('Failed to load staff data', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Show snackbar notification
+  const showSnackbar = (message: string, severity: 'success' | 'error') => {
+    setSnackbar({ open: true, message, severity });
+  };
 
   const getStatusColor = (status: string) => {
     switch(status) {
-      case 'On Leave': return '#f59e0b';
-      case 'On Duty': return '#10b981';
-      case 'Off Duty': return '#6b7280';
+      case 'Active': return '#10b981';
+      case 'Inactive': return '#6b7280';
       default: return '#6b7280';
     }
   };
 
   const filteredStaff = staffData.filter(staff => {
+    // If current user is admin, hide other admin accounts
+    if (isAdmin && staffProfile && staff.user_role === 'admin' && staff.id !== staffProfile.id) {
+      return false;
+    }
     const matchesSearch = staff.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          staff.role.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDepartment = departmentFilter === 'all' || staff.department === departmentFilter;
+    const matchesSpecialization = specializationFilter === 'all' || staff.specialization === specializationFilter;
     const matchesStatus = statusFilter === 'all' || staff.status === statusFilter;
-    return matchesSearch && matchesDepartment && matchesStatus;
+    return matchesSearch && matchesSpecialization && matchesStatus;
   });
 
   const handleOpenModal = (mode: 'add' | 'edit') => {
     setModalMode(mode);
     if (mode === 'add') {
-      setFormData({ name: '', role: '', department: '', status: 'On Duty' });
+      setFormData({ name: '', role: '', specialization: '', status: 'Active', email: '', phone: '' });
       setSelectedStaffId('');
     } else {
-      // Reset to empty for staff selection
       setSelectedStaffId('');
-      setFormData({ name: '', role: '', department: '', status: 'On Duty' });
+      setFormData({ name: '', role: '', specialization: '', status: 'Active', email: '', phone: '' });
     }
     setOpenModal(true);
   };
@@ -97,8 +120,10 @@ function StaffInformation() {
       setFormData({
         name: staff.name,
         role: staff.role,
-        department: staff.department,
-        status: staff.status
+        specialization: staff.specialization || '',
+        status: (staff.status as 'Active' | 'Inactive') || 'Active',
+        email: staff.email || '',
+        phone: staff.phone || ''
       });
     }
   };
@@ -108,20 +133,68 @@ function StaffInformation() {
     setSelectedStaffId('');
   };
 
-  const handleSubmit = () => {
-    // Handle form submission here
-    console.log('Submitting:', formData);
-    handleCloseModal();
+  const handleSubmit = async () => {
+    if (!formData.name || !formData.role || !formData.specialization) {
+      showSnackbar('Please fill in all required fields', 'error');
+      return;
+    }
+
+    if (!formData.email || !formData.email.includes('@')) {
+      showSnackbar('Please enter a valid email address', 'error');
+      return;
+    }
+
+    if (modalMode === 'add') {
+      const { data, error } = await createStaff(formData);
+      if (error) {
+        showSnackbar(error, 'error');
+      } else {
+        showSnackbar('Staff member added successfully', 'success');
+        fetchStaff();
+        handleCloseModal();
+      }
+    } else {
+      const { data, error } = await updateStaff(selectedStaffId, formData);
+      if (error) {
+        showSnackbar(error, 'error');
+      } else {
+        showSnackbar('Staff member updated successfully', 'success');
+        fetchStaff();
+        handleCloseModal();
+      }
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete ${name}?`)) {
+      // Optimistic update - remove from UI immediately
+      setStaffData(prevStaff => prevStaff.filter(staff => staff.id !== id));
+      
+      const { error } = await deleteStaff(id);
+      if (error) {
+        showSnackbar(error, 'error');
+        // Revert optimistic update on error
+        fetchStaff();
+      } else {
+        showSnackbar('Staff member deleted successfully', 'success');
+      }
+    }
   };
 
   return (
-    <div style={{ padding: '20px', width: '100%', maxWidth: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
-      <Box sx={{ 
-        backgroundColor: '#f8f9fa', 
-        borderRadius: '8px', 
-        padding: { xs: '16px', sm: '20px', md: '24px' },
-        marginBottom: '20px'
-      }}>
+    <div style={{ padding: '24px', width: '100%', maxWidth: '1400px', margin: '0 auto', boxSizing: 'border-box' }}>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <>
+          <Box sx={{ 
+            backgroundColor: '#f8f9fa', 
+            borderRadius: '8px', 
+            padding: { xs: '16px', sm: '20px', md: '24px' },
+            marginBottom: '20px'
+          }}>
         <h2 style={{ 
           margin: '0 0 20px 0', 
           fontSize: 'clamp(18px, 4vw, 24px)', 
@@ -163,12 +236,12 @@ function StaffInformation() {
           
           <FormControl size="small" sx={{ minWidth: 120, maxWidth: 160, flex: '0 1 auto', backgroundColor: 'white', borderRadius: '6px' }}>
             <Select
-              value={departmentFilter}
-              onChange={(e) => setDepartmentFilter(e.target.value)}
+              value={specializationFilter}
+              onChange={(e) => setSpecializationFilter(e.target.value)}
               displayEmpty
               sx={{ borderRadius: '6px', fontSize: '14px' }}
             >
-              <MenuItem value="all">All Depts</MenuItem>
+              <MenuItem value="all">All Specializations</MenuItem>
               <MenuItem value="Pharmacy">Pharmacy</MenuItem>
               <MenuItem value="Emergency">Emergency</MenuItem>
               <MenuItem value="Surgery">Surgery</MenuItem>
@@ -183,9 +256,8 @@ function StaffInformation() {
               sx={{ borderRadius: '6px', fontSize: '14px' }}
             >
               <MenuItem value="all">All Status</MenuItem>
-              <MenuItem value="On Duty">On Duty</MenuItem>
-              <MenuItem value="Off Duty">Off Duty</MenuItem>
-              <MenuItem value="On Leave">On Leave</MenuItem>
+              <MenuItem value="Active">Active</MenuItem>
+              <MenuItem value="Inactive">Inactive</MenuItem>
             </Select>
           </FormControl>
 
@@ -238,17 +310,20 @@ function StaffInformation() {
           borderRadius: '8px',
           boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
           border: '1px solid #e5e7eb',
-          width: '100%'
+          width: '100%',
+          overflowX: 'auto'
         }}
       >
         <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
           <TableHead>
             <TableRow sx={{ backgroundColor: '#f9fafb' }}>
               <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '8%', padding: '10px 8px' }}>ID</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '28%', padding: '10px 8px' }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '22%', padding: '10px 8px' }}>Role</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '22%', padding: '10px 8px' }}>Department</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '20%', padding: '10px 8px' }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '20%', padding: '10px 8px' }}>Name</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '15%', padding: '10px 8px' }}>Role</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '15%', padding: '10px 8px' }}>Specialization</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '20%', padding: '10px 8px' }}>Email</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '12%', padding: '10px 8px' }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '12px', width: '10%', padding: '10px 8px', textAlign: 'center' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -260,10 +335,13 @@ function StaffInformation() {
                   borderBottom: '1px solid #f3f4f6'
                 }}
               >
-                <TableCell sx={{ color: '#6b7280', fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{staff.id}</TableCell>
+                <TableCell sx={{ color: '#6b7280', fontSize: '11px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {staff.id.substring(0, 8)}...
+                </TableCell>
                 <TableCell sx={{ color: '#1f2937', fontSize: '12px', fontWeight: 500, padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{staff.name}</TableCell>
                 <TableCell sx={{ color: '#6b7280', fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{staff.role}</TableCell>
-                <TableCell sx={{ color: '#6b7280', fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{staff.department}</TableCell>
+                <TableCell sx={{ color: '#6b7280', fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{staff.specialization || 'N/A'}</TableCell>
+                <TableCell sx={{ color: '#6b7280', fontSize: '11px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{staff.email || 'N/A'}</TableCell>
                 <TableCell sx={{ padding: '10px 8px' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Box
@@ -277,6 +355,15 @@ function StaffInformation() {
                     />
                     <span style={{ color: '#6b7280', fontSize: '11px', whiteSpace: 'nowrap' }}>{staff.status}</span>
                   </Box>
+                </TableCell>
+                <TableCell sx={{ padding: '10px 8px', textAlign: 'center' }}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleDelete(staff.id, staff.name)}
+                    sx={{ color: '#ef4444', '&:hover': { backgroundColor: '#fee2e2' } }}
+                  >
+                    <FiTrash2 size={14} />
+                  </IconButton>
                 </TableCell>
               </TableRow>
             ))}
@@ -413,17 +500,17 @@ function StaffInformation() {
                 fontWeight: 500,
                 color: '#374151'
               }}>
-                Department
+                Specialization
               </label>
               <FormControl fullWidth size="small">
                 <Select
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  value={formData.specialization}
+                  onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
                   displayEmpty
                   disabled={modalMode === 'edit' && !selectedStaffId}
                   sx={{ borderRadius: '6px' }}
                 >
-                  <MenuItem value="">Select department</MenuItem>
+                  <MenuItem value="">Select specialization</MenuItem>
                   <MenuItem value="Pharmacy">Pharmacy</MenuItem>
                   <MenuItem value="Emergency">Emergency</MenuItem>
                   <MenuItem value="Surgery">Surgery</MenuItem>
@@ -444,15 +531,66 @@ function StaffInformation() {
               <FormControl fullWidth size="small">
                 <Select
                   value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'On Leave' | 'On Duty' | 'Off Duty' })}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'Active' | 'Inactive' })}
                   disabled={modalMode === 'edit' && !selectedStaffId}
                   sx={{ borderRadius: '6px' }}
                 >
-                  <MenuItem value="On Duty">On Duty</MenuItem>
-                  <MenuItem value="Off Duty">Off Duty</MenuItem>
-                  <MenuItem value="On Leave">On Leave</MenuItem>
+                  <MenuItem value="Active">Active</MenuItem>
+                  <MenuItem value="Inactive">Inactive</MenuItem>
                 </Select>
               </FormControl>
+            </Box>
+
+            <Box>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '6px', 
+                fontSize: '13px', 
+                fontWeight: 500,
+                color: '#374151'
+              }}>
+                Email
+              </label>
+              <TextField
+                fullWidth
+                size="small"
+                type="email"
+                placeholder="staff@clinika.com"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                disabled={modalMode === 'edit' && !selectedStaffId}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '6px',
+                  }
+                }}
+              />
+            </Box>
+
+            <Box>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '6px', 
+                fontSize: '13px', 
+                fontWeight: 500,
+                color: '#374151'
+              }}>
+                Phone (Optional)
+              </label>
+              <TextField
+                fullWidth
+                size="small"
+                type="tel"
+                placeholder="555-0000"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                disabled={modalMode === 'edit' && !selectedStaffId}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '6px',
+                  }
+                }}
+              />
             </Box>
           </Box>
         </DialogContent>
@@ -494,6 +632,24 @@ function StaffInformation() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={4000} 
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+        </>
+      )}
     </div>
   );
 }

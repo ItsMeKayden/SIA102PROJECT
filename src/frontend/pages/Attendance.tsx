@@ -1,5 +1,6 @@
 import '../styles/Attendance.css';
 import '../styles/Pages.css';
+import { useEffect, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -12,81 +13,161 @@ import {
   TableHead,
   TableRow,
   Paper,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
+import { getAllAttendance } from '../../backend/services/attendanceService';
+import type { Attendance } from '../../types';
 
 function Attendance() {
+  const [attendanceData, setAttendanceData] = useState<Attendance[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState({
+    present: 0,
+    late: 0,
+    overtime: 0,
+    compliance: 'Loading...',
+  });
+
+  useEffect(() => {
+    fetchAttendanceData();
+  }, []);
+
+  const fetchAttendanceData = async () => {
+    setLoading(true);
+    try {
+      // Fetch all attendance records
+      const { data: attendanceRecords, error: attendanceError } = await getAllAttendance();
+      
+      if (attendanceError) {
+        setError(attendanceError);
+        return;
+      }
+
+      setAttendanceData(attendanceRecords || []);
+
+      // Calculate stats from the data
+      if (attendanceRecords && attendanceRecords.length > 0) {
+        const present = attendanceRecords.filter(a => a.status === 'Present').length;
+        const late = attendanceRecords.filter(a => a.status === 'Late').length;
+        
+        // Calculate overtime by checking hours worked
+        const overtime = attendanceRecords.filter(a => {
+          if (!a.time_in || !a.time_out) return false;
+          const start = new Date(`2000-01-01T${a.time_in}`);
+          const end = new Date(`2000-01-01T${a.time_out}`);
+          const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+          return hours > 8;
+        }).length;
+        
+        setStats({
+          present,
+          late,
+          overtime,
+          compliance: late === 0 ? 'Compliant' : 'Needs Review',
+        });
+      }
+    } catch (err) {
+      setError('Failed to fetch attendance data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (time: string | null) => {
+    if (!time) return 'N/A';
+    return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const calculateHours = (timeIn: string | null, timeOut: string | null) => {
+    if (!timeIn || !timeOut) return 'N/A';
+    
+    const start = new Date(`2000-01-01T${timeIn}`);
+    const end = new Date(`2000-01-01T${timeOut}`);
+    const diffMs = end.getTime() - start.getTime();
+    const hours = diffMs / (1000 * 60 * 60);
+    
+    return `${hours.toFixed(1)} Hours`;
+  };
+
   const cardData = [
-    { title: 'Present', value: '5/26', bgColor: '#e3f2fd' },
-    { title: 'Late', value: '1', bgColor: '#fff3e0' },
-    { title: 'Overtime', value: '1 Hour/s', bgColor: '#f3e5f5' },
-    { title: 'Compliance', value: 'Compliant', bgColor: '#e8f5e9' },
+    { title: 'Present', value: stats.present.toString(), bgColor: '#e3f2fd' },
+    { title: 'Late', value: stats.late.toString(), bgColor: '#fff3e0' },
+    { title: 'Overtime', value: `${stats.overtime}`, bgColor: '#f3e5f5' },
+    { title: 'Compliance', value: stats.compliance, bgColor: '#e8f5e9' },
   ];
 
-  const attendanceData = [
-    {
-      date: 'Feb 2',
-      timeIn: '09:00 AM',
-      timeOut: '05:00 PM',
-      shift: 'Morning',
-      hours: '8 Hours',
-      status: 'Present',
-    },
-    {
-      date: 'Feb 3',
-      timeIn: '08:30 AM',
-      timeOut: '05:00 PM',
-      shift: 'Morning',
-      hours: '7.5 Hours',
-      status: 'Late',
-    },
-    {
-      date: 'Feb 4',
-      timeIn: '09:00 AM',
-      timeOut: '06:00 PM',
-      shift: 'Morning',
-      hours: '9 Hours',
-      status: 'Overtime',
-    },
-    {
-      date: 'Feb 5',
-      timeIn: '09:00 AM',
-      timeOut: '05:00 PM',
-      shift: 'Morning',
-      hours: '8 Hours',
-      status: 'Present',
-    },
-    {
-      date: 'Feb 6',
-      timeIn: '09:00 AM',
-      timeOut: '05:00 PM',
-      shift: 'Morning',
-      hours: '8 Hours',
-      status: 'Present',
-    },
-  ];
+  const complianceAlerts = attendanceData
+    .filter(a => {
+      if (a.status === 'Late' || a.status === 'Absent') return true;
+      // Check for overtime
+      if (a.time_in && a.time_out) {
+        const start = new Date(`2000-01-01T${a.time_in}`);
+        const end = new Date(`2000-01-01T${a.time_out}`);
+        const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        return hours > 8;
+      }
+      return false;
+    })
+    .slice(0, 5)
+    .map(a => {
+      let type = 'Late';
+      if (a.status === 'Absent') type = 'Absent';
+      else if (a.status === 'Late') type = 'Late';
+      else if (a.time_in && a.time_out) {
+        const start = new Date(`2000-01-01T${a.time_in}`);
+        const end = new Date(`2000-01-01T${a.time_out}`);
+        const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        if (hours > 8) type = 'Overtime';
+      }
+      return {
+        date: new Date(a.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+        type,
+      };
+    });
 
-  const complianceAlerts = [
-    { date: 'February 3, 2025', type: 'Late' },
-    { date: 'February 4, 2025', type: 'Overtime' },
-    { date: 'February 7, 2025', type: 'Approved Leave' },
-  ];
+  if (loading) {
+    return (
+      <div className="attendance-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <CircularProgress />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="attendance-container">
+        <Alert severity="error">{error}</Alert>
+      </div>
+    );
+  }
 
   return (
-    <>
+    <div className="attendance-container">
       {/* Staff Activity Overview */}
       <h2 className="activityTitle">Staff Activity Overview</h2>
-      <Box className="activityOverview" sx={{ gap: '12px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
+      <Box className="activityOverview" sx={{ gap: '12px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', mb: 3 }}>
         {cardData.map((card, index) => (
           <Card
             key={index}
             sx={{
               flex: '1 1 160px',
               minWidth: '160px',
-              maxWidth: '200px',
+              maxWidth: '220px',
               height: 100,
               backgroundColor: card.bgColor,
               textAlign: 'center',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
               display: 'flex',
             }}
           >
@@ -111,7 +192,7 @@ function Attendance() {
 
       {/* Attendance Log Table */}
       <h2 className="tableTitle">Attendance Log Table</h2>
-      <TableContainer component={Paper} sx={{ mt: 4, width: '100%' }}>
+      <TableContainer component={Paper} sx={{ mt: 4, width: '100%', overflowX: 'auto' }}>
         <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
           <TableHead sx={{ backgroundColor: 'blue' }}>
             <TableRow>
@@ -155,14 +236,25 @@ function Attendance() {
           </TableHead>
 
           <TableBody>
-            {attendanceData.map((row, index) => (
-              <TableRow key={index}>
-                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.date}</TableCell>
-                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.timeIn}</TableCell>
-                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.timeOut}</TableCell>
-                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.shift}</TableCell>
-                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.hours}</TableCell>
-                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.status}</TableCell>
+            {attendanceData.slice(0, 10).map((row) => (
+              <TableRow key={row.id}>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatDate(row.date)}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatTime(row.time_in)}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{formatTime(row.time_out)}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>N/A</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{calculateHours(row.time_in, row.time_out)}</TableCell>
+                <TableCell align="center" sx={{ fontSize: '12px', padding: '10px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span style={{
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    backgroundColor: row.status === 'Present' ? '#d1fae5' : row.status === 'Late' ? '#fee2e2' : row.status === 'Absent' ? '#fecaca' : '#fef3c7',
+                    color: row.status === 'Present' ? '#065f46' : row.status === 'Late' ? '#991b1b' : row.status === 'Absent' ? '#7f1d1d' : '#92400e',
+                  }}>
+                    {row.status}
+                  </span>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -235,7 +327,7 @@ function Attendance() {
           </CardContent>
         </Card>
       </Box>
-    </>
+    </div>
   );
 }
 
