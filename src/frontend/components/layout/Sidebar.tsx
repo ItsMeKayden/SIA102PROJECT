@@ -7,7 +7,7 @@ import {
   FiCalendar,
   FiClipboard,
 } from 'react-icons/fi';
-import '../styles/Sidebar.css';
+import '../../styles/Sidebar.css';
 
 type MenuItem = {
   label: string;

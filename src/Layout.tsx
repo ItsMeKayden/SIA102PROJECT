@@ -1,110 +1,152 @@
-import { useState } from 'react';
-import type { MouseEvent, ChangeEvent } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-import Sidebar from './frontend/components/Sidebar';
-import {
-  Menu,
-  MenuItem,
-  Button,
-  IconButton,
-  TextField,
-  InputAdornment,
+import { useState, useEffect } from 'react';
+import type { MouseEvent } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { 
+  Menu, 
+  MenuItem, 
+  Button, 
+  IconButton, 
+  Badge,
   Dialog,
   DialogTitle,
   DialogContent,
-  Badge,
   Box,
-  Typography
+  Typography,
+  Chip,
+  Card,
+  CardContent,
+  CircularProgress,
+  Snackbar,
+  Alert,
+  useMediaQuery,
+  useTheme,
+  Avatar,
+  Divider
 } from '@mui/material';
-import { FiMenu, FiSearch } from 'react-icons/fi';
-import SearchIcon from '@mui/icons-material/Search';
-import NotificationsIcon from '@mui/icons-material/Notifications';
+import { 
+  FiMenu, 
+  FiBell,
+  FiInfo,
+  FiAlertCircle,
+  FiCheckCircle,
+  FiXCircle,
+  FiTrash2,
+  FiCheck,
+  FiX,
+  FiLogOut,
+  FiLogIn,
+  FiKey
+} from 'react-icons/fi';
+import {
+  getAllNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification,
+  getUnreadNotificationCount
+} from './backend/services/notificationService';
+import { useAuth } from './contexts/AuthContext';
+import { LoginModal } from './frontend/components/auth/LoginModal';
+import { ChangePasswordModal } from './frontend/components/auth/ChangePasswordModal';
 
 const Layout = () => {
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { user, staffProfile, signOut, isAdmin } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  
+  // Navigation menu state
+  const [navMenuAnchorEl, setNavMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const navMenuOpen = Boolean(navMenuAnchorEl);
+  
   // Notification state
   interface Notification {
     id: string;
     type: string;
-    from: string;
+    title: string;
     message: string;
-    date: string;
-    checked: boolean;
-    archived: boolean;
+    created_at: string;
+    is_read: boolean;
+    staff_id: string | null;
   }
 
   const [notifications, setNotifications] = useState<Notification[]>([
     {
       id: '1',
       type: 'Schedule',
-      from: 'ACOWIS SYSTEM',
+      title: "Schedule Update",
       message: "John Doe's Shift on February 9 has been updated...",
-      date: 'February 7, 2026',
-      checked: false,
-      archived: false,
+      created_at: '2026-02-07T10:00:00Z',
+      is_read: false,
+      staff_id: null,
     },
     {
       id: '2',
       type: 'Appointment',
-      from: 'ACOWIS SYSTEM',
+      title: "New Appointment",
       message: 'New PATIENT appointment assigned at ...',
-      date: 'February 7, 2026',
-      checked: false,
-      archived: false,
+      created_at: '2026-02-07T10:00:00Z',
+      is_read: false,
+      staff_id: null,
     },
     {
       id: '3',
       type: 'System',
-      from: 'ACOWIS SYSTEM',
+      title: "System Alert",
       message: 'Please Acknowledge the overtime for February...',
-      date: 'February 7, 2026',
-      checked: false,
-      archived: false,
+      created_at: '2026-02-07T10:00:00Z',
+      is_read: false,
+      staff_id: null,
     },
     {
       id: '4',
       type: 'Appointment',
-      from: 'ACOWIS SYSTEM',
+      title: "New Appointment",
       message: 'New PATIENT appointment assigned at ...',
-      date: 'February 7, 2026',
-      checked: false,
-      archived: false,
+      created_at: '2026-02-07T10:00:00Z',
+      is_read: false,
+      staff_id: null,
     },
     {
       id: '5',
       type: 'System',
-      from: 'ACOWIS SYSTEM',
+      title: "Attendance Report",
       message: "John Di's Attendance report for Jan 1 to ...",
-      date: 'February 7, 2026',
-      checked: false,
-      archived: false,
+      created_at: '2026-02-07T10:00:00Z',
+      is_read: false,
+      staff_id: null,
     },
     {
       id: '6',
       type: 'ALERT',
-      from: 'ACOWIS SYSTEM',
+      title: "Alert",
       message: 'TUMAE YUNG PASYENTE SA ROOM 9',
-      date: 'February 7, 2026',
-      checked: false,
-      archived: false,
+      created_at: '2026-02-07T10:00:00Z',
+      is_read: false,
+      staff_id: null,
     },
     {
       id: '7',
       type: 'ALERT',
-      from: 'ACOWIS SYSTEM',
+      title: "Emergency",
       message: 'EMERGENCY STAFF ASSISTANCE REQUIRED IN ROOM 5...',
-      date: 'February 7, 2026',
-      checked: false,
-      archived: false,
+      created_at: '2026-02-07T10:00:00Z',
+      is_read: false,
+      staff_id: null,
     },
   ]);
 
   const [notificationModalOpen, setNotificationModalOpen] = useState(false);
-  const [selectedNotificationFilter] = useState('unread');
-  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-  const [selectedNotificationForDetails, setSelectedNotificationForDetails] = useState<Notification | null>(null);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [_selectedNotificationFilter] = useState('unread');
+  const [_detailsModalOpen, _setDetailsModalOpen] = useState(false);
+  const [_selectedNotificationForDetails, _setSelectedNotificationForDetails] = useState<Notification | null>(null);
 
   const [staffAnchorEl, setStaffAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedStaff, setSelectedStaff] = useState('John Doe');
@@ -115,7 +157,7 @@ const Layout = () => {
     'Jan 01 - Jan 31 2026',
   );
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [_searchQuery, _setSearchQuery] = useState('');
 
   const dateOpen = Boolean(dateAnchorEl);
   const staffList = ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Williams'];
@@ -125,6 +167,129 @@ const Layout = () => {
     'Mar 01 - Mar 31 2026',
     'Dec 01 - Dec 31 2025',
   ];
+
+  // Navigation menu items
+  const menuItems = [
+    { label: 'Overview', path: '/', icon: '🏠' },
+    { label: 'Staff Information', path: '/staff', icon: '👥' },
+    { label: 'Attendance', path: '/attendance', icon: '🕐' },
+    { label: 'Analytics', path: '/analytics', icon: '📊' },
+    { label: 'Appointments', path: '/appointments', icon: '📋' },
+    { label: 'Schedule', path: '/schedule', icon: '📅' },
+  ];
+
+  const handleNavMenuClick = (event: MouseEvent<HTMLElement>) => {
+    setNavMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleNavMenuClose = () => {
+    setNavMenuAnchorEl(null);
+  };
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    handleNavMenuClose();
+  };
+
+  // Fetch unread notification count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      const { data } = await getUnreadNotificationCount();
+      if (data !== null && data !== undefined) {
+        setUnreadCount(data);
+      }
+    };
+
+    fetchUnreadCount();
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-show login modal if user is not authenticated
+  useEffect(() => {
+    if (!user && !showLoginModal) {
+      setShowLoginModal(true);
+    }
+  }, [user, showLoginModal]);
+
+  // Fetch notifications when modal opens
+  const fetchNotifications = async () => {
+    setNotificationsLoading(true);
+    const [notifData, countData] = await Promise.all([
+      getAllNotifications(),
+      getUnreadNotificationCount()
+    ]);
+
+    if (notifData.data) setNotifications(notifData.data);
+    if (typeof countData.data === 'number') setUnreadCount(countData.data);
+    
+    setNotificationsLoading(false);
+  };
+
+  const handleNotificationClick = () => {
+    setNotificationModalOpen(true);
+    fetchNotifications();
+  };
+
+  const handleCloseNotificationModal = () => {
+    setNotificationModalOpen(false);
+    setFilter('all');
+  };
+
+  const showSnackbar = (message: string, severity: 'success' | 'error') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const handleMarkAsRead = async (id: string) => {
+    const { error } = await markNotificationAsRead(id);
+    if (error) {
+      showSnackbar(error, 'error');
+    } else {
+      fetchNotifications();
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    const { error } = await markAllNotificationsAsRead();
+    if (error) {
+      showSnackbar(error, 'error');
+    } else {
+      showSnackbar('All notifications marked as read', 'success');
+      fetchNotifications();
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const { error } = await deleteNotification(id);
+    if (error) {
+      showSnackbar(error, 'error');
+    } else {
+      showSnackbar('Notification deleted', 'success');
+      fetchNotifications();
+    }
+  };
+
+  const getIcon = (type: string) => {
+    const icons = {
+      'info': <FiInfo size={20} />,
+      'warning': <FiAlertCircle size={20} />,
+      'error': <FiXCircle size={20} />,
+      'success': <FiCheckCircle size={20} />
+    };
+    return icons[type as keyof typeof icons] || icons['info'];
+  };
+
+  const getColor = (type: string) => {
+    const colors = {
+      'info': { bg: '#dbeafe', text: '#1e40af', border: '#3b82f6' },
+      'warning': { bg: '#fef3c7', text: '#92400e', border: '#f59e0b' },
+      'error': { bg: '#fee2e2', text: '#991b1b', border: '#ef4444' },
+      'success': { bg: '#d1fae5', text: '#065f46', border: '#10b981' }
+    };
+    return colors[type as keyof typeof colors] || colors['info'];
+  };
 
   const handleStaffClick = (event: MouseEvent<HTMLElement>) => {
     setStaffAnchorEl(event.currentTarget);
@@ -152,501 +317,434 @@ const Layout = () => {
     handleDateClose();
   };
 
-  const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(event.target.value);
+  const handleUserMenuClick = (event: MouseEvent<HTMLElement>) => {
+    setUserMenuAnchorEl(event.currentTarget);
   };
 
-  const handleCheckChange = (id: string) => {
-    setNotifications(
-      notifications.map((notif) =>
-        notif.id === id ? { ...notif, checked: !notif.checked } : notif,
-      ),
-    );
+  const handleUserMenuClose = () => {
+    setUserMenuAnchorEl(null);
   };
 
-  const handleViewDetails = (notification: Notification) => {
-    setSelectedNotificationForDetails(notification);
-    setDetailsModalOpen(true);
+  const handleSignOut = async () => {
+    await signOut();
+    handleUserMenuClose();
+    navigate('/');
   };
 
-  const handleDetailsModalClose = () => {
-    setDetailsModalOpen(false);
-    setSelectedNotificationForDetails(null);
+  const handleChangePassword = () => {
+    setShowChangePasswordModal(true);
+    handleUserMenuClose();
   };
 
-  const handleNotificationModalOpen = () => {
-    setNotificationModalOpen(true);
+  const handleLogin = () => {
+    setShowLoginModal(true);
   };
 
-  const handleNotificationModalClose = () => {
-    setNotificationModalOpen(false);
-  };
-
-  const unreadCount = notifications.filter((n) => !n.checked).length;
-
-  const getFilteredNotifications = () => {
-    switch (selectedNotificationFilter) {
-      case 'unread':
-        return notifications.filter((n) => !n.checked && !n.archived);
-      case 'alerts':
-        return notifications.filter((n) => n.type === 'ALERT' && !n.archived);
-      case 'pending':
-        return notifications.filter((n) => n.type === 'System' && !n.archived);
-      case 'archive':
-        return notifications.filter((n) => n.archived);
-      default:
-        return notifications.filter((n) => !n.archived);
-    }
-  };
-
-  const getPageTitle = () => {
-    const path = location.pathname;
-    switch (path) {
-      case '/staff':
-        return 'Staff Information';
-      case '/attendance':
-        return 'Attendance';
-      case '/analytics':
-        return 'Analytics';
-      case '/appointments':
-        return 'Appointments';
-      case '/schedule':
-        return 'Schedule';
-      case '/notification':
-        return 'Notification';
-      default:
-        return 'NavBar';
-    }
-  };
-
-  const getCurrentDate = () => {
-    const options: Intl.DateTimeFormatOptions = {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    };
-    return new Date().toLocaleDateString('en-US', options);
-  };
-
-  const renderNavbarContent = () => {
-    const path = location.pathname;
-
-    if (path === '/attendance' || path === '/analytics') {
-      return (
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          {/* Staff Dropdown */}
-          <span style={{ fontSize: '12px', color: '#666' }}>Staff:</span>
-          <Button
-            onClick={handleStaffClick}
-            endIcon={<span style={{ fontSize: '12px' }}>▼</span>}
-            sx={{
-              fontSize: '12px',
-              color: '#333',
-              textTransform: 'none',
-              fontWeight: 600,
-              padding: '2px 6px',
-              minWidth: 'auto',
-              minHeight: 'auto',
-              '&:hover': {
-                backgroundColor: '#f0f0f0',
-              },
-              '& .MuiButton-endIcon': {
-                marginLeft: '2px',
-              },
-            }}
-          >
-            {selectedStaff}
-          </Button>
-
-          {/* Date Range Dropdown */}
-          <Button
-            onClick={handleDateClick}
-            endIcon={<span style={{ fontSize: '12px' }}>▼</span>}
-            sx={{
-              fontSize: '12px',
-              color: '#333',
-              textTransform: 'none',
-              padding: '2px 6px',
-              minWidth: 'auto',
-              minHeight: 'auto',
-              '&:hover': {
-                backgroundColor: '#f0f0f0',
-              },
-              '& .MuiButton-endIcon': {
-                marginLeft: '2px',
-              },
-            }}
-          >
-            {selectedDateRange}
-          </Button>
-
-          {/* Menus */}
-          <Menu
-            anchorEl={staffAnchorEl}
-            open={staffOpen}
-            onClose={handleStaffClose}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'left',
-            }}
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'left',
-            }}
-            slotProps={{
-              paper: {
-                sx: {
-                  minWidth: '100px',
-                  width: 'auto',
-                },
-              },
-            }}
-          >
-            {staffList.map((staff) => (
-              <MenuItem
-                key={staff}
-                onClick={() => handleStaffSelect(staff)}
-                selected={staff === selectedStaff}
-                sx={{
-                  fontSize: '12px',
-                  padding: '4px 10px',
-                  minHeight: 'auto',
-                }}
-              >
-                {staff}
-              </MenuItem>
-            ))}
-          </Menu>
-
-          <Menu
-            anchorEl={dateAnchorEl}
-            open={dateOpen}
-            onClose={handleDateClose}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'right',
-            }}
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-            slotProps={{
-              paper: {
-                sx: {
-                  minWidth: '140px',
-                  width: 'auto',
-                },
-              },
-            }}
-          >
-            {dateRanges.map((range) => (
-              <MenuItem
-                key={range}
-                onClick={() => handleDateSelect(range)}
-                selected={range === selectedDateRange}
-                sx={{
-                  fontSize: '12px',
-                  padding: '4px 10px',
-                  minHeight: 'auto',
-                }}
-              >
-                {range}
-              </MenuItem>
-            ))}
-          </Menu>
-        </div>
-      );
-    }
-
-    if (path === '/appointments') {
-      return (
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          {/* Search Bar */}
-          <TextField
-            placeholder="Search appointments..."
-            size="small"
-            sx={{
-              width: '280px',
-              '& .MuiOutlinedInput-root': {
-                height: '32px',
-                fontSize: '12px',
-              },
-              '& .MuiOutlinedInput-input': {
-                textAlign: 'center',
-                padding: '6px 10px',
-                paddingLeft: '0px',
-                '&::placeholder': {
-                  textAlign: 'center',
-                  opacity: 1,
-                },
-              },
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start" style={{ marginRight: -200 }}>
-                  <SearchIcon sx={{ fontSize: '16px', color: '#666' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          {/* Current Date */}
-          <span style={{ fontSize: '12px', color: '#666', fontWeight: 500 }}>
-            {getCurrentDate()}
-          </span>
-        </div>
-      );
-    }
-
-    // For other pages - return null or empty div
-    return null;
-  };
+  const filteredNotifications = filter === 'unread' 
+    ? notifications.filter(n => !n.is_read)
+    : notifications;
 
   return (
     <div
       style={{
-        display: 'grid',
-        gridTemplateColumns: sidebarOpen ? '240px 1fr' : '0 1fr',
-        gridTemplateRows: 'auto 1fr',
+        display: 'flex',
+        flexDirection: 'column',
         height: '100vh',
-        width: '100vw',
+        width: '100%',
+        maxWidth: '100vw',
         overflow: 'hidden',
-        transition: 'grid-template-columns 0.3s ease',
+        position: 'relative',
       }}
     >
-      {/* Sidebar */}
-      <div
-        style={{
-          gridColumn: '1',
-          gridRow: '1 / 3',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          width: sidebarOpen ? '240px' : '0',
-          transition: 'width 0.3s ease',
-        }}
-      >
-        {sidebarOpen && <Sidebar />}
-      </div>
-
       {/* Navigation Bar */}
       <nav
         style={{
-          gridColumn: '2',
-          gridRow: '1',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           width: '100%',
+          maxWidth: '100%',
           backgroundColor: '#fff',
-          borderBottom: '1px solid #ddd',
-          padding: '20px 20px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          borderBottom: '1px solid #e5e7eb',
+          padding: isMobile ? '12px 16px' : '14px 24px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
           boxSizing: 'border-box',
           flexShrink: 0,
+          gap: '16px',
+          zIndex: 1000,
+          position: 'relative',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <IconButton
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            size="small"
-            sx={{
-              color: '#374151',
-              '&:hover': { backgroundColor: '#f3f4f6' },
+        {/* Left Section - Logo & Company Name */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <span style={{ fontSize: '24px' }}>❤️</span>
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              fontWeight: 700, 
+              color: '#2563eb',
+              fontSize: isMobile ? '18px' : '20px',
+              letterSpacing: '0.5px'
             }}
           >
-            <FiMenu size={20} />
-          </IconButton>
-          <h2 style={{ margin: 0, fontSize: '25px', color: '#333' }}>
-            <span style={{ fontWeight: 'lighter' }}>ACOWIS: </span>
-            {getPageTitle()}
-          </h2>
+            CLINIKA+
+          </Typography>
         </div>
 
-        {(location.pathname === '/attendance' ||
-          location.pathname === '/analytics') && (
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            {/* Staff Dropdown */}
-            <span style={{ fontSize: '12px', color: '#666' }}>Staff:</span>
+        {/* Center Section - Staff & Date Filters (shown only on attendance/analytics) */}
+        {(location.pathname === '/attendance' || location.pathname === '/analytics') && !isMobile && (
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: '0 1 auto', minWidth: 0, overflow: 'hidden' }}>
+            <span style={{ fontSize: '12px', color: '#6b7280' }}>Staff:</span>
             <Button
               onClick={handleStaffClick}
               endIcon={<span style={{ fontSize: '12px' }}>▼</span>}
               sx={{
                 fontSize: '12px',
-                color: '#333',
+                color: '#374151',
                 textTransform: 'none',
                 fontWeight: 600,
-                padding: '2px 6px',
+                padding: '4px 8px',
                 minWidth: 'auto',
                 minHeight: 'auto',
                 '&:hover': {
-                  backgroundColor: '#f0f0f0',
+                  backgroundColor: '#f3f4f6',
                 },
                 '& .MuiButton-endIcon': {
-                  marginLeft: '2px',
+                  marginLeft: '4px',
                 },
               }}
             >
               {selectedStaff}
             </Button>
 
-            {/* Date Range Dropdown */}
             <Button
               onClick={handleDateClick}
               endIcon={<span style={{ fontSize: '12px' }}>▼</span>}
               sx={{
                 fontSize: '12px',
-                color: '#333',
+                color: '#374151',
                 textTransform: 'none',
-                padding: '2px 6px',
+                padding: '4px 8px',
                 minWidth: 'auto',
                 minHeight: 'auto',
                 '&:hover': {
-                  backgroundColor: '#f0f0f0',
+                  backgroundColor: '#f3f4f6',
                 },
                 '& .MuiButton-endIcon': {
-                  marginLeft: '2px',
+                  marginLeft: '4px',
                 },
               }}
             >
               {selectedDateRange}
             </Button>
-
-            {/* Menus */}
-            <Menu
-              anchorEl={staffAnchorEl}
-              open={staffOpen}
-              onClose={handleStaffClose}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'left',
-              }}
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'left',
-              }}
-              slotProps={{
-                paper: {
-                  sx: {
-                    minWidth: '100px',
-                    width: 'auto',
-                  },
-                },
-              }}
-            >
-              {staffList.map((staff) => (
-                <MenuItem
-                  key={staff}
-                  onClick={() => handleStaffSelect(staff)}
-                  selected={staff === selectedStaff}
-                  sx={{
-                    fontSize: '12px',
-                    padding: '4px 10px',
-                    minHeight: 'auto',
-                  }}
-                >
-                  {staff}
-                </MenuItem>
-              ))}
-            </Menu>
-
-            <Menu
-              anchorEl={dateAnchorEl}
-              open={dateOpen}
-              onClose={handleDateClose}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right',
-              }}
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-              slotProps={{
-                paper: {
-                  sx: {
-                    minWidth: '140px',
-                    width: 'auto',
-                  },
-                },
-              }}
-            >
-              {dateRanges.map((range) => (
-                <MenuItem
-                  key={range}
-                  onClick={() => handleDateSelect(range)}
-                  selected={range === selectedDateRange}
-                  sx={{
-                    fontSize: '12px',
-                    padding: '4px 10px',
-                    minHeight: 'auto',
-                  }}
-                >
-                  {range}
-                </MenuItem>
-              ))}
-            </Menu>
           </div>
         )}
 
-        {/* FOR SEARCHBAR IN NOIFICATION */}
-        {location.pathname === '/notification' && (
-          <TextField
-            placeholder="Search notifications..."
-            value={searchQuery}
-            onChange={handleSearchChange}
+        {/* Right Section - Notification Bell & Burger Menu */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', flexShrink: 0 }}>
+          {/* Notification Bell */}
+          <IconButton 
+            onClick={handleNotificationClick}
             size="small"
-            sx={{
-              width: '300px',
-              height: '32px',
-              '& .MuiOutlinedInput-root': {
-                height: '32px',
-              },
-              '& .MuiInputBase-input::placeholder': {
-                opacity: 0.7,
-              },
-            }}
-            InputProps={{
-              startAdornment: (
-                <FiSearch
-                  size={16}
-                  style={{ marginRight: '8px', color: '#666' }}
-                />
-              ),
-            }}
-          />
-        )}
-        {/* Render different content based on current route */}
-        {renderNavbarContent()}
-
-        {/* Notification Bell Icon */}
-        <Badge badgeContent={unreadCount} color="error">
-          <IconButton
-            onClick={handleNotificationModalOpen}
-            size="medium"
-            sx={{
+            sx={{ 
               color: '#374151',
-              borderRadius: '6px',
-              '&:hover': { backgroundColor: '#f3f4f6' },
+              '&:hover': { backgroundColor: '#f3f4f6' }
             }}
           >
-            <NotificationsIcon />
+            <Badge 
+              badgeContent={unreadCount} 
+              color="error"
+              sx={{
+                '& .MuiBadge-badge': {
+                  fontSize: '10px',
+                  height: '18px',
+                  minWidth: '18px',
+                  padding: '0 5px',
+                  fontWeight: 600
+                }
+              }}
+            >
+              <FiBell size={20} />
+            </Badge>
           </IconButton>
-        </Badge>
+
+          {/* User Menu */}
+          {user ? (
+            <IconButton
+              onClick={handleUserMenuClick}
+              size="small"
+              sx={{
+                color: '#374151',
+                '&:hover': { backgroundColor: '#f3f4f6' }
+              }}
+            >
+              <Avatar
+                sx={{
+                  width: 32,
+                  height: 32,
+                  bgcolor: isAdmin ? '#3b82f6' : '#10b981',
+                  fontSize: '14px',
+                  fontWeight: 600
+                }}
+              >
+                {staffProfile?.name?.charAt(0).toUpperCase() || 'U'}
+              </Avatar>
+            </IconButton>
+          ) : (
+            <IconButton
+              onClick={handleLogin}
+              size="small"
+              sx={{
+                color: '#374151',
+                '&:hover': { backgroundColor: '#f3f4f6' }
+              }}
+            >
+              <FiLogIn size={20} />
+            </IconButton>
+          )}
+
+          {/* Burger Menu */}
+          <IconButton 
+            onClick={handleNavMenuClick}
+            size="small"
+            sx={{ 
+              color: '#374151',
+              '&:hover': { backgroundColor: '#f3f4f6' }
+            }}
+          >
+            <FiMenu size={22} />
+          </IconButton>
+        </div>
+
+        {/* Navigation Dropdown Menu */}
+        <Menu
+          anchorEl={navMenuAnchorEl}
+          open={navMenuOpen}
+          onClose={handleNavMenuClose}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+          slotProps={{
+            paper: {
+              sx: {
+                minWidth: '220px',
+                mt: 1,
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
+                borderRadius: '8px'
+              },
+            },
+          }}
+        >
+          {menuItems.map((item, _index) => (
+            <MenuItem
+              key={item.path}
+              onClick={() => handleNavigation(item.path)}
+              selected={location.pathname === item.path}
+              sx={{
+                fontSize: '14px',
+                padding: '10px 16px',
+                gap: '12px',
+                '&.Mui-selected': {
+                  backgroundColor: '#eff6ff',
+                  color: '#2563eb',
+                  fontWeight: 600,
+                  '&:hover': {
+                    backgroundColor: '#dbeafe',
+                  }
+                },
+                '&:hover': {
+                  backgroundColor: '#f3f4f6',
+                }
+              }}
+            >
+              <span style={{ fontSize: '18px' }}>{item.icon}</span>
+              {item.label}
+            </MenuItem>
+          ))}
+        </Menu>
+
+        {/* Staff Filter Menu */}
+        <Menu
+          anchorEl={staffAnchorEl}
+          open={staffOpen}
+          onClose={handleStaffClose}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'left',
+          }}
+          slotProps={{
+            paper: {
+              sx: {
+                minWidth: '100px',
+                width: 'auto',
+              },
+            },
+          }}
+        >
+          {staffList.map((staff) => (
+            <MenuItem
+              key={staff}
+              onClick={() => handleStaffSelect(staff)}
+              selected={staff === selectedStaff}
+              sx={{
+                fontSize: '12px',
+                padding: '6px 12px',
+                minHeight: 'auto',
+              }}
+            >
+              {staff}
+            </MenuItem>
+          ))}
+        </Menu>
+
+        {/* Date Range Menu */}
+        <Menu
+          anchorEl={dateAnchorEl}
+          open={dateOpen}
+          onClose={handleDateClose}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+          slotProps={{
+            paper: {
+              sx: {
+                minWidth: '140px',
+                width: 'auto',
+              },
+            },
+          }}
+        >
+          {dateRanges.map((range) => (
+            <MenuItem
+              key={range}
+              onClick={() => handleDateSelect(range)}
+              selected={range === selectedDateRange}
+              sx={{
+                fontSize: '12px',
+                padding: '6px 12px',
+                minHeight: 'auto',
+              }}
+            >
+              {range}
+            </MenuItem>
+          ))}
+        </Menu>
+
+        {/* User Menu */}
+        <Menu
+          anchorEl={userMenuAnchorEl}
+          open={Boolean(userMenuAnchorEl)}
+          onClose={handleUserMenuClose}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+          slotProps={{
+            paper: {
+              sx: {
+                minWidth: '220px',
+                mt: 1,
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
+                borderRadius: '8px'
+              },
+            },
+          }}
+        >
+          {user && staffProfile && (
+            <>
+              <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #e5e7eb' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1f2937' }}>
+                  {staffProfile.name}
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#6b7280' }}>
+                  {staffProfile.email}
+                </Typography>
+                <Box sx={{ mt: 0.5 }}>
+                  <Chip 
+                    label={isAdmin ? 'Admin' : 'Staff'} 
+                    size="small"
+                    sx={{ 
+                      height: '20px',
+                      fontSize: '11px',
+                      backgroundColor: isAdmin ? '#dbeafe' : '#dcfce7',
+                      color: isAdmin ? '#1e40af' : '#065f46',
+                      fontWeight: 600
+                    }}
+                  />
+                </Box>
+              </Box>
+              <Divider />
+              <MenuItem
+                onClick={handleChangePassword}
+                sx={{
+                  fontSize: '14px',
+                  padding: '10px 16px',
+                  gap: '12px',
+                  '&:hover': {
+                    backgroundColor: '#f3f4f6',
+                  }
+                }}
+              >
+                <FiKey size={18} />
+                Change Password
+              </MenuItem>
+              <Divider />
+              <MenuItem
+                onClick={handleSignOut}
+                sx={{
+                  fontSize: '14px',
+                  padding: '10px 16px',
+                  gap: '12px',
+                  color: '#dc2626',
+                  '&:hover': {
+                    backgroundColor: '#fef2f2',
+                  }
+                }}
+              >
+                <FiLogOut size={18} />
+                Sign Out
+              </MenuItem>
+            </>
+          )}
+        </Menu>
       </nav>
+
+      {/* Login Modal */}
+      <LoginModal open={showLoginModal} onClose={() => setShowLoginModal(false)} />
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal open={showChangePasswordModal} onClose={() => setShowChangePasswordModal(false)} />
 
       {/* Main Content */}
       <main
         style={{
-          gridColumn: '2',
-          gridRow: '2',
+          flex: 1,
           padding: '0',
           overflowY: 'auto',
           overflowX: 'hidden',
-          scrollbarGutter: 'stable',
-          backgroundColor: 'white',
+          width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
+          backgroundColor: '#f3f4f6',
+          position: 'relative',
         }}
       >
         <Outlet />
@@ -655,290 +753,201 @@ const Layout = () => {
       {/* Notification Modal */}
       <Dialog
         open={notificationModalOpen}
-        onClose={handleNotificationModalClose}
+        onClose={handleCloseNotificationModal}
         maxWidth="md"
         fullWidth
-        PaperProps={{
-          sx: {
-            maxHeight: '90vh',
-            display: 'flex',
-            flexDirection: 'column',
-            borderRadius: '12px',
-            overflow: 'hidden',
-          },
+        fullScreen={isMobile}
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: isMobile ? 0 : '12px',
+              maxHeight: isMobile ? '100vh' : '80vh'
+            }
+          }
         }}
       >
-        <DialogTitle sx={{ fontWeight: 'bold', fontSize: '18px', pb: 1, overflow: 'hidden' }}>
-          Notifications
-        </DialogTitle>
-        
-        {/* Action Bar */}
-        <Box sx={{ display: 'flex', gap: 1, px: 2, py: 2, borderBottom: '1px solid #eee', flexWrap: 'wrap', overflow: 'hidden', width: '100%', boxSizing: 'border-box' }}>
-          <Button variant="outlined" size="small" sx={{ textTransform: 'none', flexShrink: 0 }}>
-            ☑ Unread
-          </Button>
-          <Button variant="contained" size="small" sx={{ backgroundColor: '#c4e157', color: '#000', textTransform: 'none', flexShrink: 0, '&:hover': { backgroundColor: '#9ccc65' } }}>
-            ✓ Mark All as Read
-          </Button>
-          <Button variant="outlined" size="small" sx={{ textTransform: 'none', flexShrink: 0 }}>
-            📎 Archive
-          </Button>
-          <Button variant="outlined" size="small" sx={{ textTransform: 'none', flexShrink: 0, color: '#d32f2f', borderColor: '#d32f2f' }}>
-            🗑 Delete
-          </Button>
-          <Box sx={{ flex: 1, minWidth: 0 }} />
-          <Button variant="contained" size="small" sx={{ backgroundColor: '#c4e157', color: '#000', textTransform: 'none', flexShrink: 0, '&:hover': { backgroundColor: '#9ccc65' } }}>
-            ✏️ Compose
-          </Button>
-        </Box>
-
-        <DialogContent sx={{ p: 2, flex: 1, overflowY: 'auto', overflowX: 'hidden', width: '100%', boxSizing: 'border-box', backgroundColor: '#e8eef7' }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', boxSizing: 'border-box' }}>
-            {getFilteredNotifications().map((notification) => (
-              <Box
-                key={notification.id}
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1,
-                  p: 2,
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '8px',
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  minWidth: 0,
-                  backgroundColor: '#fff',
-                }}
-              >
-                {/* First Row: Checkbox, Badge, Title, Date */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
-                  <input
-                    type="checkbox"
-                    checked={notification.checked}
-                    onChange={() => handleCheckChange(notification.id)}
-                    style={{ cursor: 'pointer', flexShrink: 0 }}
-                  />
-                  <Box
-                    sx={{
-                      display: 'inline-flex',
-                      px: 0.7,
-                      py: 0.25,
-                      borderRadius: '3px',
-                      fontSize: '10px',
-                      fontWeight: 'bold',
-                      color: '#fff',
-                      backgroundColor:
-                        notification.type === 'Appointment'
-                          ? '#4caf50'
-                          : notification.type === 'Schedule'
-                          ? '#2196f3'
-                          : notification.type === 'ALERT'
-                          ? '#f44336'
-                          : notification.type === 'System'
-                          ? '#ff9800'
-                          : '#757575',
-                      flexShrink: 0,
-                      whiteSpace: 'nowrap',
-                      width: 'fit-content',
-                    }}
-                  >
-                    {notification.type}
-                  </Box>
-                  <Typography variant="body2" sx={{ fontWeight: 'bold', flex: 1, minWidth: 0 }}>
-                    {notification.from === 'ACOWIS SYSTEM' ? 'New Patient Appointment Assigned' : 'Shift Update'}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: '#666', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                    {notification.date}
-                  </Typography>
-                </Box>
-
-                {/* Second Row: Description */}
-                <Typography variant="body2" sx={{ color: '#555', lineHeight: 1.5 }}>
-                  {notification.message}
-                </Typography>
-
-                {/* Third Row: ACOWIS Badge and Action Icons */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box
-                    sx={{
-                      display: 'inline-flex',
-                      px: 0.8,
-                      py: 0.2,
-                      borderRadius: '2px',
-                      fontSize: '10px',
-                      fontWeight: 'bold',
-                      color: '#fff',
-                      backgroundColor: '#f44336',
-                      flexShrink: 0,
-                      width: 'fit-content',
-                    }}
-                  >
-                    ACOWIS
-                  </Box>
-                  
-                  {/* Action Icons */}
-                  <Box sx={{ display: 'flex', gap: 0, ml: 'auto', flexShrink: 0 }}>
-                    <IconButton
-                      size="small"
-                      sx={{ color: '#666', p: 0.5 }}
-                      title="Print"
-                    >
-                      🖨️
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      sx={{ color: '#666', p: 0.5 }}
-                      title="View Details"
-                      onClick={() => handleViewDetails(notification)}
-                    >
-                      ✎
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      sx={{ color: '#d32f2f', p: 0.5 }}
-                      title="Delete"
-                    >
-                      🗑
-                    </IconButton>
-                  </Box>
-                </Box>
-              </Box>
-            ))}
+        <DialogTitle sx={{ 
+          borderBottom: '1px solid #e5e7eb', 
+          pb: 2,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a202c' }}>
+              Notifications
+            </Typography>
+            {unreadCount > 0 && (
+              <Chip 
+                label={`${unreadCount} unread`} 
+                size="small" 
+                sx={{ 
+                  backgroundColor: '#ef4444', 
+                  color: 'white',
+                  fontWeight: 600 
+                }} 
+              />
+            )}
           </Box>
-        </DialogContent>
-
-        
-      </Dialog>
-
-      {/* Notification Details Modal */}
-      <Dialog
-        open={detailsModalOpen}
-        onClose={handleDetailsModalClose}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: '12px',
-            overflow: 'hidden',
-          },
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 'bold', fontSize: '18px' }}>
-          Notification Details
+          <IconButton onClick={handleCloseNotificationModal} size="small">
+            <FiX />
+          </IconButton>
         </DialogTitle>
-        {selectedNotificationForDetails && (
-          <DialogContent sx={{ pt: 2, boxSizing: 'border-box', overflow: 'hidden', width: '100%' }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', maxWidth: '100%' }}>
-              {/* Notification Type Badge */}
-              <Box sx={{ display: 'flex', flexDirection: 'row', gap: 0.5 }}>
-                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                  Type:
-                </Typography>
-                <Box
-                  sx={{
-                    display: 'inline-block',
-                    width: 'fit-content',
-                    px: 2,
-                    py: 0.5,
-                    borderRadius: '20px',
-                    backgroundColor:
-                      selectedNotificationForDetails.type === 'ALERT'
-                        ? '#ffebee'
-                        : '#e3f2fd',
-                    color:
-                      selectedNotificationForDetails.type === 'ALERT'
-                        ? '#d32f2f'
-                        : '#1976d2',
-                    fontWeight: 'bold',
-                    fontSize: '12px',
-                  }}
-                >
-                  {selectedNotificationForDetails.type}
-                </Box>
-              </Box>
-
-              {/* From */}
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                  From:
-                </Typography>
-                <Typography variant="body2">{selectedNotificationForDetails.from}</Typography>
-              </Box>
-
-              {/* Date */}
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                  Date:
-                </Typography>
-                <Typography variant="body2">{selectedNotificationForDetails.date}</Typography>
-              </Box>
-
-              {/* Full Message */}
-              <Box sx={{ mt: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  Message:
-                </Typography>
-                <Box
-                  sx={{
-                    backgroundColor: '#f5f5f5',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: '1px solid #e0e0e0',
-                    wordBreak: 'break-word',
-                    overflowWrap: 'break-word',
-                    whiteSpace: 'pre-wrap',
-                    maxWidth: '100%',
-                    overflow: 'hidden',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  <Typography variant="body2" sx={{ lineHeight: 1.6, wordBreak: 'break-word', width: '100%' }}>
-                    {selectedNotificationForDetails.message}
-                  </Typography>
-                </Box>
-              </Box>
-
-              {/* Status */}
-              <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                  Status:
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: selectedNotificationForDetails.checked ? '#4caf50' : '#ff9800',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  {selectedNotificationForDetails.checked ? 'Read' : 'Unread'}
-                </Typography>
-              </Box>
-
-              {/* Action Buttons */}
-              <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+        
+        <DialogContent sx={{ p: 0 }}>
+          <Box sx={{ p: 3 }}>
+            {/* Action Buttons */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+              <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button
-                  variant="contained"
-                  color={selectedNotificationForDetails.checked ? 'inherit' : 'primary'}
-                  onClick={() => {
-                    handleCheckChange(selectedNotificationForDetails.id);
-                  }}
-                  sx={{ flex: 1 }}
+                  variant={filter === 'all' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setFilter('all')}
+                  sx={{ textTransform: 'none' }}
                 >
-                  {selectedNotificationForDetails.checked ? 'Mark as Unread' : 'Mark as Read'}
+                  All ({notifications.length})
                 </Button>
+                <Button
+                  variant={filter === 'unread' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setFilter('unread')}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Unread ({unreadCount})
+                </Button>
+              </Box>
+              {unreadCount > 0 && (
                 <Button
                   variant="outlined"
-                  onClick={handleDetailsModalClose}
-                  sx={{ flex: 1 }}
+                  size="small"
+                  startIcon={<FiCheck />}
+                  onClick={handleMarkAllAsRead}
+                  sx={{ textTransform: 'none' }}
                 >
-                  Close
+                  Mark All as Read
                 </Button>
-              </Box>
+              )}
             </Box>
-          </DialogContent>
-        )}
+
+            {/* Notifications List */}
+            {notificationsLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 'calc(80vh - 180px)', overflowY: 'auto' }}>
+                {filteredNotifications.length === 0 ? (
+                  <Card sx={{ textAlign: 'center', py: 6 }}>
+                    <FiBell size={48} color="#9ca3af" />
+                    <Typography variant="h6" sx={{ mt: 2, color: '#6b7280' }}>
+                      No notifications
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#9ca3af' }}>
+                      You're all caught up!
+                    </Typography>
+                  </Card>
+                ) : (
+                  filteredNotifications.map((notification) => {
+                    const colors = getColor(notification.type);
+                    return (
+                      <Card
+                        key={notification.id}
+                        sx={{
+                          borderLeft: `4px solid ${colors.border}`,
+                          backgroundColor: notification.is_read ? '#ffffff' : '#fafafa',
+                          transition: 'all 0.2s',
+                          '&:hover': {
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                          }
+                        }}
+                      >
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                            {/* Icon */}
+                            <Box
+                              sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: '50%',
+                                backgroundColor: colors.bg,
+                                color: colors.text,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                              }}
+                            >
+                              {getIcon(notification.type)}
+                            </Box>
+
+                            {/* Content */}
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5, gap: 1 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1a202c' }}>
+                                  {notification.title}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: '#9ca3af', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                                  {new Date(notification.created_at).toLocaleDateString()}
+                                </Typography>
+                              </Box>
+                              <Typography variant="body2" sx={{ color: '#4b5563', mb: 1, fontSize: '13px' }}>
+                                {notification.message}
+                              </Typography>
+                              
+                              {/* Actions */}
+                              <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+                                {!notification.is_read && (
+                                  <Button
+                                    size="small"
+                                    startIcon={<FiCheck size={14} />}
+                                    onClick={() => handleMarkAsRead(notification.id)}
+                                    sx={{ 
+                                      textTransform: 'none', 
+                                      fontSize: '12px',
+                                      color: colors.text
+                                    }}
+                                  >
+                                    Mark as read
+                                  </Button>
+                                )}
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleDelete(notification.id)}
+                                  sx={{ 
+                                    color: '#ef4444',
+                                    '&:hover': { backgroundColor: '#fee2e2' }
+                                  }}
+                                >
+                                  <FiTrash2 size={14} />
+                                </IconButton>
+                              </Box>
+                            </Box>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                )}
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
       </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={4000} 
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 };
