@@ -1,292 +1,916 @@
-import { useEffect, useState } from 'react';
+import '../styles/Pages.css';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import {
-  fetchDoctors,
-  addDoctor,
-  type Doctor,
-  type NewDoctor,
-} from '../../backend/services/staffService';
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Button,
+  TextField,
+  InputAdornment,
+  Select,
+  MenuItem,
+  FormControl,
+  Box,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Snackbar,
+  Alert,
+  CircularProgress,
+} from '@mui/material';
+import { FiSearch, FiPlus, FiEdit, FiX, FiTrash2 } from 'react-icons/fi';
+import type { Staff, StaffFormData } from '../../types';
+import {
+  getAllStaff,
+  createStaff,
+  updateStaff,
+  deleteStaff,
+} from '../../backend/services';
 
-type Status = 'on duty' | 'off duty' | 'on break';
+function StaffInformation() {
+  const { staffProfile, isAdmin } = useAuth();
+  const [staffData, setStaffData] = useState<Staff[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [specializationFilter, setSpecializationFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [openModal, setOpenModal] = useState(false);
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error',
+  });
+  const [formData, setFormData] = useState<StaffFormData>({
+    name: '',
+    role: '',
+    specialization: '',
+    status: 'Active',
+    email: '',
+    phone: '',
+  });
 
-const departmentColors: Record<string, string> = {
-  Cardiology: '#E53E3E',
-  Neurology: '#805AD5',
-  Pediatrics: '#38A169',
-  Orthopedics: '#DD6B20',
-  Dermatology: '#D69E2E',
-  Radiology: '#3182CE',
-  Surgery: '#E53E3E',
-  General: '#4A90D9',
-};
+  // Fetch staff data on mount
+  useEffect(() => {
+    fetchStaff();
+  }, []);
 
-const DEPARTMENTS = [
-  'Cardiology',
-  'Neurology',
-  'Pediatrics',
-  'Orthopedics',
-  'Dermatology',
-  'Radiology',
-  'Surgery',
-  'General',
-];
+  // Fetch all staff
+  const fetchStaff = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await getAllStaff();
+      if (error) {
+        showSnackbar(error, 'error');
+      } else {
+        setStaffData(data || []);
+      }
+    } catch (err) {
+      showSnackbar('Failed to load staff data', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-function getAvatarColor(dept: string): string {
-  return departmentColors[dept] ?? '#4A90D9';
-}
+  // Show snackbar notification
+  const showSnackbar = (message: string, severity: 'success' | 'error') => {
+    setSnackbar({ open: true, message, severity });
+  };
 
-function getInitials(name: string): string {
-  return name
-    .replace(/^Dr\.\s*/i, '')
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-}
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Active':
+        return '#10b981';
+      case 'Inactive':
+        return '#6b7280';
+      default:
+        return '#6b7280';
+    }
+  };
 
-function getStatus(slots: number): Status {
-  if (slots === 0) return 'off duty';
-  if (slots <= 2) return 'on break';
-  return 'on duty';
-}
-
-const statusConfig: Record<
-  Status,
-  { label: string; bg: string; color: string }
-> = {
-  'on duty': { label: '+On Duty', bg: '#E8F5E9', color: '#2E7D32' },
-  'off duty': { label: '+Off Duty', bg: '#FFEBEE', color: '#C62828' },
-  'on break': { label: '+On Break', bg: '#E3F2FD', color: '#1565C0' },
-};
-
-// ─── Add Staff Modal ──────────────────────────────────────────────────────────
-
-const EMPTY_FORM: NewDoctor = {
-  doctor_name: '',
-  department: '',
-  workingHours: '',
-  availableSlots: 0,
-  contact_number: '',
-  email_address: '',
-};
-
-function AddStaffModal({
-  onClose,
-  onSuccess,
-}: {
-  onClose: () => void;
-  onSuccess: (doctor: Doctor) => void;
-}) {
-  const [form, setForm] = useState<NewDoctor>(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function handleChange(field: keyof NewDoctor, value: string | number) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
-
-  async function handleSubmit() {
+  const filteredStaff = staffData.filter((staff) => {
+    // If current user is admin, hide other admin accounts
     if (
-      !form.doctor_name.trim() ||
-      !form.department ||
-      !form.email_address.trim()
+      isAdmin &&
+      staffProfile &&
+      staff.user_role === 'admin' &&
+      staff.id !== staffProfile.id
     ) {
-      setError('Doctor name, department, and email are required.');
+      return false;
+    }
+    const matchesSearch =
+      staff.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      staff.role.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSpecialization =
+      specializationFilter === 'all' ||
+      staff.specialization === specializationFilter;
+    const matchesStatus =
+      statusFilter === 'all' || staff.status === statusFilter;
+    return matchesSearch && matchesSpecialization && matchesStatus;
+  });
+
+  const handleOpenModal = (mode: 'add' | 'edit') => {
+    setModalMode(mode);
+    if (mode === 'add') {
+      setFormData({
+        name: '',
+        role: '',
+        specialization: '',
+        status: 'Active',
+        email: '',
+        phone: '',
+      });
+      setSelectedStaffId('');
+    } else {
+      setSelectedStaffId('');
+      setFormData({
+        name: '',
+        role: '',
+        specialization: '',
+        status: 'Active',
+        email: '',
+        phone: '',
+      });
+    }
+    setOpenModal(true);
+  };
+
+  const handleStaffSelection = (staffId: string) => {
+    const staff = staffData.find((s) => s.id === staffId);
+    if (staff) {
+      setSelectedStaffId(staffId);
+      setFormData({
+        name: staff.name,
+        role: staff.role,
+        specialization: staff.specialization || '',
+        status: (staff.status as 'Active' | 'Inactive') || 'Active',
+        email: staff.email || '',
+        phone: staff.phone || '',
+      });
+    }
+  };
+
+  const handleCloseModal = () => {
+    setOpenModal(false);
+    setSelectedStaffId('');
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.name || !formData.role || !formData.specialization) {
+      showSnackbar('Please fill in all required fields', 'error');
       return;
     }
-    setSaving(true);
-    setError(null);
-    const { data, error } = await addDoctor(form);
-    setSaving(false);
-    if (error) {
-      setError(error);
-    } else if (data) {
-      onSuccess(data);
-      onClose();
+
+    if (!formData.email || !formData.email.includes('@')) {
+      showSnackbar('Please enter a valid email address', 'error');
+      return;
     }
-  }
+
+    if (modalMode === 'add') {
+      const { data, error } = await createStaff(formData);
+      if (error) {
+        showSnackbar(error, 'error');
+      } else {
+        showSnackbar('Staff member added successfully', 'success');
+        fetchStaff();
+        handleCloseModal();
+      }
+    } else {
+      const { data, error } = await updateStaff(selectedStaffId, formData);
+      if (error) {
+        showSnackbar(error, 'error');
+      } else {
+        showSnackbar('Staff member updated successfully', 'success');
+        fetchStaff();
+        handleCloseModal();
+      }
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete ${name}?`)) {
+      // Optimistic update - remove from UI immediately
+      setStaffData((prevStaff) => prevStaff.filter((staff) => staff.id !== id));
+
+      const { error } = await deleteStaff(id);
+      if (error) {
+        showSnackbar(error, 'error');
+        // Revert optimistic update on error
+        fetchStaff();
+      } else {
+        showSnackbar('Staff member deleted successfully', 'success');
+      }
+    }
+  };
 
   return (
-    /* Backdrop */
     <div
-      onClick={onClose}
       style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.35)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
+        padding: '24px',
+        width: '100%',
+        maxWidth: '1400px',
+        margin: '0 auto',
+        boxSizing: 'border-box',
       }}
     >
-      {/* Modal box */}
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: '#fff',
-          borderRadius: 14,
-          padding: '28px 28px 24px',
-          width: 420,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-          fontFamily: "'Segoe UI', sans-serif",
-        }}
-      >
-        <h2
-          style={{
-            margin: '0 0 20px',
-            fontSize: 18,
-            fontWeight: 700,
-            color: '#1a1a2e',
+      {loading ? (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '400px',
           }}
         >
-          Add Staff Profile
-        </h2>
-
-        {error && (
-          <div
-            style={{
-              background: '#FFEBEE',
-              color: '#C62828',
-              borderRadius: 8,
-              padding: '8px 12px',
-              fontSize: 12,
-              marginBottom: 14,
+          <CircularProgress />
+        </Box>
+      ) : (
+        <>
+          <Box
+            sx={{
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              padding: { xs: '16px', sm: '20px', md: '24px' },
+              marginBottom: '20px',
             }}
           >
-            {error}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Doctor Name */}
-          <div>
-            <label style={labelStyle}>Doctor Name</label>
-            <input
-              type="text"
-              placeholder="e.g. Dr. Maria Santos"
-              value={form.doctor_name}
-              onChange={(e) => handleChange('doctor_name', e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Department */}
-          <div>
-            <label style={labelStyle}>Department</label>
-            <select
-              value={form.department}
-              onChange={(e) => handleChange('department', e.target.value)}
+            <h2
               style={{
-                ...inputStyle,
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                cursor: 'pointer',
+                margin: '0 0 20px 0',
+                fontSize: 'clamp(18px, 4vw, 24px)',
+                fontWeight: '600',
+                color: '#1f2937',
               }}
             >
-              <option value="">Select department</option>
-              {DEPARTMENTS.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </div>
+              Staff Profile
+            </h2>
 
-          {/* Working Hours */}
-          <div>
-            <label style={labelStyle}>Working Hours</label>
-            <input
-              type="text"
-              placeholder="e.g. 08:00 AM - 05:00 PM"
-              value={form.workingHours}
-              onChange={(e) => handleChange('workingHours', e.target.value)}
-              style={inputStyle}
-            />
-          </div>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+              }}
+            >
+              <TextField
+                placeholder="Search staff..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                size="small"
+                sx={{
+                  flex: '1 1 180px',
+                  minWidth: '150px',
+                  maxWidth: '280px',
+                  backgroundColor: 'white',
+                  borderRadius: '6px',
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '6px',
+                  },
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <FiSearch
+                        style={{ color: '#6b7280', fontSize: '16px' }}
+                      />
+                    </InputAdornment>
+                  ),
+                }}
+              />
 
-          {/* Available Slots */}
-          <div>
-            <label style={labelStyle}>Available Slots</label>
-            <input
-              type="number"
-              min={0}
-              placeholder="e.g. 8"
-              value={form.availableSlots}
-              onChange={(e) =>
-                handleChange('availableSlots', Number(e.target.value))
-              }
-              style={inputStyle}
-            />
-          </div>
+              <FormControl
+                size="small"
+                sx={{
+                  minWidth: 120,
+                  maxWidth: 160,
+                  flex: '0 1 auto',
+                  backgroundColor: 'white',
+                  borderRadius: '6px',
+                }}
+              >
+                <Select
+                  value={specializationFilter}
+                  onChange={(e) => setSpecializationFilter(e.target.value)}
+                  displayEmpty
+                  sx={{ borderRadius: '6px', fontSize: '14px' }}
+                >
+                  <MenuItem value="all">All Specializations</MenuItem>
+                  <MenuItem value="Pharmacy">Pharmacy</MenuItem>
+                  <MenuItem value="Emergency">Emergency</MenuItem>
+                  <MenuItem value="Surgery">Surgery</MenuItem>
+                </Select>
+              </FormControl>
 
-          {/* Contact Number */}
-          <div>
-            <label style={labelStyle}>Contact Number</label>
-            <input
-              type="text"
-              placeholder="e.g. 09171234567"
-              value={form.contact_number}
-              onChange={(e) => handleChange('contact_number', e.target.value)}
-              style={inputStyle}
-            />
-          </div>
+              <FormControl
+                size="small"
+                sx={{
+                  minWidth: 100,
+                  maxWidth: 140,
+                  flex: '0 1 auto',
+                  backgroundColor: 'white',
+                  borderRadius: '6px',
+                  marginRight: '12px',
+                }}
+              >
+                <Select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  displayEmpty
+                  sx={{ borderRadius: '6px', fontSize: '14px' }}
+                >
+                  <MenuItem value="all">All Status</MenuItem>
+                  <MenuItem value="Active">Active</MenuItem>
+                  <MenuItem value="Inactive">Inactive</MenuItem>
+                </Select>
+              </FormControl>
 
-          {/* Email Address */}
-          <div>
-            <label style={labelStyle}>Email Address</label>
-            <input
-              type="email"
-              placeholder="e.g. doctor@clinika.com"
-              value={form.email_address}
-              onChange={(e) => handleChange('email_address', e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-        </div>
+              <Box
+                sx={{
+                  marginLeft: 'auto',
+                  display: 'flex',
+                  gap: '8px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <Button
+                  variant="contained"
+                  startIcon={<FiPlus size={16} />}
+                  onClick={() => handleOpenModal('add')}
+                  sx={{
+                    backgroundColor: '#3b82f6',
+                    borderRadius: '6px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    padding: '6px 16px',
+                    fontSize: '13px',
+                    '&:hover': {
+                      backgroundColor: '#2563eb',
+                    },
+                  }}
+                >
+                  Add
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<FiEdit size={16} />}
+                  onClick={() => handleOpenModal('edit')}
+                  sx={{
+                    borderColor: '#d1d5db',
+                    color: '#4b5563',
+                    borderRadius: '6px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    padding: '6px 16px',
+                    fontSize: '13px',
+                    '&:hover': {
+                      borderColor: '#9ca3af',
+                      backgroundColor: '#f9fafb',
+                    },
+                  }}
+                >
+                  Edit
+                </Button>
+              </Box>
+            </Box>
+          </Box>
 
-        {/* Actions */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: 10,
-            marginTop: 22,
-          }}
-        >
-          <button
-            onClick={onClose}
-            style={{
-              background: '#f0f0f5',
-              color: '#555',
-              border: 'none',
-              borderRadius: 8,
-              padding: '8px 20px',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: 13,
+          <TableContainer
+            component={Paper}
+            sx={{
+              borderRadius: '8px',
+              boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+              border: '1px solid #e5e7eb',
+              width: '100%',
+              overflowX: 'auto',
             }}
           >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            style={{
-              background: saving ? '#93b4f5' : '#2563EB',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              padding: '8px 20px',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              fontWeight: 600,
-              fontSize: 13,
+            <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: '#f9fafb' }}>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      color: '#374151',
+                      fontSize: '12px',
+                      width: '8%',
+                      padding: '10px 8px',
+                    }}
+                  >
+                    ID
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      color: '#374151',
+                      fontSize: '12px',
+                      width: '20%',
+                      padding: '10px 8px',
+                    }}
+                  >
+                    Name
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      color: '#374151',
+                      fontSize: '12px',
+                      width: '15%',
+                      padding: '10px 8px',
+                    }}
+                  >
+                    Role
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      color: '#374151',
+                      fontSize: '12px',
+                      width: '15%',
+                      padding: '10px 8px',
+                    }}
+                  >
+                    Specialization
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      color: '#374151',
+                      fontSize: '12px',
+                      width: '20%',
+                      padding: '10px 8px',
+                    }}
+                  >
+                    Email
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      color: '#374151',
+                      fontSize: '12px',
+                      width: '12%',
+                      padding: '10px 8px',
+                    }}
+                  >
+                    Status
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      color: '#374151',
+                      fontSize: '12px',
+                      width: '10%',
+                      padding: '10px 8px',
+                      textAlign: 'center',
+                    }}
+                  >
+                    Actions
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredStaff.map((staff) => (
+                  <TableRow
+                    key={staff.id}
+                    sx={{
+                      '&:hover': { backgroundColor: '#f9fafb' },
+                      borderBottom: '1px solid #f3f4f6',
+                    }}
+                  >
+                    <TableCell
+                      sx={{
+                        color: '#6b7280',
+                        fontSize: '11px',
+                        padding: '10px 8px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {staff.id.substring(0, 8)}...
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: '#1f2937',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        padding: '10px 8px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {staff.name}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: '#6b7280',
+                        fontSize: '12px',
+                        padding: '10px 8px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {staff.role}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: '#6b7280',
+                        fontSize: '12px',
+                        padding: '10px 8px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {staff.specialization || 'N/A'}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: '#6b7280',
+                        fontSize: '11px',
+                        padding: '10px 8px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {staff.email || 'N/A'}
+                    </TableCell>
+                    <TableCell sx={{ padding: '10px 8px' }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            backgroundColor: getStatusColor(staff.status),
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span
+                          style={{
+                            color: '#6b7280',
+                            fontSize: '11px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {staff.status}
+                        </span>
+                      </Box>
+                    </TableCell>
+                    <TableCell
+                      sx={{ padding: '10px 8px', textAlign: 'center' }}
+                    >
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDelete(staff.id, staff.name)}
+                        sx={{
+                          color: '#ef4444',
+                          '&:hover': { backgroundColor: '#fee2e2' },
+                        }}
+                      >
+                        <FiTrash2 size={14} />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredStaff.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      align="center"
+                      sx={{ py: 4, color: '#9ca3af' }}
+                    >
+                      No staff members found
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {/* Add/Edit Modal */}
+          <Dialog
+            open={openModal}
+            onClose={handleCloseModal}
+            maxWidth="sm"
+            fullWidth
+            PaperProps={{
+              sx: {
+                borderRadius: '12px',
+                margin: '16px',
+                width: 'calc(100% - 32px)',
+                maxWidth: '500px',
+              },
             }}
           >
-            {saving ? 'Saving...' : 'Add Staff'}
-          </button>
-        </div>
-      </div>
+            <DialogTitle
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                pb: 2,
+                fontSize: '18px',
+                fontWeight: 600,
+                color: '#1f2937',
+              }}
+            >
+              {modalMode === 'add' ? 'Add New Staff' : 'Edit Staff'}
+              <IconButton onClick={handleCloseModal} size="small">
+                <FiX />
+              </IconButton>
+            </DialogTitle>
+            <DialogContent dividers sx={{ py: 3 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                {/* Staff Selection Dropdown - Only in Edit Mode */}
+                {modalMode === 'edit' && (
+                  <Box>
+                    <label
+                      style={{
+                        display: 'block',
+                        marginBottom: '6px',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        color: '#374151',
+                      }}
+                    >
+                      Select Staff to Edit
+                    </label>
+                    <FormControl fullWidth size="small">
+                      <Select
+                        value={selectedStaffId}
+                        onChange={(e) => handleStaffSelection(e.target.value)}
+                        displayEmpty
+                        sx={{ borderRadius: '6px' }}
+                      >
+                        <MenuItem value="" disabled>
+                          <em>Choose a staff member</em>
+                        </MenuItem>
+                        {staffData.map((staff) => (
+                          <MenuItem key={staff.id} value={staff.id}>
+                            {staff.name} - {staff.role}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                )}
+
+                <Box>
+                  <label
+                    style={{
+                      display: 'block',
+                      marginBottom: '6px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: '#374151',
+                    }}
+                  >
+                    Full Name
+                  </label>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Enter full name"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    disabled={modalMode === 'edit' && !selectedStaffId}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '6px',
+                      },
+                    }}
+                  />
+                </Box>
+
+                <Box>
+                  <label
+                    style={{
+                      display: 'block',
+                      marginBottom: '6px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: '#374151',
+                    }}
+                  >
+                    Role
+                  </label>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={formData.role}
+                      onChange={(e) =>
+                        setFormData({ ...formData, role: e.target.value })
+                      }
+                      displayEmpty
+                      disabled={modalMode === 'edit' && !selectedStaffId}
+                      sx={{ borderRadius: '6px' }}
+                    >
+                      <MenuItem value="">Select role</MenuItem>
+                      <MenuItem value="Doctor">Doctor</MenuItem>
+                      <MenuItem value="Nurse">Nurse</MenuItem>
+                      <MenuItem value="Receptionist">Receptionist</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+
+                <Box>
+                  <label
+                    style={{
+                      display: 'block',
+                      marginBottom: '6px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: '#374151',
+                    }}
+                  >
+                    Specialization
+                  </label>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={formData.specialization}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          specialization: e.target.value,
+                        })
+                      }
+                      displayEmpty
+                      disabled={modalMode === 'edit' && !selectedStaffId}
+                      sx={{ borderRadius: '6px' }}
+                    >
+                      <MenuItem value="">Select specialization</MenuItem>
+                      <MenuItem value="Pharmacy">Pharmacy</MenuItem>
+                      <MenuItem value="Emergency">Emergency</MenuItem>
+                      <MenuItem value="Surgery">Surgery</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+
+                <Box>
+                  <label
+                    style={{
+                      display: 'block',
+                      marginBottom: '6px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: '#374151',
+                    }}
+                  >
+                    Status
+                  </label>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={formData.status}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          status: e.target.value as 'Active' | 'Inactive',
+                        })
+                      }
+                      disabled={modalMode === 'edit' && !selectedStaffId}
+                      sx={{ borderRadius: '6px' }}
+                    >
+                      <MenuItem value="Active">Active</MenuItem>
+                      <MenuItem value="Inactive">Inactive</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+
+                <Box>
+                  <label
+                    style={{
+                      display: 'block',
+                      marginBottom: '6px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: '#374151',
+                    }}
+                  >
+                    Email
+                  </label>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="email"
+                    placeholder="staff@clinika.com"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    disabled={modalMode === 'edit' && !selectedStaffId}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '6px',
+                      },
+                    }}
+                  />
+                </Box>
+
+                <Box>
+                  <label
+                    style={{
+                      display: 'block',
+                      marginBottom: '6px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: '#374151',
+                    }}
+                  >
+                    Phone (Optional)
+                  </label>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="tel"
+                    placeholder="555-0000"
+                    value={formData.phone}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
+                    disabled={modalMode === 'edit' && !selectedStaffId}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '6px',
+                      },
+                    }}
+                  />
+                </Box>
+              </Box>
+            </DialogContent>
+            <DialogActions sx={{ p: 2.5, gap: 1 }}>
+              <Button
+                onClick={handleCloseModal}
+                sx={{
+                  textTransform: 'none',
+                  color: '#6b7280',
+                  fontWeight: 500,
+                  fontSize: '14px',
+                  '&:hover': {
+                    backgroundColor: '#f3f4f6',
+                  },
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                variant="contained"
+                disabled={modalMode === 'edit' && !selectedStaffId}
+                sx={{
+                  backgroundColor: '#3b82f6',
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  fontSize: '14px',
+                  px: 3,
+                  '&:hover': {
+                    backgroundColor: '#2563eb',
+                  },
+                  '&:disabled': {
+                    backgroundColor: '#e5e7eb',
+                    color: '#9ca3af',
+                  },
+                }}
+              >
+                {modalMode === 'add' ? 'Add Staff' : 'Save Changes'}
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Snackbar for notifications */}
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={4000}
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          >
+            <Alert
+              onClose={() => setSnackbar({ ...snackbar, open: false })}
+              severity={snackbar.severity}
+              sx={{ width: '100%' }}
+            >
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+        </>
+      )}
     </div>
   );
 }

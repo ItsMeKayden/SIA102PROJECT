@@ -1,9 +1,9 @@
-import '../styles/Pages.css';
+﻿import '../styles/Pages.css';
 import { useState, useEffect } from 'react';
 import {
-  Modal,
-  TextField,
   Box,
+  Card,
+  CardContent,
   Typography,
   Table,
   TableBody,
@@ -13,1597 +13,1059 @@ import {
   TableRow,
   Paper,
   Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  Select,
+  MenuItem,
+  IconButton,
   Chip,
   CircularProgress,
+  Snackbar,
+  Alert,
+  Divider,
 } from '@mui/material';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import AddIcon from '@mui/icons-material/Add';
-import WatchLaterOutlinedIcon from '@mui/icons-material/WatchLaterOutlined';
-import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
-import SearchIcon from '@mui/icons-material/Search';
-import PersonIcon from '@mui/icons-material/Person';
-import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import {
-  LocalizationProvider,
-  DateCalendar,
-  TimePicker,
-} from '@mui/x-date-pickers';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import dayjs, { Dayjs } from 'dayjs';
+  FiPlus,
+  FiX,
+  FiCheckCircle,
+  FiXCircle,
+  FiClock,
+  FiAlertCircle,
+  FiCalendar,
+  FiPlay,
+} from 'react-icons/fi';
+import type { Appointment, Staff } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
 import {
-  fetchAppointments,
-  insertAppointment,
+  getAllAppointments,
+  createAppointment,
+  completeAppointment,
+  cancelAppointment,
+  approveAppointment,
+  rejectAppointment,
+  acceptAssignedAppointment,
+  rejectAssignedAppointment,
+  startAppointment,
+  noShowAppointment,
+  rescheduleAppointment,
+  getAppointmentStats,
 } from '../../backend/services/appointmentService';
-import type { AppointmentRow } from '../../backend/services/appointmentService';
-import { fetchDoctors } from '../../backend/services/doctorService';
-import type { Doctor } from '../../backend/services/doctorService';
+import {
+  getAllStaff,
+  updateDutyStatus,
+} from '../../backend/services/staffService';
+import { createNotification } from '../../backend/services/notificationService';
 
-interface Service {
-  id: number;
-  name: string;
-  description: string;
-  duration: string;
-  price: string;
-}
+function Appointments() {
+  const { isAdmin, staffProfile } = useAuth();
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [doctors, setDoctors] = useState<Staff[]>([]);
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    scheduled: 0,
+    completed: 0,
+    cancelled: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [openModal, setOpenModal] = useState(false);
+  const [rescheduleModal, setRescheduleModal] = useState({
+    open: false,
+    id: '',
+    date: '',
+    time: '',
+  });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error',
+  });
+  const [formData, setFormData] = useState({
+    patient_name: '',
+    patient_contact: '',
+    doctor_id: '',
+    appointment_date: '',
+    appointment_time: '',
+    notes: '',
+  });
 
-// Date Formatter
-const formatDateTime = (raw: string) => {
-  if (!raw) return '—';
-  const d = dayjs(raw);
-  return d.isValid() ? d.format('MMM D, YYYY, hh:mm A') : raw;
-};
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-const initialMorningSlots = [
-  '08:00 AM',
-  '08:30 AM',
-  '09:00 AM',
-  '09:30 AM',
-  '10:00 AM',
-  '10:30 AM',
-  '11:00 AM',
-  '11:30 AM',
-];
-const initialNoonSlots = [
-  '01:00 PM',
-  '01:30 PM',
-  '02:00 PM',
-  '02:30 PM',
-  '03:00 PM',
-  '03:30 PM',
-  '04:00 PM',
-  '04:30 PM',
-];
-
-const servicesData: Service[] = [
-  {
-    id: 1,
-    name: 'General Consultation',
-    description: 'Routine check-up and general health assessment',
-    duration: '30 mins',
-    price: '₱500',
-  },
-  {
-    id: 2,
-    name: 'Follow-up Consultation',
-    description: 'Follow-up visit for ongoing treatment or monitoring',
-    duration: '20 mins',
-    price: '₱300',
-  },
-  {
-    id: 3,
-    name: 'Anti Rabies Vaccination',
-    description: 'Vaccination for rabies prevention after potential exposure',
-    duration: '30 mins',
-    price: '₱500',
-  },
-];
-
-const modalBoxSx = {
-  position: 'absolute' as const,
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  width: 400,
-  backgroundColor: '#dff0f7',
-  borderRadius: 4,
-  boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-  overflow: 'hidden',
-  outline: 'none',
-  p: 2,
-  boxSizing: 'border-box' as const,
-};
-
-const listBoxSx = {
-  maxHeight: 360,
-  overflowY: 'auto' as const,
-  overflowX: 'hidden' as const,
-  display: 'flex',
-  flexDirection: 'column' as const,
-  gap: 1.5,
-  '&::-webkit-scrollbar': { display: 'none' },
-  msOverflowStyle: 'none',
-  scrollbarWidth: 'none',
-};
-
-const selectBtnSx = {
-  borderRadius: 3,
-  backgroundColor: '#f87171',
-  textTransform: 'none' as const,
-  fontWeight: 600,
-  fontSize: '0.9rem',
-  px: 4,
-  py: 1,
-  '&:hover': { backgroundColor: '#ef4444' },
-  '&.Mui-disabled': { backgroundColor: '#fca5a5', color: 'white' },
-};
-
-//New Appointment Modal
-function NewAppointmentModal({
-  open,
-  onClose,
-  onConfirm,
-  selectedDate,
-  selectedTime,
-  selectedDoctor,
-  selectedService,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onConfirm: (
-    patientName: string,
-    contactInfo: string,
-    bp: string,
-    pulse: string,
-    temperature: string,
-  ) => Promise<void>;
-  selectedDate: Dayjs | null;
-  selectedTime: string;
-  selectedDoctor: string;
-  selectedService: string;
-}) {
-  const [patientName, setPatientName] = useState('');
-  const [contactInfo, setContactInfo] = useState('');
-  const [bp, setBp] = useState('');
-  const [pulse, setPulse] = useState('');
-  const [temperature, setTemperature] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleClose = () => {
-    setPatientName('');
-    setContactInfo('');
-    setBp('');
-    setPulse('');
-    setTemperature('');
-    setError('');
-    onClose();
-  };
-  const handleConfirm = async () => {
-    if (!patientName.trim()) {
-      setError('Patient name is required.');
-      return;
-    }
-    if (!contactInfo.trim()) {
-      setError('Contact information is required.');
-      return;
-    }
+  const fetchData = async () => {
     setLoading(true);
-    await onConfirm(
-      patientName.trim(),
-      contactInfo.trim(),
-      bp.trim(),
-      pulse.trim(),
-      temperature.trim(),
-    );
-    setLoading(false);
-    handleClose();
+    try {
+      const [appointData, staffData, statsData] = await Promise.all([
+        getAllAppointments(),
+        getAllStaff(),
+        getAppointmentStats(),
+      ]);
+      if (appointData.data) setAppointments(appointData.data);
+      if (staffData.data)
+        setDoctors(
+          staffData.data.filter(
+            (s) => s.role === 'Doctor' || s.role === 'doctor',
+          ),
+        );
+      if (statsData.data) {
+        const pending =
+          appointData.data?.filter(
+            (a) => a.status === 'Pending' || a.status === 'Assigned',
+          ).length ?? 0;
+        setStats({ ...statsData.data, pending });
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const SummaryRow = ({
-    label,
-    value,
-    missing,
-  }: {
-    label: string;
-    value: string;
-    missing?: boolean;
-  }) => (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        py: 0.6,
-        borderBottom: '1px solid #e8eaf6',
-      }}
-    >
-      <Typography sx={{ fontSize: '0.75rem', color: '#777' }}>
-        {label}
-      </Typography>
-      <Typography
+  const showSnackbar = (msg: string, sev: 'success' | 'error') =>
+    setSnackbar({ open: true, message: msg, severity: sev });
+
+  // ── Create ──────────────────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    if (
+      !formData.patient_name ||
+      !formData.doctor_id ||
+      !formData.appointment_date ||
+      !formData.appointment_time
+    ) {
+      showSnackbar('Please fill in all required fields', 'error');
+      return;
+    }
+    const selectedDoctor = doctors.find((d) => d.id === formData.doctor_id);
+    const status = isAdmin ? 'Assigned' : 'Pending';
+    const { error } = await createAppointment({
+      patient_name: formData.patient_name,
+      patient_contact: formData.patient_contact || 'N/A',
+      doctor_id: formData.doctor_id,
+      appointment_date: formData.appointment_date,
+      appointment_time: formData.appointment_time,
+      notes: formData.notes || null,
+      status,
+    });
+    if (error) {
+      showSnackbar(error, 'error');
+      return;
+    }
+    if (isAdmin) {
+      await createNotification({
+        staff_id: formData.doctor_id,
+        title: 'Appointment Assigned to You',
+        message: `Admin assigned an appointment for patient "${formData.patient_name}" on ${formData.appointment_date} at ${formData.appointment_time}. Please accept or reject.`,
+        type: 'info',
+      });
+      showSnackbar(
+        'Appointment assigned — awaiting doctor approval',
+        'success',
+      );
+    } else {
+      await createNotification({
+        staff_id: null,
+        title: 'New Appointment Pending Approval',
+        message: `${staffProfile?.name ?? 'A staff member'} submitted an appointment for patient "${formData.patient_name}" with ${selectedDoctor?.name ?? 'a doctor'} on ${formData.appointment_date} at ${formData.appointment_time}.`,
+        type: 'info',
+      });
+      showSnackbar('Appointment submitted for admin approval', 'success');
+    }
+    setOpenModal(false);
+    fetchData();
+    setFormData({
+      patient_name: '',
+      patient_contact: '',
+      doctor_id: '',
+      appointment_date: '',
+      appointment_time: '',
+      notes: '',
+    });
+  };
+
+  // ── Admin approves staff-submitted (Pending → Approved) ─────────────────
+  const handleAdminApprove = async (id: string) => {
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status: 'Approved' } : a)),
+    );
+    const { error } = await approveAppointment(id);
+    if (error) showSnackbar(error, 'error');
+    else showSnackbar('Appointment approved', 'success');
+    fetchData();
+  };
+
+  // ── Admin rejects staff-submitted (Pending → Rejected) ──────────────────
+  const handleAdminReject = async (id: string) => {
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status: 'Rejected' } : a)),
+    );
+    const { error } = await rejectAppointment(id);
+    if (error) showSnackbar(error, 'error');
+    else showSnackbar('Appointment rejected', 'success');
+    fetchData();
+  };
+
+  // ── Doctor accepts admin-assigned (Assigned → Approved) ─────────────────
+  const handleDoctorAccept = async (id: string) => {
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status: 'Approved' } : a)),
+    );
+    const { error } = await acceptAssignedAppointment(id);
+    if (error) showSnackbar(error, 'error');
+    else showSnackbar('Appointment accepted', 'success');
+    fetchData();
+  };
+
+  // ── Doctor rejects admin-assigned (Assigned → Rejected) ─────────────────
+  const handleDoctorReject = async (id: string) => {
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status: 'Rejected' } : a)),
+    );
+    const { error } = await rejectAssignedAppointment(id);
+    if (error) showSnackbar(error, 'error');
+    else showSnackbar('Appointment rejected', 'success');
+    fetchData();
+  };
+
+  // ── Start (Approved → Accepted + doctor On Duty) ──────────────────────────
+  const handleStart = async (appt: Appointment) => {
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === appt.id ? { ...a, status: 'Accepted' } : a)),
+    );
+    const { error: startErr } = await startAppointment(appt.id);
+    if (startErr) {
+      showSnackbar(startErr, 'error');
+      fetchData();
+      return;
+    }
+    if (appt.doctor_id) await updateDutyStatus(appt.doctor_id, 'On Duty');
+    showSnackbar('Appointment started — doctor is now On Duty', 'success');
+    fetchData();
+  };
+
+  // ── No Show ───────────────────────────────────────────────────────────────
+  const handleNoShow = async (id: string) => {
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status: 'No Show' } : a)),
+    );
+    const { error } = await noShowAppointment(id);
+    if (error) showSnackbar(error, 'error');
+    else showSnackbar('Marked as No Show', 'success');
+    fetchData();
+  };
+
+  // ── Cancel ────────────────────────────────────────────────────────────────
+  const handleCancel = async (id: string) => {
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status: 'Cancelled' } : a)),
+    );
+    const { error } = await cancelAppointment(id);
+    if (error) showSnackbar(error, 'error');
+    else showSnackbar('Appointment cancelled', 'success');
+    fetchData();
+  };
+
+  // ── Reschedule ────────────────────────────────────────────────────────────
+  const handleRescheduleOpen = (appt: Appointment) => {
+    setRescheduleModal({
+      open: true,
+      id: appt.id,
+      date: appt.appointment_date,
+      time: appt.appointment_time,
+    });
+  };
+
+  const handleRescheduleSubmit = async () => {
+    if (!rescheduleModal.date || !rescheduleModal.time) {
+      showSnackbar('Please select a new date and time', 'error');
+      return;
+    }
+    setAppointments((prev) =>
+      prev.map((a) =>
+        a.id === rescheduleModal.id
+          ? {
+              ...a,
+              appointment_date: rescheduleModal.date,
+              appointment_time: rescheduleModal.time,
+              status: 'Approved',
+            }
+          : a,
+      ),
+    );
+    const { error } = await rescheduleAppointment(
+      rescheduleModal.id,
+      rescheduleModal.date,
+      rescheduleModal.time,
+    );
+    if (error) showSnackbar(error, 'error');
+    else showSnackbar('Appointment rescheduled', 'success');
+    setRescheduleModal({ open: false, id: '', date: '', time: '' });
+    fetchData();
+  };
+
+  // ── Complete ──────────────────────────────────────────────────────────────
+  const handleComplete = async (id: string) => {
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status: 'Completed' } : a)),
+    );
+    const { error } = await completeAppointment(id);
+    if (error) showSnackbar(error, 'error');
+    else showSnackbar('Appointment completed', 'success');
+    fetchData();
+  };
+
+  // ── Status chip ───────────────────────────────────────────────────────────
+  const statusConfig: Record<
+    string,
+    { color: string; bg: string; icon: React.ReactNode; label: string }
+  > = {
+    Pending: {
+      color: '#d97706',
+      bg: '#fef3c7',
+      icon: <FiAlertCircle size={12} />,
+      label: 'Pending Admin Approval',
+    },
+    Assigned: {
+      color: '#7c3aed',
+      bg: '#ede9fe',
+      icon: <FiAlertCircle size={12} />,
+      label: 'Awaiting Doctor Approval',
+    },
+    Approved: {
+      color: '#3b82f6',
+      bg: '#dbeafe',
+      icon: <FiClock size={12} />,
+      label: 'Approved',
+    },
+    Accepted: {
+      color: '#0891b2',
+      bg: '#cffafe',
+      icon: <FiPlay size={12} />,
+      label: 'In Progress',
+    },
+    Rejected: {
+      color: '#dc2626',
+      bg: '#fee2e2',
+      icon: <FiXCircle size={12} />,
+      label: 'Rejected',
+    },
+    'No Show': {
+      color: '#ea580c',
+      bg: '#ffedd5',
+      icon: <FiXCircle size={12} />,
+      label: 'No Show',
+    },
+    Cancelled: {
+      color: '#ef4444',
+      bg: '#fee2e2',
+      icon: <FiXCircle size={12} />,
+      label: 'Cancelled',
+    },
+    Completed: {
+      color: '#10b981',
+      bg: '#d1fae5',
+      icon: <FiCheckCircle size={12} />,
+      label: 'Completed',
+    },
+  };
+
+  const getStatusChip = (status: string) => {
+    const s = statusConfig[status] ?? statusConfig['Approved'];
+    return (
+      <Chip
+        label={s.label}
+        size="small"
+        icon={s.icon as React.ReactElement}
         sx={{
-          fontSize: '0.75rem',
-          fontWeight: 600,
-          color: missing ? '#f87171' : '#222',
+          backgroundColor: s.bg,
+          color: s.color,
+          fontWeight: 500,
+          fontSize: '11px',
+          height: '24px',
         }}
-      >
-        {missing ? '— not selected' : value}
-      </Typography>
-    </Box>
-  );
+      />
+    );
+  };
 
-  return (
-    <Modal open={open} onClose={handleClose}>
-      <Box
-        sx={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 480,
-          backgroundColor: 'white',
-          borderRadius: 4,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-          outline: 'none',
-          p: 3,
-          boxSizing: 'border-box',
-        }}
-      >
-        <Typography
-          sx={{
-            fontWeight: 800,
-            fontSize: '1.05rem',
-            color: '#1a1a1a',
-            mb: 0.4,
-          }}
-        >
-          New Appointment
-        </Typography>
-        <Typography sx={{ fontSize: '0.74rem', color: '#999', mb: 2.5 }}>
-          Review the details below and enter the patient's name and vitals to
-          confirm.
-        </Typography>
+  // Action buttons for Approved / Accepted appointments
+  const renderDoctorActions = (appt: Appointment) => {
+    const canAct = isAdmin || appt.doctor_id === staffProfile?.id;
+    if (!canAct) return null;
 
-        <Box
-          sx={{
-            backgroundColor: '#f9f9f9',
-            borderRadius: 2,
-            px: 1.5,
-            py: 0.5,
-            mb: 2.5,
-            ml: -1.5,
-          }}
-        >
-          <SummaryRow
-            label="Date"
-            value={selectedDate ? selectedDate.format('MMMM D, YYYY') : ''}
-            missing={!selectedDate}
-          />
-          <SummaryRow
-            label="Time"
-            value={selectedTime}
-            missing={!selectedTime}
-          />
-          <SummaryRow
-            label="Doctor"
-            value={selectedDoctor}
-            missing={!selectedDoctor}
-          />
-          <SummaryRow
-            label="Service"
-            value={selectedService}
-            missing={!selectedService}
-          />
-        </Box>
-
-        {/* Patient Information */}
-
-        <Typography sx={{ fontSize: '0.82rem', color: '#444', mb: 0.8 }}>
-          Patient{' '}
-          <Box component="span" sx={{ color: '#e53935', fontWeight: 700 }}>
-            Name
-          </Box>
-        </Typography>
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Enter patient's full name"
-          value={patientName}
-          onChange={(e) => {
-            setPatientName(e.target.value);
-            if (error) setError('');
-          }}
-          error={!!error}
-          helperText={error}
-          sx={{
-            mb: 2,
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2,
-              backgroundColor: '#f9f9f9',
-              fontSize: '0.88rem',
-            },
-          }}
-        />
-
-        <Typography sx={{ fontSize: '0.82rem', color: '#444', mb: 0.8 }}>
-          Contact{' '}
-          <Box component="span" sx={{ color: '#e53935', fontWeight: 700 }}>
-            Info
-          </Box>
-        </Typography>
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Enter contact number or email"
-          value={contactInfo}
-          onChange={(e) => {
-            setContactInfo(e.target.value);
-            if (error) setError('');
-          }}
-          sx={{
-            mb: 2,
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2,
-              backgroundColor: '#f9f9f9',
-              fontSize: '0.88rem',
-            },
-          }}
-        />
-
-        <Typography sx={{ fontSize: '0.82rem', color: '#444', mb: 0.8 }}>
-          Vital{' '}
-          <Box component="span" sx={{ color: '#e53935', fontWeight: 700 }}>
-            Signs
-          </Box>
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1.5, mb: 3 }}>
-          <Box sx={{ flex: 1 }}>
-            <Typography sx={{ fontSize: '0.72rem', color: '#777', mb: 0.5 }}>
-              Blood Pressure
-            </Typography>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="e.g. 120"
-              value={bp}
-              onChange={(e) => {
-                if (/^\d*$/.test(e.target.value)) setBp(e.target.value);
-              }}
-              inputProps={{ inputMode: 'numeric' }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  backgroundColor: '#f9f9f9',
-                  fontSize: '0.85rem',
-                },
-              }}
-            />
-          </Box>
-          <Box sx={{ flex: 1 }}>
-            <Typography sx={{ fontSize: '0.72rem', color: '#777', mb: 0.5 }}>
-              Pulse (bpm)
-            </Typography>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="e.g. 72"
-              value={pulse}
-              onChange={(e) => {
-                if (/^\d*$/.test(e.target.value)) setPulse(e.target.value);
-              }}
-              inputProps={{ inputMode: 'numeric' }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  backgroundColor: '#f9f9f9',
-                  fontSize: '0.85rem',
-                },
-              }}
-            />
-          </Box>
-          <Box sx={{ flex: 1 }}>
-            <Typography sx={{ fontSize: '0.72rem', color: '#777', mb: 0.5 }}>
-              Temperature (°C)
-            </Typography>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="e.g. 36.5"
-              value={temperature}
-              onChange={(e) => {
-                if (/^\d*\.?\d*$/.test(e.target.value))
-                  setTemperature(e.target.value);
-              }}
-              inputProps={{ inputMode: 'decimal' }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  backgroundColor: '#f9f9f9',
-                  fontSize: '0.85rem',
-                },
-              }}
-            />
-          </Box>
-        </Box>
-
-        <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end' }}>
+    if (appt.status === 'Approved') {
+      return (
+        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
           <Button
-            onClick={handleClose}
-            disabled={loading}
-            sx={{
-              borderRadius: 2,
-              textTransform: 'none',
-              color: '#888',
-              fontWeight: 600,
-              '&:hover': { backgroundColor: '#f5f5f5' },
-            }}
+            size="small"
+            variant="contained"
+            color="success"
+            startIcon={<FiPlay size={10} />}
+            onClick={() => handleStart(appt)}
+            sx={{ textTransform: 'none', fontSize: '10px', px: 1 }}
+          >
+            Start
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<FiCalendar size={10} />}
+            onClick={() => handleRescheduleOpen(appt)}
+            sx={{ textTransform: 'none', fontSize: '10px', px: 1 }}
+          >
+            Reschedule
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="warning"
+            onClick={() => handleNoShow(appt.id)}
+            sx={{ textTransform: 'none', fontSize: '10px', px: 1 }}
+          >
+            No Show
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            onClick={() => handleCancel(appt.id)}
+            sx={{ textTransform: 'none', fontSize: '10px', px: 1 }}
           >
             Cancel
           </Button>
           <Button
+            size="small"
             variant="contained"
-            onClick={handleConfirm}
-            disabled={loading}
-            startIcon={
-              loading ? (
-                <CircularProgress size={14} sx={{ color: 'white' }} />
-              ) : (
-                <CheckCircleOutlineIcon sx={{ fontSize: '1rem !important' }} />
-              )
-            }
+            onClick={() => handleComplete(appt.id)}
             sx={{
-              borderRadius: 2,
-              backgroundColor: '#3d5afe',
               textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '0.88rem',
-              px: 3,
-              '&:hover': { backgroundColor: '#2a41d0' },
+              fontSize: '10px',
+              px: 1,
+              backgroundColor: '#10b981',
+              '&:hover': { backgroundColor: '#059669' },
             }}
           >
-            {loading ? 'Saving...' : 'Confirm'}
+            Complete
           </Button>
         </Box>
-      </Box>
-    </Modal>
-  );
-}
-
-//Add Slot Modal
-function AddSlotModal({
-  open,
-  onClose,
-  onAdd,
-  section,
-  range,
-  accentColor,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onAdd: (time: string) => void;
-  section: string;
-  range: string;
-  accentColor: string;
-}) {
-  const [pickedTime, setPickedTime] = useState<Dayjs | null>(null);
-  const handleClose = () => {
-    setPickedTime(null);
-    onClose();
-  };
-  const handleAdd = () => {
-    if (!pickedTime) return;
-    onAdd(pickedTime.format('hh:mm A'));
-    handleClose();
-  };
-
-  return (
-    <Modal open={open} onClose={handleClose}>
-      <Box
-        sx={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 280,
-          backgroundColor: 'white',
-          borderRadius: 4,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-          outline: 'none',
-          p: 3,
-          boxSizing: 'border-box',
-        }}
-      >
-        <Typography
-          sx={{
-            fontWeight: 700,
-            fontSize: '1.05rem',
-            color: accentColor,
-            textAlign: 'center',
-          }}
-        >
-          {section}
-        </Typography>
-        <Typography
-          sx={{
-            fontSize: '0.72rem',
-            color: '#999',
-            textAlign: 'center',
-            mb: 2,
-          }}
-        >
-          {range}
-        </Typography>
-        <Typography sx={{ fontSize: '0.82rem', color: '#444', mb: 1 }}>
-          Select a{' '}
-          <Box component="span" sx={{ color: '#e53935', fontWeight: 700 }}>
-            Time
-          </Box>
-        </Typography>
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <TimePicker
-            value={pickedTime}
-            onChange={(val) => setPickedTime(val)}
-            slotProps={{
-              textField: {
-                size: 'small',
-                fullWidth: true,
-                sx: {
-                  mb: 3,
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    backgroundColor: '#e0f0ff',
-                    fontWeight: 600,
-                    '& fieldset': { border: 'none' },
-                  },
-                  '& input': {
-                    textAlign: 'center',
-                    fontSize: '0.95rem',
-                    color: '#333',
-                  },
-                },
-              },
-            }}
-          />
-        </LocalizationProvider>
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button
-            variant="contained"
-            disabled={!pickedTime}
-            onClick={handleAdd}
-            sx={selectBtnSx}
-          >
-            Select
-          </Button>
-        </Box>
-      </Box>
-    </Modal>
-  );
-}
-
-// Select Doctor Modal
-function DoctorModal({
-  open,
-  onClose,
-  onSelect,
-  doctors,
-  loadingDoctors,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSelect: (name: string) => void;
-  doctors: Doctor[];
-  loadingDoctors: boolean;
-}) {
-  const [search, setSearch] = useState('');
-  const [tempId, setTempId] = useState<number | null>(null);
-
-  const filtered = doctors.filter(
-    (d) =>
-      d.doctor_name.toLowerCase().includes(search.toLowerCase()) ||
-      d.department.toLowerCase().includes(search.toLowerCase()),
-  );
-  const handleClose = () => {
-    setSearch('');
-    setTempId(null);
-    onClose();
-  };
-
-  return (
-    <Modal open={open} onClose={handleClose}>
-      <Box sx={modalBoxSx}>
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Search doctors or department..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          InputProps={{
-            endAdornment: (
-              <SearchIcon sx={{ color: '#aaa', fontSize: '1.1rem' }} />
-            ),
-          }}
-          sx={{
-            mb: 2,
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2,
-              fontSize: '0.85rem',
-              backgroundColor: 'white',
-              '& fieldset': { border: 'none' },
-            },
-          }}
-        />
-        <Box sx={listBoxSx}>
-          {loadingDoctors ? (
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                py: 4,
-                gap: 1.5,
-              }}
-            >
-              <CircularProgress size={24} sx={{ color: '#3d5afe' }} />
-              <Typography sx={{ fontSize: '0.78rem', color: '#999' }}>
-                Loading doctors...
-              </Typography>
-            </Box>
-          ) : filtered.length === 0 ? (
-            <Box sx={{ py: 4, textAlign: 'center' }}>
-              <Typography sx={{ fontSize: '0.78rem', color: '#bbb' }}>
-                {doctors.length === 0
-                  ? 'No doctors found.'
-                  : 'No results for your search.'}
-              </Typography>
-            </Box>
-          ) : (
-            filtered.map((doctor) => {
-              const isSelected = tempId === doctor.doctorID;
-              return (
-                <Box
-                  key={doctor.doctorID}
-                  onClick={() => setTempId(doctor.doctorID)}
-                  sx={{
-                    p: 2,
-                    borderRadius: 3,
-                    backgroundColor: isSelected ? '#fef9c3' : 'white',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.15s ease',
-                    '&:hover': {
-                      backgroundColor: isSelected ? '#fef9c3' : '#f9f9f9',
-                    },
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 2,
-                      backgroundColor: '#e0e0e0',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      mb: 1,
-                    }}
-                  >
-                    <PersonIcon sx={{ color: '#888', fontSize: '1.2rem' }} />
-                  </Box>
-                  <Typography
-                    sx={{
-                      fontWeight: 700,
-                      fontSize: '0.85rem',
-                      color: '#1a1a1a',
-                      textDecoration: 'underline',
-                      mb: 0.3,
-                    }}
-                  >
-                    {doctor.doctor_name}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.72rem', color: '#555' }}>
-                    Department: {doctor.department}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.72rem', color: '#555' }}>
-                    Working Hours: {doctor.workingHours}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.72rem', color: '#555' }}>
-                    Available Slot: {doctor.availableSlots} Slots
-                  </Typography>
-                </Box>
-              );
-            })
-          )}
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-          <Button
-            variant="contained"
-            disabled={tempId === null}
-            sx={selectBtnSx}
-            onClick={() => {
-              const doc = doctors.find((d) => d.doctorID === tempId);
-              if (doc) onSelect(doc.doctor_name);
-              handleClose();
-            }}
-          >
-            Select
-          </Button>
-        </Box>
-      </Box>
-    </Modal>
-  );
-}
-
-// Select Service Modal
-function ServiceModal({
-  open,
-  onClose,
-  onSelect,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSelect: (name: string) => void;
-}) {
-  const [search, setSearch] = useState('');
-  const [tempId, setTempId] = useState<number | null>(null);
-  const filtered = servicesData.filter(
-    (s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.description.toLowerCase().includes(search.toLowerCase()),
-  );
-  const handleClose = () => {
-    setSearch('');
-    setTempId(null);
-    onClose();
-  };
-
-  return (
-    <Modal open={open} onClose={handleClose}>
-      <Box sx={modalBoxSx}>
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Services"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          InputProps={{
-            endAdornment: (
-              <SearchIcon sx={{ color: '#aaa', fontSize: '1.1rem' }} />
-            ),
-          }}
-          sx={{
-            mb: 2,
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2,
-              fontSize: '0.85rem',
-              backgroundColor: 'white',
-              '& fieldset': { border: 'none' },
-            },
-          }}
-        />
-        <Box sx={listBoxSx}>
-          {filtered.map((service) => {
-            const isSelected = tempId === service.id;
-            return (
-              <Box
-                key={service.id}
-                onClick={() => setTempId(service.id)}
-                sx={{
-                  p: 2,
-                  borderRadius: 3,
-                  backgroundColor: isSelected ? '#fef9c3' : 'white',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.15s ease',
-                  '&:hover': {
-                    backgroundColor: isSelected ? '#fef9c3' : '#f9f9f9',
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 2,
-                    backgroundColor: '#e0e0e0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    mb: 1,
-                  }}
-                >
-                  <MedicalServicesIcon
-                    sx={{ color: '#888', fontSize: '1.1rem' }}
-                  />
-                </Box>
-                <Typography
-                  sx={{
-                    fontWeight: 700,
-                    fontSize: '0.85rem',
-                    color: '#1a1a1a',
-                    textDecoration: 'underline',
-                    mb: 0.3,
-                  }}
-                >
-                  {service.name}
-                </Typography>
-                <Typography sx={{ fontSize: '0.72rem', color: '#555' }}>
-                  {service.description}
-                </Typography>
-                <Typography sx={{ fontSize: '0.72rem', color: '#555' }}>
-                  Duration: {service.duration}
-                </Typography>
-                <Typography sx={{ fontSize: '0.72rem', color: '#555' }}>
-                  Price: {service.price}
-                </Typography>
-              </Box>
-            );
-          })}
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-          <Button
-            variant="contained"
-            disabled={tempId === null}
-            sx={selectBtnSx}
-            onClick={() => {
-              const svc = servicesData.find((s) => s.id === tempId);
-              if (svc) onSelect(svc.name);
-              handleClose();
-            }}
-          >
-            Select
-          </Button>
-        </Box>
-      </Box>
-    </Modal>
-  );
-}
-
-//Main Component
-function Appointments() {
-  const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
-  const [tableLoading, setTableLoading] = useState(true);
-  const [tableError, setTableError] = useState('');
-
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [loadingDoctors, setLoadingDoctors] = useState(false);
-
-  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(dayjs());
-  const [selectedTime, setSelectedTime] = useState('');
-  const [selectedDoctor, setSelectedDoctor] = useState('');
-  const [selectedService, setSelectedService] = useState('');
-
-  const [doctorModalOpen, setDoctorModalOpen] = useState(false);
-  const [serviceModalOpen, setServiceModalOpen] = useState(false);
-  const [newApptModalOpen, setNewApptModalOpen] = useState(false);
-
-  const [morningSlots, setMorningSlots] =
-    useState<string[]>(initialMorningSlots);
-  const [noonSlots, setNoonSlots] = useState<string[]>(initialNoonSlots);
-  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
-
-  const [addSlotOpen, setAddSlotOpen] = useState(false);
-  const [addSlotSection, setAddSlotSection] = useState<'morning' | 'noon'>(
-    'morning',
-  );
-
-  // Fetch appointments once the component is opened
-  useEffect(() => {
-    const load = async () => {
-      setTableLoading(true);
-      setTableError('');
-      try {
-        const data = await fetchAppointments();
-        setAppointments(data);
-      } catch (err) {
-        console.error('Fetch appointments error:', err);
-        setTableError('Failed to load appointments. Please try again.');
-      } finally {
-        setTableLoading(false);
-      }
-    };
-    load();
-  }, []);
-
-  // Fetch doctors when doctor modal is opened for the first time
-  const handleOpenDoctorModal = async () => {
-    setDoctorModalOpen(true);
-    if (doctors.length > 0) return;
-    setLoadingDoctors(true);
-    try {
-      const data = await fetchDoctors();
-      setDoctors(data);
-    } catch (err) {
-      console.error('Fetch doctors error:', err);
-    } finally {
-      setLoadingDoctors(false);
-    }
-  };
-
-  // Insert new appointment
-  const handleConfirmAppointment = async (
-    patientName: string,
-    contactInfo: string,
-    bp: string,
-    pulse: string,
-    temperature: string,
-  ) => {
-    const timeParsed = dayjs(selectedTime, 'hh:mm A');
-    const isoDateTime = selectedDate
-      ? selectedDate
-          .hour(timeParsed.hour())
-          .minute(timeParsed.minute())
-          .second(0)
-          .toISOString()
-      : new Date().toISOString();
-
-    try {
-      const inserted = await insertAppointment({
-        patient_name: patientName,
-        contact_info: contactInfo,
-        service_type: selectedService,
-        doctor_name: selectedDoctor,
-        date_time: isoDateTime,
-        Status: 'Scheduled',
-        BloodPressure: parseInt(bp, 10) || 0,
-        Pulse: parseInt(pulse, 10) || 0,
-        Temperature: parseFloat(temperature) || 0,
-      });
-      setAppointments((prev) => [...prev, inserted]);
-    } catch (err) {
-      console.error('Insert appointment error:', err);
-      alert('Failed to save appointment. Please try again.');
-      return;
+      );
     }
 
-    setBookedSlots((prev) => [...prev, selectedTime]);
-    setSelectedTime('');
-    setSelectedDoctor('');
-    setSelectedService('');
-  };
-
-  const openAddSlot = (section: 'morning' | 'noon') => {
-    setAddSlotSection(section);
-    setAddSlotOpen(true);
-  };
-  const handleAddSlot = (time: string) => {
-    if (addSlotSection === 'morning')
-      setMorningSlots((prev) => [...prev, time].sort());
-    else setNoonSlots((prev) => [...prev, time].sort());
-  };
-
-  const handleNewAppointmentClick = () => {
-    if (!selectedDate || !selectedTime || !selectedDoctor || !selectedService) {
-      alert('Please select date, time, doctor, and service before confirming.');
-      return;
+    if (appt.status === 'Accepted') {
+      return (
+        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+          <Button
+            size="small"
+            variant="outlined"
+            color="warning"
+            onClick={() => handleNoShow(appt.id)}
+            sx={{ textTransform: 'none', fontSize: '10px', px: 1 }}
+          >
+            No Show
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            onClick={() => handleCancel(appt.id)}
+            sx={{ textTransform: 'none', fontSize: '10px', px: 1 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() => handleComplete(appt.id)}
+            sx={{
+              textTransform: 'none',
+              fontSize: '10px',
+              px: 1,
+              backgroundColor: '#10b981',
+              '&:hover': { backgroundColor: '#059669' },
+            }}
+          >
+            Complete
+          </Button>
+        </Box>
+      );
     }
-    setNewApptModalOpen(true);
+
+    return null;
   };
 
-  const selectedDoctorData = doctors.find(
-    (d) => d.doctor_name === selectedDoctor,
-  );
-  const selectedServiceData = servicesData.find(
-    (s) => s.name === selectedService,
-  );
+  // ── Derived lists ─────────────────────────────────────────────────────────
+  const adminPendingQueue = appointments.filter((a) => a.status === 'Pending');
+  const doctorAssignedQueue = isAdmin
+    ? []
+    : appointments.filter(
+        (a) => a.status === 'Assigned' && a.doctor_id === staffProfile?.id,
+      );
+  const mainTableRows = isAdmin
+    ? appointments.filter((a) => a.status !== 'Pending')
+    : appointments.filter((a) => a.doctor_id === staffProfile?.id);
 
-  // Make sure that there's no overlap between booked slots and available slots
-  const renderSlot = (slot: string, accentColor: string, width: number) => {
-    const isSelected = selectedTime === slot;
-    const isBooked = bookedSlots.includes(slot);
+  if (loading) {
     return (
       <Box
-        key={slot}
-        onClick={() => !isBooked && setSelectedTime(slot)}
         sx={{
-          display: 'inline-flex',
+          display: 'flex',
+          justifyContent: 'center',
           alignItems: 'center',
-          gap: 0.7,
-          px: 1.2,
-          py: 0.5,
-          borderRadius: 1.5,
-          border: isBooked
-            ? '1.5px solid #e0e0e0'
-            : isSelected
-              ? `1.5px solid ${accentColor}`
-              : '1.5px solid #e0e0e0',
-          backgroundColor: isBooked
-            ? '#f5f5f5'
-            : isSelected
-              ? `${accentColor}12`
-              : 'transparent',
-          cursor: isBooked ? 'not-allowed' : 'pointer',
-          opacity: isBooked ? 0.5 : 1,
-          transition: 'all 0.15s ease',
-          flex: 'none',
-          height: 32,
-          width,
-          '&:hover': !isBooked
-            ? { borderColor: accentColor, backgroundColor: `${accentColor}0d` }
-            : {},
+          minHeight: '400px',
         }}
       >
-        <Box
-          sx={{
-            width: 11,
-            height: 11,
-            borderRadius: '50%',
-            border:
-              isSelected && !isBooked
-                ? `3px solid ${accentColor}`
-                : '1.5px solid #bbb',
-            flexShrink: 0,
-          }}
-        />
-        <Typography
-          sx={{
-            fontSize: '0.71rem',
-            color: isBooked ? '#bbb' : '#444',
-            fontWeight: isSelected && !isBooked ? 600 : 400,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {slot}
-        </Typography>
+        <CircularProgress />
       </Box>
     );
-  };
-
-  const isFormReady = !!(
-    selectedDate &&
-    selectedTime &&
-    selectedDoctor &&
-    selectedService
-  );
+  }
 
   return (
-    <>
-      {/*Appointment Table*/}
-      <TableContainer component={Paper} sx={{ mt: -1, borderRadius: 3 }}>
-        <Table>
-          <TableHead sx={{ backgroundColor: '#EEEEEE' }}>
+    <div
+      style={{
+        padding: '24px',
+        width: '100%',
+        maxWidth: '1400px',
+        margin: '0 auto',
+        boxSizing: 'border-box',
+      }}
+    >
+      {/* Header */}
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: 3,
+        }}
+      >
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 600, color: '#1a202c' }}>
+            Appointments
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
+            {isAdmin
+              ? 'Approve staff submissions · Assign appointments to doctors'
+              : 'Submit appointments for admin approval · Manage your assigned schedule'}
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<FiPlus />}
+          onClick={() => setOpenModal(true)}
+          sx={{
+            backgroundColor: '#3b82f6',
+            textTransform: 'none',
+            '&:hover': { backgroundColor: '#2563eb' },
+          }}
+        >
+          New Appointment
+        </Button>
+      </Box>
+
+      {/* Stats */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+          gap: 2,
+          mb: 3,
+        }}
+      >
+        {[
+          {
+            label: 'Total',
+            value: stats.total,
+            bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          },
+          {
+            label: 'Pending',
+            value: stats.pending,
+            bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+          },
+          {
+            label: 'Active',
+            value: stats.scheduled,
+            bg: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+          },
+          {
+            label: 'Completed',
+            value: stats.completed,
+            bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+          },
+          {
+            label: 'Cancelled',
+            value: stats.cancelled,
+            bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+          },
+        ].map((card) => (
+          <Card key={card.label} sx={{ background: card.bg }}>
+            <CardContent sx={{ py: '12px !important' }}>
+              <Typography
+                variant="body2"
+                sx={{ color: 'rgba(255,255,255,0.9)', mb: 0.5 }}
+              >
+                {card.label}
+              </Typography>
+              <Typography variant="h4" sx={{ color: 'white', fontWeight: 700 }}>
+                {card.value}
+              </Typography>
+            </CardContent>
+          </Card>
+        ))}
+      </Box>
+
+      {/* ── Admin: staff-submitted Pending queue ── */}
+      {isAdmin && adminPendingQueue.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 600,
+              color: '#92400e',
+              mb: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+            }}
+          >
+            <FiAlertCircle /> Staff Submissions — Pending Your Approval (
+            {adminPendingQueue.length})
+          </Typography>
+          <TableContainer
+            component={Paper}
+            sx={{
+              borderRadius: '12px',
+              border: '2px solid #fde68a',
+              overflowX: 'auto',
+            }}
+          >
+            <Table size="small">
+              <TableHead sx={{ backgroundColor: '#fef3c7' }}>
+                <TableRow>
+                  {[
+                    'Patient',
+                    'Doctor',
+                    'Date',
+                    'Time',
+                    'Notes',
+                    'Actions',
+                  ].map((h) => (
+                    <TableCell
+                      key={h}
+                      sx={{ fontWeight: 600, fontSize: '12px' }}
+                    >
+                      {h}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {adminPendingQueue.map((appt) => {
+                  const doctor = doctors.find((d) => d.id === appt.doctor_id);
+                  return (
+                    <TableRow
+                      key={appt.id}
+                      sx={{ '&:hover': { backgroundColor: '#fffbeb' } }}
+                    >
+                      <TableCell sx={{ fontSize: '12px' }}>
+                        {appt.patient_name}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '12px' }}>
+                        {doctor?.name ?? 'Unknown'}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '12px' }}>
+                        {new Date(appt.appointment_date).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '12px' }}>
+                        {appt.appointment_time}
+                      </TableCell>
+                      <TableCell sx={{ color: '#6b7280', fontSize: '11px' }}>
+                        {appt.notes ?? '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="success"
+                            onClick={() => handleAdminApprove(appt.id)}
+                            sx={{ textTransform: 'none', fontSize: '11px' }}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            onClick={() => handleAdminReject(appt.id)}
+                            sx={{ textTransform: 'none', fontSize: '11px' }}
+                          >
+                            Reject
+                          </Button>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Divider sx={{ mt: 3, mb: 3 }} />
+        </Box>
+      )}
+
+      {/* ── Staff/Doctor: admin-assigned queue ── */}
+      {!isAdmin && doctorAssignedQueue.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 600,
+              color: '#5b21b6',
+              mb: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+            }}
+          >
+            <FiAlertCircle /> Assigned to You by Admin — Awaiting Your Approval
+            ({doctorAssignedQueue.length})
+          </Typography>
+          <TableContainer
+            component={Paper}
+            sx={{
+              borderRadius: '12px',
+              border: '2px solid #c4b5fd',
+              overflowX: 'auto',
+            }}
+          >
+            <Table size="small">
+              <TableHead sx={{ backgroundColor: '#ede9fe' }}>
+                <TableRow>
+                  {['Patient', 'Date', 'Time', 'Notes', 'Actions'].map((h) => (
+                    <TableCell
+                      key={h}
+                      sx={{ fontWeight: 600, fontSize: '12px' }}
+                    >
+                      {h}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {doctorAssignedQueue.map((appt) => (
+                  <TableRow
+                    key={appt.id}
+                    sx={{ '&:hover': { backgroundColor: '#f5f3ff' } }}
+                  >
+                    <TableCell sx={{ fontSize: '12px' }}>
+                      {appt.patient_name}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '12px' }}>
+                      {new Date(appt.appointment_date).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '12px' }}>
+                      {appt.appointment_time}
+                    </TableCell>
+                    <TableCell sx={{ color: '#6b7280', fontSize: '11px' }}>
+                      {appt.notes ?? '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          onClick={() => handleDoctorAccept(appt.id)}
+                          sx={{ textTransform: 'none', fontSize: '11px' }}
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={() => handleDoctorReject(appt.id)}
+                          sx={{ textTransform: 'none', fontSize: '11px' }}
+                        >
+                          Reject
+                        </Button>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Divider sx={{ mt: 3, mb: 3 }} />
+        </Box>
+      )}
+
+      {/* ── Main appointments table ── */}
+      <Typography
+        variant="h6"
+        sx={{ fontWeight: 600, color: '#374151', mb: 1 }}
+      >
+        {isAdmin ? 'All Appointments' : 'My Appointments'}
+      </Typography>
+      <TableContainer
+        component={Paper}
+        sx={{ borderRadius: '12px', overflowX: 'auto' }}
+      >
+        <Table size="small">
+          <TableHead sx={{ backgroundColor: '#f9fafb' }}>
             <TableRow>
-              {[
-                'ID',
-                'Patient Name',
-                'Contact Info',
-                'Service Type',
-                'Doctor Name',
-                'Date & Time',
-                'Status',
-              ].map((h) => (
-                <TableCell
-                  key={h}
-                  align="center"
-                  sx={{ color: 'gray', fontWeight: 'bold' }}
-                >
-                  {h}
-                </TableCell>
-              ))}
+              {['Patient', 'Doctor', 'Date', 'Time', 'Status', 'Actions'].map(
+                (h) => (
+                  <TableCell key={h} sx={{ fontWeight: 600, fontSize: '12px' }}>
+                    {h}
+                  </TableCell>
+                ),
+              )}
             </TableRow>
           </TableHead>
           <TableBody>
-            {tableLoading ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                  <CircularProgress size={28} sx={{ color: '#3d5afe' }} />
-                  <Typography
-                    sx={{ mt: 1, fontSize: '0.82rem', color: '#999' }}
-                  >
-                    Loading appointments...
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : tableError ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                  <Typography sx={{ fontSize: '0.82rem', color: '#f87171' }}>
-                    {tableError}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : appointments.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                  <Typography sx={{ fontSize: '0.82rem', color: '#bbb' }}>
-                    No appointments found.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              appointments.map((row) => (
-                <TableRow key={row.id} style={{ backgroundColor: 'white' }}>
-                  <TableCell align="center">{row.id}</TableCell>
-                  <TableCell align="center">{row.patient_name}</TableCell>
-                  <TableCell align="center">{row.contact_info}</TableCell>
-                  <TableCell align="center">{row.service_type}</TableCell>
-                  <TableCell align="center">{row.doctor_name}</TableCell>
-                  <TableCell align="center">
-                    {formatDateTime(row.date_time)}
+            {mainTableRows.map((appt) => {
+              const doctor = doctors.find((d) => d.id === appt.doctor_id);
+              return (
+                <TableRow
+                  key={appt.id}
+                  sx={{ '&:hover': { backgroundColor: '#f9fafb' } }}
+                >
+                  <TableCell sx={{ fontSize: '12px' }}>
+                    {appt.patient_name}
                   </TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={row.Status}
-                      size="small"
-                      sx={{
-                        backgroundColor:
-                          row.Status === 'Completed' ? '#e8f5e9' : '#e3f2fd',
-                        color:
-                          row.Status === 'Completed' ? '#2e7d32' : '#1565c0',
-                        fontWeight: 600,
-                        fontSize: '0.72rem',
-                      }}
-                    />
+                  <TableCell sx={{ fontSize: '12px' }}>
+                    {doctor?.name ?? 'Unknown'}
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '12px' }}>
+                    {new Date(appt.appointment_date).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '12px' }}>
+                    {appt.appointment_time}
+                  </TableCell>
+                  <TableCell>{getStatusChip(appt.status)}</TableCell>
+                  <TableCell sx={{ minWidth: 280 }}>
+                    {renderDoctorActions(appt)}
                   </TableCell>
                 </TableRow>
-              ))
+              );
+            })}
+            {mainTableRows.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  align="center"
+                  sx={{ py: 4, color: '#9ca3af' }}
+                >
+                  No appointments found
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>
       </TableContainer>
 
-      {/*Main Content*/}
-      <Box
-        sx={{
-          mt: 3,
-          pt: 2.5,
-          pb: 2.5,
-          pl: 2.5,
-          pr: 3,
-          borderRadius: 4,
-          backgroundColor: '#eef0fb',
-          display: 'grid',
-          gridTemplateColumns: '300px 1fr',
-          gap: 2.5,
-          alignItems: 'start',
-          width: '100%',
-          boxSizing: 'border-box',
-          overflow: 'hidden',
-        }}
+      {/* ── New Appointment Modal ── */}
+      <Dialog
+        open={openModal}
+        onClose={() => setOpenModal(false)}
+        maxWidth="sm"
+        fullWidth
       >
-        {/*Left Side*/}
-        <Box sx={{ minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-            <CalendarMonthIcon sx={{ color: '#e53935', fontSize: '1.2rem' }} />
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <Box>
+            New Appointment
             <Typography
-              sx={{ fontWeight: 700, fontSize: '1rem', color: 'black' }}
+              variant="caption"
+              sx={{ display: 'block', color: isAdmin ? '#7c3aed' : '#d97706' }}
             >
-              Pick a{' '}
-              <Box component="span" sx={{ color: '#e53935' }}>
-                Date
-              </Box>
+              {isAdmin
+                ? 'Will be assigned to the doctor — awaits their acceptance'
+                : 'Will be submitted to admin for approval'}
             </Typography>
           </Box>
-
-          <Box
-            sx={{
-              backgroundColor: 'white',
-              borderRadius: 3,
-              p: 1,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-              width: '100%',
-              boxSizing: 'border-box',
-            }}
-          >
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
-              <DateCalendar
-                value={selectedDate}
-                onChange={(newDate) => setSelectedDate(newDate)}
-                sx={{
-                  width: '100% !important',
-                  maxHeight: 'none',
-                  '& .MuiPickersDay-root.Mui-selected': {
-                    backgroundColor: '#3d5afe',
-                    color: 'white',
-                  },
-                  '& .MuiPickersDay-root:hover': { backgroundColor: '#e8eaf6' },
-                  '& .MuiPickersCalendarHeader-label': { fontWeight: 700 },
-                  '& .MuiDayCalendar-header, & .MuiDayCalendar-weekContainer': {
-                    justifyContent: 'space-around',
-                  },
-                }}
-              />
-            </LocalizationProvider>
-          </Box>
-
-          <Box
-            sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}
-          >
-            <Button
-              variant="outlined"
+          <IconButton onClick={() => setOpenModal(false)} size="small">
+            <FiX />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="Patient Name *"
               fullWidth
-              onClick={handleOpenDoctorModal}
-              sx={{
-                borderRadius: 2,
-                borderColor: '#c5cae9',
-                color: selectedDoctor ? '#3d5afe' : '#555',
-                textTransform: 'none',
-                justifyContent: 'flex-start',
-                px: 2,
-                backgroundColor: 'white',
-                '&:hover': { backgroundColor: '#f5f5ff' },
-              }}
-            >
-              👤 &nbsp; {selectedDoctor ? 'Change Doctor' : 'Select a Doctor'}
-            </Button>
-            <Button
-              variant="outlined"
+              value={formData.patient_name}
+              onChange={(e) =>
+                setFormData({ ...formData, patient_name: e.target.value })
+              }
+            />
+            <TextField
+              label="Patient Contact"
               fullWidth
-              onClick={() => setServiceModalOpen(true)}
-              sx={{
-                borderRadius: 2,
-                borderColor: '#c5cae9',
-                color: selectedService ? '#3d5afe' : '#555',
-                textTransform: 'none',
-                justifyContent: 'flex-start',
-                px: 2,
-                backgroundColor: 'white',
-                '&:hover': { backgroundColor: '#f5f5ff' },
-              }}
-            >
-              ✚ &nbsp;{' '}
-              {selectedService ? 'Change Service' : 'Select a Type of Service'}
-            </Button>
+              value={formData.patient_contact}
+              onChange={(e) =>
+                setFormData({ ...formData, patient_contact: e.target.value })
+              }
+            />
+            <FormControl fullWidth>
+              <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 500 }}>
+                Doctor *
+              </Typography>
+              <Select
+                value={formData.doctor_id}
+                onChange={(e) =>
+                  setFormData({ ...formData, doctor_id: e.target.value })
+                }
+                displayEmpty
+              >
+                <MenuItem value="" disabled>
+                  Select a doctor…
+                </MenuItem>
+                {doctors.map((d) => (
+                  <MenuItem key={d.id} value={d.id}>
+                    {d.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label="Date *"
+              type="date"
+              fullWidth
+              slotProps={{ inputLabel: { shrink: true } }}
+              value={formData.appointment_date}
+              onChange={(e) =>
+                setFormData({ ...formData, appointment_date: e.target.value })
+              }
+            />
+            <TextField
+              label="Time *"
+              type="time"
+              fullWidth
+              slotProps={{ inputLabel: { shrink: true } }}
+              value={formData.appointment_time}
+              onChange={(e) =>
+                setFormData({ ...formData, appointment_time: e.target.value })
+              }
+            />
+            <TextField
+              label="Notes"
+              fullWidth
+              multiline
+              rows={3}
+              value={formData.notes}
+              onChange={(e) =>
+                setFormData({ ...formData, notes: e.target.value })
+              }
+            />
           </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenModal(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSubmit}>
+            {isAdmin ? 'Assign to Doctor' : 'Submit for Approval'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-          {selectedDoctorData && (
-            <Box
-              sx={{
-                mt: 1.5,
-                p: 1.5,
-                backgroundColor: 'white',
-                borderRadius: 2,
-                border: '1px solid #e8eaf6',
-                width: '275px',
-              }}
-            >
-              <Box
-                sx={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 1.5,
-                  backgroundColor: '#e0e0e0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  mb: 0.8,
-                }}
-              >
-                <PersonIcon sx={{ color: '#888', fontSize: '1.1rem' }} />
-              </Box>
-              <Typography
-                sx={{
-                  fontWeight: 700,
-                  fontSize: '0.78rem',
-                  color: '#1a1a1a',
-                  textDecoration: 'underline',
-                  mb: 0.3,
-                }}
-              >
-                {selectedDoctorData.doctor_name}
-              </Typography>
-              <Typography sx={{ fontSize: '0.68rem', color: '#555' }}>
-                Department: {selectedDoctorData.department}
-              </Typography>
-              <Typography sx={{ fontSize: '0.68rem', color: '#555' }}>
-                Working Hours: {selectedDoctorData.workingHours}
-              </Typography>
-              <Typography sx={{ fontSize: '0.68rem', color: '#555' }}>
-                Available Slot: {selectedDoctorData.availableSlots} Slots
-              </Typography>
-            </Box>
-          )}
-
-          {selectedServiceData && (
-            <Box
-              sx={{
-                mt: 1.5,
-                p: 1.5,
-                backgroundColor: 'white',
-                borderRadius: 2,
-                border: '1px solid #e8eaf6',
-                width: '275px',
-              }}
-            >
-              <Box
-                sx={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 1.5,
-                  backgroundColor: '#e0e0e0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  mb: 0.8,
-                }}
-              >
-                <MedicalServicesIcon
-                  sx={{ color: '#888', fontSize: '1.1rem' }}
-                />
-              </Box>
-              <Typography
-                sx={{
-                  fontWeight: 700,
-                  fontSize: '0.78rem',
-                  color: '#1a1a1a',
-                  textDecoration: 'underline',
-                  mb: 0.3,
-                }}
-              >
-                {selectedServiceData.name}
-              </Typography>
-              <Typography sx={{ fontSize: '0.68rem', color: '#555' }}>
-                {selectedServiceData.description}
-              </Typography>
-              <Typography sx={{ fontSize: '0.68rem', color: '#555' }}>
-                Duration: {selectedServiceData.duration}
-              </Typography>
-              <Typography sx={{ fontSize: '0.68rem', color: '#555' }}>
-                Price: {selectedServiceData.price}
-              </Typography>
-            </Box>
-          )}
-
+      {/* ── Reschedule Modal ── */}
+      <Dialog
+        open={rescheduleModal.open}
+        onClose={() =>
+          setRescheduleModal({ open: false, id: '', date: '', time: '' })
+        }
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          Reschedule Appointment
+          <IconButton
+            onClick={() =>
+              setRescheduleModal({ open: false, id: '', date: '', time: '' })
+            }
+            size="small"
+          >
+            <FiX />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label="New Date *"
+              type="date"
+              fullWidth
+              slotProps={{ inputLabel: { shrink: true } }}
+              value={rescheduleModal.date}
+              onChange={(e) =>
+                setRescheduleModal((prev) => ({
+                  ...prev,
+                  date: e.target.value,
+                }))
+              }
+            />
+            <TextField
+              label="New Time *"
+              type="time"
+              fullWidth
+              slotProps={{ inputLabel: { shrink: true } }}
+              value={rescheduleModal.time}
+              onChange={(e) =>
+                setRescheduleModal((prev) => ({
+                  ...prev,
+                  time: e.target.value,
+                }))
+              }
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() =>
+              setRescheduleModal({ open: false, id: '', date: '', time: '' })
+            }
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
-            fullWidth
-            onClick={handleNewAppointmentClick}
+            onClick={handleRescheduleSubmit}
             sx={{
-              mt: 2,
-              borderRadius: 3,
-              backgroundColor: isFormReady ? '#3d5afe' : '#9fa8da',
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-              py: 1.2,
-              boxShadow: isFormReady
-                ? '0 4px 14px rgba(61,90,254,0.35)'
-                : 'none',
-              '&:hover': {
-                backgroundColor: isFormReady ? '#2a41d0' : '#7986cb',
-              },
-              transition: 'background-color 0.2s ease',
+              backgroundColor: '#3b82f6',
+              '&:hover': { backgroundColor: '#2563eb' },
             }}
           >
-            + New Appointment
+            Confirm Reschedule
           </Button>
-          {!isFormReady && (
-            <Typography
-              sx={{
-                fontSize: '0.68rem',
-                color: '#9fa8da',
-                textAlign: 'center',
-                mt: 0.7,
-              }}
-            >
-              Please select a date, time, doctor, and service first.
-            </Typography>
-          )}
-        </Box>
+        </DialogActions>
+      </Dialog>
 
-        {/*Right Side*/}
-        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-            <AccessTimeIcon sx={{ color: '#e53935', fontSize: '1.2rem' }} />
-            <Typography
-              sx={{ fontWeight: 700, fontSize: '1rem', color: 'black' }}
-            >
-              Pick a{' '}
-              <Box component="span" sx={{ color: '#e53935' }}>
-                Time
-              </Box>
-            </Typography>
-          </Box>
-
-          <Box
-            sx={{
-              backgroundColor: 'white',
-              borderRadius: 3,
-              mb: 1.5,
-              overflow: 'hidden',
-              width: '100%',
-              boxSizing: 'border-box',
-            }}
-          >
-            {/*Morning Slots*/}
-            <Box sx={{ p: 2 }}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  mb: 1.5,
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <WbSunnyOutlinedIcon
-                    sx={{ color: '#F59E0B', fontSize: '1.1rem' }}
-                  />
-                  <Box>
-                    <Typography
-                      sx={{
-                        fontWeight: 700,
-                        color: '#f59e0b',
-                        fontSize: '0.88rem',
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      Morning
-                    </Typography>
-                    <Typography sx={{ fontSize: '0.68rem', color: '#999' }}>
-                      08:00 AM to 12:00 PM
-                    </Typography>
-                  </Box>
-                </Box>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<AddIcon sx={{ fontSize: '0.8rem !important' }} />}
-                  onClick={() => openAddSlot('morning')}
-                  sx={{
-                    borderRadius: 2,
-                    borderColor: '#c5cae9',
-                    color: '#5c6bc0',
-                    fontSize: '0.72rem',
-                    textTransform: 'none',
-                    px: 1.5,
-                    py: 0.4,
-                    mr: 3.5,
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                    '&:hover': { backgroundColor: '#e8eaf6' },
-                  }}
-                >
-                  Add Slots
-                </Button>
-              </Box>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {morningSlots.map((slot) => renderSlot(slot, '#f59e0b', 100))}
-              </Box>
-            </Box>
-
-            <Box sx={{ borderTop: '1px solid #f0f0f0' }} />
-
-            {/*Noon Slots*/}
-            <Box sx={{ p: 2 }}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  mb: 1.5,
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box
-                    component="span"
-                    sx={{ fontSize: '1rem', lineHeight: 1 }}
-                  >
-                    🌤
-                  </Box>
-                  <Box>
-                    <Typography
-                      sx={{
-                        fontWeight: 700,
-                        color: '#FFEA00',
-                        fontSize: '0.88rem',
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      Noon
-                    </Typography>
-                    <Typography sx={{ fontSize: '0.68rem', color: '#999' }}>
-                      01:00 PM to 05:00 PM
-                    </Typography>
-                  </Box>
-                </Box>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<AddIcon sx={{ fontSize: '0.8rem !important' }} />}
-                  onClick={() => openAddSlot('noon')}
-                  sx={{
-                    borderRadius: 2,
-                    borderColor: '#c5cae9',
-                    color: '#5c6bc0',
-                    fontSize: '0.72rem',
-                    textTransform: 'none',
-                    px: 1.5,
-                    py: 0.4,
-                    mr: 3.5,
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                    '&:hover': { backgroundColor: '#e8eaf6' },
-                  }}
-                >
-                  Add Slots
-                </Button>
-              </Box>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {noonSlots.map((slot) => renderSlot(slot, '#8b5cf6', 95))}
-              </Box>
-            </Box>
-          </Box>
-
-          {/*Waiting List*/}
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: '#fefce8',
-              border: '1.5px solid #fde68a',
-              borderRadius: 3,
-              px: 2.5,
-              py: 1.5,
-              width: '100%',
-              boxSizing: 'border-box',
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <WatchLaterOutlinedIcon
-                sx={{ color: '#d97706', fontSize: '1.1rem' }}
-              />
-              <Typography
-                sx={{ fontWeight: 700, color: '#92400e', fontSize: '0.9rem' }}
-              >
-                Waiting List
-              </Typography>
-            </Box>
-            <Button
-              size="small"
-              startIcon={<AddIcon sx={{ fontSize: '0.85rem !important' }} />}
-              sx={{
-                textTransform: 'none',
-                fontWeight: 600,
-                color: '#d97706',
-                fontSize: '0.8rem',
-                whiteSpace: 'nowrap',
-                backgroundColor: '#fef3c7',
-                flexShrink: 0,
-                '&:hover': { backgroundColor: '#eac73e' },
-              }}
-            >
-              Add to Waiting List
-            </Button>
-          </Box>
-        </Box>
-      </Box>
-
-      {/*All Modals*/}
-      <DoctorModal
-        open={doctorModalOpen}
-        onClose={() => setDoctorModalOpen(false)}
-        onSelect={(name) => setSelectedDoctor(name)}
-        doctors={doctors}
-        loadingDoctors={loadingDoctors}
-      />
-      <ServiceModal
-        open={serviceModalOpen}
-        onClose={() => setServiceModalOpen(false)}
-        onSelect={(name) => setSelectedService(name)}
-      />
-      <AddSlotModal
-        open={addSlotOpen}
-        onClose={() => setAddSlotOpen(false)}
-        onAdd={handleAddSlot}
-        section={addSlotSection === 'morning' ? 'Morning' : 'Noon'}
-        range={
-          addSlotSection === 'morning'
-            ? '08:00 AM to 12:00 PM'
-            : '01:00 PM to 05:00 PM'
-        }
-        accentColor={addSlotSection === 'morning' ? '#f59e0b' : '#8b5cf6'}
-      />
-      <NewAppointmentModal
-        open={newApptModalOpen}
-        onClose={() => setNewApptModalOpen(false)}
-        onConfirm={handleConfirmAppointment}
-        selectedDate={selectedDate}
-        selectedTime={selectedTime}
-        selectedDoctor={selectedDoctor}
-        selectedService={selectedService}
-      />
-    </>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </div>
   );
 }
 

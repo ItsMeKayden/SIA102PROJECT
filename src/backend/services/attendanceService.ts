@@ -1,98 +1,238 @@
-import { supabase } from '../../supabase-client';
+import { supabase, handleSupabaseError } from '../../lib/supabase-client';
+import type {
+  Attendance,
+  AttendanceInsert,
+  AttendanceUpdate,
+} from '../../types';
 
-export interface Staff {
-  doctorID: number;
-  doctor_name: string;
-  department: string;
-}
+// Attendance Backend Service
+// Handles all attendance-related database operations :)
 
-export interface AttendanceRecord {
-  id: number;
-  doctor_name: string;
-  department: string;
-  date: string;
-  checkIn: string;
-  checkOut: string;
-}
+// Get all attendance records
+export const getAllAttendance = async (): Promise<{
+  data: Attendance[] | null;
+  error: string | null;
+}> => {
+  try {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .order('date', { ascending: false });
 
-function formatDate(raw: string): string {
-  if (!raw) return '—';
-  const d = new Date(raw);
-  return `${d.getMonth() + 1}-${d.getDate()}-${d.getFullYear()}`;
-}
+    if (error) throw error;
 
-function formatTime(raw: string): string {
-  if (!raw) return '—';
-  return new Date(`1970-01-01T${raw}`).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-export async function fetchDoctors(): Promise<Staff[]> {
-  const { data, error } = await supabase
-    .from('doctors')
-    .select('doctorID, doctor_name, department');
-
-  if (error) {
-    console.error('Error fetching doctors:', error.message);
-    return [];
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error: handleSupabaseError(error) };
   }
+};
 
-  return (data as Staff[]) ?? [];
-}
+// Get attendance by staff ID
+export const getAttendanceByStaffId = async (
+  staffId: string,
+): Promise<{ data: Attendance[] | null; error: string | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('staff_id', staffId)
+      .order('date', { ascending: false });
 
-export async function fetchAttendanceRecords(
-  doctorID?: number,
-  month?: number, // 1–12
-  year?: number,
-): Promise<AttendanceRecord[]> {
-  let query = supabase
-    .from('attendance')
-    .select(
-      `
-      attendanceID,
-      date,
-      CheckIn,
-      CheckOut,
-      doctors (
-        doctor_name,
-        department
-      )
-    `,
-    )
-    .order('date', { ascending: false });
+    if (error) throw error;
 
-  if (doctorID !== undefined) {
-    query = query.eq('doctorID', doctorID);
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error: handleSupabaseError(error) };
   }
+};
 
-  // Filter by month and year
-  if (month !== undefined && year !== undefined) {
-    const start = `${year}-${String(month).padStart(2, '0')}-01`;
-    const lastDay = new Date(year, month, 0).getDate();
-    const end = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
-    query = query.gte('date', start).lte('date', end);
-  } else if (year !== undefined) {
-    query = query.gte('date', `${year}-01-01`).lte('date', `${year}-12-31`);
+// Get attendance by date range
+export const getAttendanceByDateRange = async (
+  staffId: string,
+  startDate: string,
+  endDate: string,
+): Promise<{ data: Attendance[] | null; error: string | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('staff_id', staffId)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: true });
+
+    if (error) throw error;
+
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error: handleSupabaseError(error) };
   }
+};
 
-  const { data, error } = await query;
+// Create attendance record
+export const createAttendance = async (
+  attendanceData: AttendanceInsert,
+): Promise<{ data: Attendance | null; error: string | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('attendance')
+      .insert(attendanceData)
+      .select()
+      .single();
 
-  if (error) {
-    console.error('Error fetching attendance:', error.message);
-    console.error('Details:', error);
-    return [];
+    if (error) throw error;
+
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error: handleSupabaseError(error) };
   }
+};
 
-  console.log('Raw attendance data:', data);
+// Update attendance record
+export const updateAttendance = async (
+  id: string,
+  attendanceData: AttendanceUpdate,
+): Promise<{ data: Attendance | null; error: string | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('attendance')
+      .update(attendanceData)
+      .eq('id', id)
+      .select()
+      .single();
 
-  return (data ?? []).map((row: any) => ({
-    id: row.attendanceID,
-    doctor_name: row.doctors?.doctor_name ?? '—',
-    department: row.doctors?.department ?? '—',
-    date: formatDate(row.date),
-    checkIn: formatTime(row.CheckIn),
-    checkOut: formatTime(row.CheckOut),
-  }));
-}
+    if (error) throw error;
+
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error: handleSupabaseError(error) };
+  }
+};
+
+// Delete attendance record
+export const deleteAttendance = async (
+  id: string,
+): Promise<{ error: string | null }> => {
+  try {
+    const { error } = await supabase.from('attendance').delete().eq('id', id);
+
+    if (error) throw error;
+
+    return { error: null };
+  } catch (error) {
+    return { error: handleSupabaseError(error) };
+  }
+};
+
+// Clock in
+export const clockIn = async (
+  staffId: string,
+  shift?: string,
+): Promise<{ data: Attendance | null; error: string | null }> => {
+  try {
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const timeStr = now.toTimeString().split(' ')[0];
+
+    const attendanceData: AttendanceInsert = {
+      staff_id: staffId,
+      date: dateStr,
+      time_in: timeStr,
+      status: 'Present',
+      notes: shift ? `Shift: ${shift}` : null,
+    };
+
+    const { data, error } = await supabase
+      .from('attendance')
+      .insert(attendanceData)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error: handleSupabaseError(error) };
+  }
+};
+
+// Clock out
+export const clockOut = async (
+  attendanceId: string,
+): Promise<{ data: Attendance | null; error: string | null }> => {
+  try {
+    const now = new Date();
+    const timeStr = now.toTimeString().split(' ')[0];
+
+    // Get the attendance record to calculate hours
+    const { data: attendance, error: fetchError } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('id', attendanceId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Note: Hours calculation can be implemented when needed
+    // Calculate hours worked if needed:
+    // const timeIn = new Date(`2000-01-01T${attendance.time_in}`);
+    // const timeOut = new Date(`2000-01-01T${timeStr}`);
+    // const hoursWorked = (timeOut.getTime() - timeIn.getTime()) / (1000 * 60 * 60);
+
+    const { data, error } = await supabase
+      .from('attendance')
+      .update({
+        time_out: timeStr,
+      })
+      .eq('id', attendanceId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error: handleSupabaseError(error) };
+  }
+};
+
+// Get attendance statistics
+export const getAttendanceStats = async (
+  staffId: string,
+  startDate: string,
+  endDate: string,
+): Promise<{
+  data: {
+    present: number;
+    late: number;
+    overtime: number;
+    absent: number;
+    totalHours: number;
+  } | null;
+  error: string | null;
+}> => {
+  try {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('staff_id', staffId)
+      .gte('date', startDate)
+      .lte('date', endDate);
+
+    if (error) throw error;
+
+    const stats = {
+      present:
+        data?.filter((a: Attendance) => a.status === 'Present').length || 0,
+      late: data?.filter((a: Attendance) => a.status === 'Late').length || 0,
+      overtime: 0, // Overtime tracking not implemented yet
+      absent:
+        data?.filter((a: Attendance) => a.status === 'Absent').length || 0,
+      totalHours: 0, // Hours calculation not implemented yet
+    };
+
+    return { data: stats, error: null };
+  } catch (error) {
+    return { data: null, error: handleSupabaseError(error) };
+  }
+};

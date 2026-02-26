@@ -9,7 +9,7 @@ import {
   FiClipboard,
   FiBell,
 } from 'react-icons/fi';
-import '../styles/Sidebar.css';
+import '../../styles/Sidebar.css';
 
 type MenuItem = {
   label: string;
