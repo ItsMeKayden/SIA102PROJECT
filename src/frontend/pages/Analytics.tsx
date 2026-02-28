@@ -136,7 +136,7 @@ function Analytics() {
         );
       }
 
-    } catch (err) {
+    } catch {
       setError('Failed to load analytics data');
     } finally {
       setLoading(false);
