@@ -92,7 +92,8 @@ function Attendance() {
           compliance: late === 0 ? 'Compliant' : 'Needs Review',
         });
       }
-    } catch (err) {
+    } catch (error) {
+      console.error(error);
       setError('Failed to fetch attendance data');
     } finally {
       setLoading(false);

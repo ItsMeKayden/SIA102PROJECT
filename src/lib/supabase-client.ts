@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database.types';
+import type { PostgrestError } from '@supabase/supabase-js';
 
 // Supabase configuration
 // Replace these with your actual Supabase project credentials plz
@@ -26,10 +27,10 @@ export const handleSupabaseError = (error: unknown): string => {
     return error.message;
   }
   if (typeof error === 'object' && error !== null) {
-    // Handle Supabase API error format
-    const err = error as any;
+    // Supabase usually returns a PostgrestError-like object
+    const err = error as PostgrestError | { message?: string; error_description?: string; hint?: string };
     if (err.message) return err.message;
-    if (err.error_description) return err.error_description;
+    if ('error_description' in err && err.error_description) return err.error_description;
     if (err.hint) return `${err.message || 'Database error'} - ${err.hint}`;
   }
   return 'An unknown error occurred';

@@ -1,5 +1,5 @@
 import '../styles/Pages.css';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   Table, 
@@ -25,7 +25,7 @@ import {
   Snackbar,
   Alert
 } from '@mui/material';
-import { FiSearch, FiX, FiTrash2 } from 'react-icons/fi';
+import { FiSearch, FiX, FiTrash2, FiPlus, FiEdit } from 'react-icons/fi';
 import type { Staff, StaffFormData } from '../../types';
 import { 
   getAllStaff, 
@@ -54,13 +54,8 @@ function StaffInformation() {
     phone: ''
   });
 
-  // Fetch staff data on mount
-  useEffect(() => {
-    fetchStaff();
-  }, []);
-
-  // Fetch all staff
-  const fetchStaff = async () => {
+  // Fetch all staff (memoized so effect dependency is stable)
+  const fetchStaff = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await getAllStaff();
@@ -69,12 +64,17 @@ function StaffInformation() {
       } else {
         setStaffData(data || []);
       }
-    } catch (err) {
+    } catch {
       showSnackbar('Failed to load staff data', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Fetch staff data on mount
+  useEffect(() => {
+    fetchStaff();
+  }, [fetchStaff]);
 
   // Show snackbar notification
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
@@ -115,7 +115,7 @@ function StaffInformation() {
   };
 
   const handleStaffSelection = (staffId: string) => {
-    const staff = staffData.find(s => s.id === staffId);
+    const staff = staffData.find((s) => s.id === staffId);
     if (staff) {
       setSelectedStaffId(staffId);
       setFormData({
@@ -429,37 +429,46 @@ function StaffInformation() {
                 Full Name
               </label>
               <TextField
-                fullWidth
+                placeholder="Search staff..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 size="small"
-                placeholder="Enter full name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                disabled={modalMode === 'edit' && !selectedStaffId}
                 sx={{
+                  flex: '1 1 180px',
+                  minWidth: '150px',
+                  maxWidth: '280px',
+                  backgroundColor: 'white',
+                  borderRadius: '6px',
                   '& .MuiOutlinedInput-root': {
                     borderRadius: '6px',
-                  }
+                  },
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <FiSearch
+                        style={{ color: '#6b7280', fontSize: '16px' }}
+                      />
+                    </InputAdornment>
+                  ),
                 }}
               />
-            </Box>
 
-            <Box>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '6px', 
-                fontSize: '13px', 
-                fontWeight: 500,
-                color: '#374151'
-              }}>
-                Role
-              </label>
-              <FormControl fullWidth size="small">
+              <FormControl
+                size="small"
+                sx={{
+                  minWidth: 120,
+                  maxWidth: 160,
+                  flex: '0 1 auto',
+                  backgroundColor: 'white',
+                  borderRadius: '6px',
+                }}
+              >
                 <Select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  value={specializationFilter}
+                  onChange={(e) => setSpecializationFilter(e.target.value)}
                   displayEmpty
-                  disabled={modalMode === 'edit' && !selectedStaffId}
-                  sx={{ borderRadius: '6px' }}
+                  sx={{ borderRadius: '6px', fontSize: '14px' }}
                 >
                   <MenuItem value="">Select role</MenuItem>
                   <MenuItem value="Doctor">Doctor</MenuItem>
@@ -493,19 +502,18 @@ function StaffInformation() {
                   <MenuItem value="Surgery">Surgery</MenuItem>
                 </Select>
               </FormControl>
-            </Box>
 
-            <Box>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '6px', 
-                fontSize: '13px', 
-                fontWeight: 500,
-                color: '#374151'
-              }}>
-                Status
-              </label>
-              <FormControl fullWidth size="small">
+              <FormControl
+                size="small"
+                sx={{
+                  minWidth: 100,
+                  maxWidth: 140,
+                  flex: '0 1 auto',
+                  backgroundColor: 'white',
+                  borderRadius: '6px',
+                  marginRight: '12px',
+                }}
+              >
                 <Select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as 'Active' | 'Inactive' })}
@@ -516,6 +524,54 @@ function StaffInformation() {
                   <MenuItem value="Inactive">Inactive</MenuItem>
                 </Select>
               </FormControl>
+
+              <Box
+                sx={{
+                  marginLeft: 'auto',
+                  display: 'flex',
+                  gap: '8px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <Button
+                  variant="contained"
+                  startIcon={<FiPlus size={16} />}
+                  onClick={() => handleOpenModal('add')}
+                  sx={{
+                    backgroundColor: '#3b82f6',
+                    borderRadius: '6px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    padding: '6px 16px',
+                    fontSize: '13px',
+                    '&:hover': {
+                      backgroundColor: '#2563eb',
+                    },
+                  }}
+                >
+                  Add
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<FiEdit size={16} />}
+                  onClick={() => handleOpenModal('edit')}
+                  sx={{
+                    borderColor: '#d1d5db',
+                    color: '#4b5563',
+                    borderRadius: '6px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    padding: '6px 16px',
+                    fontSize: '13px',
+                    '&:hover': {
+                      borderColor: '#9ca3af',
+                      backgroundColor: '#f9fafb',
+                    },
+                  }}
+                >
+                  Edit
+                </Button>
+              </Box>
             </Box>
 
             <Box>
@@ -571,19 +627,8 @@ function StaffInformation() {
             </Box>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2.5, gap: 1 }}>
-          <Button 
-            onClick={handleCloseModal}
-            sx={{
-              textTransform: 'none',
-              color: '#6b7280',
-              fontWeight: 500,
-              fontSize: '14px',
-              '&:hover': {
-                backgroundColor: '#f3f4f6'
-              }
-            }}
-          >
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={handleCloseModal} sx={{ textTransform: 'none', color: '#6b7280' }}>
             Cancel
           </Button>
           <Button 

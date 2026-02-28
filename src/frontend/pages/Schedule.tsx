@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import '../styles/Pages.css';
 import {
   Box, Card, CardContent, Typography, Paper, Table, TableBody, TableCell,
@@ -32,9 +32,7 @@ function Schedule() {
     notes: '',
   });
 
-  useEffect(() => { fetchData(); }, [staffProfile]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       let schedulesPromise;
@@ -63,7 +61,9 @@ function Schedule() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAdmin, staffProfile]);
+
+  useEffect(() => { fetchData(); }, [staffProfile, fetchData]);
 
   const showSnackbar = (msg: string, sev: 'success' | 'error') => setSnackbar({ open: true, message: msg, severity: sev });
 

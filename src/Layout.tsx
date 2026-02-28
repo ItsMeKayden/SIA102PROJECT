@@ -144,9 +144,6 @@ const Layout = () => {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
-  const [_selectedNotificationFilter] = useState('unread');
-  const [_detailsModalOpen, _setDetailsModalOpen] = useState(false);
-  const [_selectedNotificationForDetails, _setSelectedNotificationForDetails] = useState<Notification | null>(null);
 
   const [staffAnchorEl, setStaffAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedStaff, setSelectedStaff] = useState('John Doe');
@@ -157,7 +154,6 @@ const Layout = () => {
     'Jan 01 - Jan 31 2026',
   );
 
-  const [_searchQuery, _setSearchQuery] = useState('');
 
   const dateOpen = Boolean(dateAnchorEl);
   const staffList = ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Williams'];
@@ -209,10 +205,13 @@ const Layout = () => {
 
   // Auto-show login modal if user is not authenticated
   useEffect(() => {
-    if (!user && !showLoginModal) {
-      setShowLoginModal(true);
+    // schedule opening on next tick so that state update isn't synchronous within the effect
+    if (!user) {
+      setTimeout(() => {
+        setShowLoginModal(true);
+      }, 0);
     }
-  }, [user, showLoginModal]);
+  }, [user]);
 
   // Fetch notifications when modal opens
   const fetchNotifications = async () => {
@@ -540,7 +539,7 @@ const Layout = () => {
             },
           }}
         >
-          {menuItems.map((item, _index) => (
+          {menuItems.map((item) => (
             <MenuItem
               key={item.path}
               onClick={() => handleNavigation(item.path)}
