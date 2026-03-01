@@ -141,7 +141,7 @@ const Layout = () => {
     if (!user && !showLoginModal) {
       setShowLoginModal(true);
     }
-  }, [user, showLoginModal]);
+  }, [user]);
 
   // Fetch notifications when modal opens
   const fetchNotifications = async () => {
@@ -497,7 +497,7 @@ const Layout = () => {
             },
           }}
         >
-          {menuItems.map((item, index) => (
+          {menuItems.map((item) => (
             <MenuItem
               key={item.path}
               onClick={() => handleNavigation(item.path)}

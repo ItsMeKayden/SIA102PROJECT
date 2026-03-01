@@ -1,18 +1,44 @@
 import { useState, useEffect } from 'react';
 import '../styles/Pages.css';
 import {
-  Box, Card, CardContent, Typography, Paper, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, TextField, InputAdornment,
-  CircularProgress, Button, Dialog, DialogTitle, DialogContent,
-  DialogActions, FormControl, Select, MenuItem, IconButton, Snackbar, Alert,
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  InputAdornment,
+  CircularProgress,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  Select,
+  MenuItem,
+  IconButton,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { FiSearch, FiCalendar, FiPlus, FiTrash2, FiX } from 'react-icons/fi';
-import { getAllSchedules, getSchedulesByStaffId, createSchedule, deleteSchedule } from '../../backend/services/scheduleService';
+import {
+  getAllSchedules,
+  getSchedulesByStaffId,
+  createSchedule,
+  deleteSchedule,
+} from '../../backend/services/scheduleService';
 import { getAllStaff } from '../../backend/services/staffService';
 import { useAuth } from '../../contexts/AuthContext';
-import type { Schedule, Staff } from '../../types';
+import type { Schedule as ScheduleType, Staff } from '../../types';
 
-interface ScheduleWithStaff extends Schedule {
+interface ScheduleWithStaff extends ScheduleType {
   staff?: Staff;
 }
 
@@ -23,7 +49,11 @@ function Schedule() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [openModal, setOpenModal] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error',
+  });
   const [formData, setFormData] = useState({
     staff_id: '',
     day_of_week: 1,
@@ -32,7 +62,9 @@ function Schedule() {
     notes: '',
   });
 
-  useEffect(() => { fetchData(); }, [staffProfile]);
+  useEffect(() => {
+    fetchData();
+  }, [staffProfile]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -52,9 +84,9 @@ function Schedule() {
       const allStaff = staffResult.data ?? [];
       setStaff(allStaff);
       if (schedulesResult.data) {
-        const merged = schedulesResult.data.map(s => ({
+        const merged = schedulesResult.data.map((s) => ({
           ...s,
-          staff: allStaff.find(st => st.id === s.staff_id),
+          staff: allStaff.find((st) => st.id === s.staff_id),
         }));
         setSchedules(merged);
       }
@@ -65,7 +97,8 @@ function Schedule() {
     }
   };
 
-  const showSnackbar = (msg: string, sev: 'success' | 'error') => setSnackbar({ open: true, message: msg, severity: sev });
+  const showSnackbar = (msg: string, sev: 'success' | 'error') =>
+    setSnackbar({ open: true, message: msg, severity: sev });
 
   const handleOpenModal = () => {
     setFormData({
@@ -80,9 +113,18 @@ function Schedule() {
 
   const handleSubmit = async () => {
     const targetStaffId = isAdmin ? formData.staff_id : staffProfile?.id;
-    if (!targetStaffId) { showSnackbar('No staff selected', 'error'); return; }
-    if (!formData.start_time || !formData.end_time) { showSnackbar('Please fill in start and end time', 'error'); return; }
-    if (formData.start_time >= formData.end_time) { showSnackbar('End time must be after start time', 'error'); return; }
+    if (!targetStaffId) {
+      showSnackbar('No staff selected', 'error');
+      return;
+    }
+    if (!formData.start_time || !formData.end_time) {
+      showSnackbar('Please fill in start and end time', 'error');
+      return;
+    }
+    if (formData.start_time >= formData.end_time) {
+      showSnackbar('End time must be after start time', 'error');
+      return;
+    }
 
     const { error } = await createSchedule({
       staff_id: targetStaffId,
@@ -93,8 +135,9 @@ function Schedule() {
       is_active: true,
     });
 
-    if (error) { showSnackbar(error, 'error'); }
-    else {
+    if (error) {
+      showSnackbar(error, 'error');
+    } else {
       showSnackbar('Schedule added successfully', 'success');
       setOpenModal(false);
       fetchData();
@@ -102,66 +145,73 @@ function Schedule() {
   };
 
   const handleDelete = async (id: string) => {
-    setSchedules(prev => prev.filter(s => s.id !== id));
+    setSchedules((prev) => prev.filter((s) => s.id !== id));
     const { error } = await deleteSchedule(id);
-    if (error) { showSnackbar(error, 'error'); fetchData(); }
-    else showSnackbar('Schedule removed', 'success');
+    if (error) {
+      showSnackbar(error, 'error');
+      fetchData();
+    } else showSnackbar('Schedule removed', 'success');
   };
 
   // Calculate summary statistics
-  const totalStaff = staff.filter(s => s.status === 'Active').length;
-  const activeSchedules = schedules.filter(s => s.is_active).length;
-  const todaySchedules = schedules.filter(s => 
-    s.is_active && s.day_of_week === new Date().getDay()
+  const totalStaff = staff.filter((s) => s.status === 'Active').length;
+  const activeSchedules = schedules.filter((s) => s.is_active).length;
+  const todaySchedules = schedules.filter(
+    (s) => s.is_active && s.day_of_week === new Date().getDay(),
   ).length;
 
   const summaryCards = [
-    { 
-      title: 'Active Staff', 
-      value: totalStaff.toString(), 
+    {
+      title: 'Active Staff',
+      value: totalStaff.toString(),
       bgColor: '#f0fdf4',
       textColor: '#166534',
-      borderColor: '#bbf7d0'
+      borderColor: '#bbf7d0',
     },
-    { 
-      title: 'Shifts Today', 
-      value: todaySchedules.toString(), 
+    {
+      title: 'Shifts Today',
+      value: todaySchedules.toString(),
       bgColor: '#eff6ff',
       textColor: '#1e40af',
-      borderColor: '#bfdbfe'
+      borderColor: '#bfdbfe',
     },
-    { 
-      title: 'Total Schedules', 
-      value: activeSchedules.toString(), 
+    {
+      title: 'Total Schedules',
+      value: activeSchedules.toString(),
       bgColor: '#fef2f2',
       textColor: '#991b1b',
-      borderColor: '#fecaca'
+      borderColor: '#fecaca',
     },
-    { 
-      title: 'Staff Scheduled', 
-      value: new Set(schedules.filter(s => s.is_active).map(s => s.staff_id)).size.toString(), 
+    {
+      title: 'Staff Scheduled',
+      value: new Set(
+        schedules.filter((s) => s.is_active).map((s) => s.staff_id),
+      ).size.toString(),
       bgColor: '#fff7ed',
       textColor: '#9a3412',
-      borderColor: '#fed7aa'
-    }
+      borderColor: '#fed7aa',
+    },
   ];
 
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   // Group schedules by day and time
   const groupedSchedules: Record<number, ScheduleWithStaff[]> = {};
-  schedules.filter(s => s.is_active).forEach(schedule => {
-    if (!groupedSchedules[schedule.day_of_week]) {
-      groupedSchedules[schedule.day_of_week] = [];
-    }
-    groupedSchedules[schedule.day_of_week].push(schedule);
-  });
+  schedules
+    .filter((s) => s.is_active)
+    .forEach((schedule) => {
+      if (!groupedSchedules[schedule.day_of_week]) {
+        groupedSchedules[schedule.day_of_week] = [];
+      }
+      groupedSchedules[schedule.day_of_week].push(schedule);
+    });
 
   // Filter schedules based on search
   const filteredSchedules = searchTerm
-    ? schedules.filter(s => 
-        s.staff?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.staff?.role.toLowerCase().includes(searchTerm.toLowerCase())
+    ? schedules.filter(
+        (s) =>
+          s.staff?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          s.staff?.role.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     : schedules;
 
@@ -175,16 +225,38 @@ function Schedule() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '400px',
+        }}
+      >
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <div style={{ padding: '24px', width: '100%', maxWidth: '1400px', margin: '0 auto', boxSizing: 'border-box' }}>
+    <div
+      style={{
+        padding: '24px',
+        width: '100%',
+        maxWidth: '1400px',
+        margin: '0 auto',
+        boxSizing: 'border-box',
+      }}
+    >
       {/* Top Header Bar */}
-      <Box sx={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box
+        sx={{
+          marginBottom: '20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 600, color: '#111827' }}>
             {isAdmin ? 'Schedule Management' : 'My Schedule'}
@@ -201,14 +273,14 @@ function Schedule() {
             size="small"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ 
+            sx={{
               width: '100%',
               maxWidth: '280px',
               backgroundColor: 'white',
               borderRadius: '6px',
               '& .MuiOutlinedInput-root': {
                 borderRadius: '6px',
-              }
+              },
             }}
             slotProps={{
               input: {
@@ -217,7 +289,7 @@ function Schedule() {
                     <FiSearch style={{ color: '#6b7280', fontSize: '16px' }} />
                   </InputAdornment>
                 ),
-              }
+              },
             }}
           />
           <Button
@@ -241,47 +313,49 @@ function Schedule() {
 
       {/* Schedule Summary Cards */}
       <Box sx={{ marginBottom: '24px' }}>
-        <Typography 
-          variant="h6" 
-          sx={{ 
+        <Typography
+          variant="h6"
+          sx={{
             marginBottom: '14px',
             color: '#374151',
             fontSize: '15px',
-            fontWeight: 600
+            fontWeight: 600,
           }}
         >
           Schedule Summary
         </Typography>
-        <Box sx={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', 
-          gap: '14px' 
-        }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+            gap: '14px',
+          }}
+        >
           {summaryCards.map((card) => (
-            <Card 
+            <Card
               key={card.title}
-              sx={{ 
+              sx={{
                 backgroundColor: card.bgColor,
                 borderRadius: '10px',
                 boxShadow: 'none',
-                border: `1px solid ${card.borderColor}`
+                border: `1px solid ${card.borderColor}`,
               }}
             >
               <CardContent sx={{ padding: '18px !important' }}>
-                <Typography 
-                  sx={{ 
-                    fontSize: '12px', 
+                <Typography
+                  sx={{
+                    fontSize: '12px',
                     fontWeight: 500,
                     color: card.textColor,
                     marginBottom: '8px',
-                    opacity: 0.85
+                    opacity: 0.85,
                   }}
                 >
                   {card.title}
                 </Typography>
-                <Typography 
-                  sx={{ 
-                    fontSize: '28px', 
+                <Typography
+                  sx={{
+                    fontSize: '28px',
                     fontWeight: 700,
                     color: card.textColor,
                   }}
@@ -296,9 +370,9 @@ function Schedule() {
 
       {/* Weekly Schedule */}
       <Box sx={{ marginBottom: '24px', width: '100%' }}>
-        <Typography 
-          variant="h6" 
-          sx={{ 
+        <Typography
+          variant="h6"
+          sx={{
             marginBottom: '14px',
             textAlign: 'center',
             color: '#1f2937',
@@ -307,36 +381,36 @@ function Schedule() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '8px'
+            gap: '8px',
           }}
         >
           <FiCalendar />
           Weekly Schedule
         </Typography>
-        <TableContainer 
+        <TableContainer
           component={Paper}
-          sx={{ 
+          sx={{
             borderRadius: '8px',
             boxShadow: 'none',
             border: '1px solid #e5e7eb',
             width: '100%',
-            overflowX: 'auto'
+            overflowX: 'auto',
           }}
         >
           <Table size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
             <TableHead>
               <TableRow>
                 {weekDays.map((day, idx) => (
-                  <TableCell 
+                  <TableCell
                     key={day}
                     align="center"
-                    sx={{ 
+                    sx={{
                       fontWeight: 600,
                       backgroundColor: idx === 0 ? '#fee2e2' : '#f9fafb',
                       color: '#374151',
                       width: '14.28%',
                       fontSize: '11px',
-                      padding: '8px 4px'
+                      padding: '8px 4px',
                     }}
                   >
                     {day}
@@ -349,23 +423,36 @@ function Schedule() {
                 {weekDays.map((day, idx) => {
                   const daySchedules = groupedSchedules[idx] || [];
                   return (
-                    <TableCell 
+                    <TableCell
                       key={`${day}-cell`}
-                      sx={{ 
+                      sx={{
                         backgroundColor: idx === 0 ? '#fef2f2' : 'white',
                         padding: '8px',
                         verticalAlign: 'top',
-                        minHeight: '200px'
+                        minHeight: '200px',
                       }}
                     >
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                        }}
+                      >
                         {daySchedules.length === 0 ? (
-                          <Typography sx={{ fontSize: '10px', color: '#9ca3af', textAlign: 'center', mt: 2 }}>
+                          <Typography
+                            sx={{
+                              fontSize: '10px',
+                              color: '#9ca3af',
+                              textAlign: 'center',
+                              mt: 2,
+                            }}
+                          >
                             No schedules
                           </Typography>
                         ) : (
                           daySchedules.map((schedule) => (
-                            <Box 
+                            <Box
                               key={schedule.id}
                               sx={{
                                 backgroundColor: '#fef9c3',
@@ -376,17 +463,39 @@ function Schedule() {
                                 border: '1px solid #fde68a',
                               }}
                             >
-                              <div style={{ fontWeight: 600, color: '#713f12', marginBottom: '2px' }}>
+                              <div
+                                style={{
+                                  fontWeight: 600,
+                                  color: '#713f12',
+                                  marginBottom: '2px',
+                                }}
+                              >
                                 {schedule.staff?.name || 'Unknown'}
                               </div>
-                              <div style={{ color: '#92400e', fontSize: '8px' }}>
+                              <div
+                                style={{ color: '#92400e', fontSize: '8px' }}
+                              >
                                 {schedule.staff?.role || 'N/A'}
                               </div>
-                              <div style={{ color: '#92400e', fontSize: '8px', marginTop: '2px' }}>
-                                {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
+                              <div
+                                style={{
+                                  color: '#92400e',
+                                  fontSize: '8px',
+                                  marginTop: '2px',
+                                }}
+                              >
+                                {formatTime(schedule.start_time)} -{' '}
+                                {formatTime(schedule.end_time)}
                               </div>
                               {schedule.notes && (
-                                <div style={{ color: '#92400e', fontSize: '7px', marginTop: '2px', fontStyle: 'italic' }}>
+                                <div
+                                  style={{
+                                    color: '#92400e',
+                                    fontSize: '7px',
+                                    marginTop: '2px',
+                                    fontStyle: 'italic',
+                                  }}
+                                >
                                   {schedule.notes}
                                 </div>
                               )}
@@ -405,80 +514,186 @@ function Schedule() {
 
       {/* All Schedules Table */}
       <Box sx={{ width: '100%' }}>
-        <Typography 
-          variant="h6" 
-          sx={{ 
+        <Typography
+          variant="h6"
+          sx={{
             marginBottom: '14px',
             color: '#374151',
             fontSize: '14px',
-            fontWeight: 600
+            fontWeight: 600,
           }}
         >
           All Schedules
         </Typography>
-        <TableContainer 
+        <TableContainer
           component={Paper}
-          sx={{ 
+          sx={{
             borderRadius: '8px',
             boxShadow: 'none',
             border: '1px solid #e5e7eb',
             width: '100%',
-            overflowX: 'auto'
+            overflowX: 'auto',
           }}
         >
           <Table size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
             <TableHead>
               <TableRow sx={{ backgroundColor: '#f9fafb' }}>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '11px', width: '20%', padding: '8px 6px' }}>Staff</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '11px', width: '15%', padding: '8px 6px' }}>Role</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '11px', width: '10%', padding: '8px 6px' }}>Day</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '11px', width: '25%', padding: '8px 6px' }}>Time</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '11px', width: '20%', padding: '8px 6px' }}>Notes</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '11px', width: '10%', padding: '8px 6px' }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: '#374151', fontSize: '11px', width: '6%', padding: '8px 6px' }}></TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    color: '#374151',
+                    fontSize: '11px',
+                    width: '20%',
+                    padding: '8px 6px',
+                  }}
+                >
+                  Staff
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    color: '#374151',
+                    fontSize: '11px',
+                    width: '15%',
+                    padding: '8px 6px',
+                  }}
+                >
+                  Role
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    color: '#374151',
+                    fontSize: '11px',
+                    width: '10%',
+                    padding: '8px 6px',
+                  }}
+                >
+                  Day
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    color: '#374151',
+                    fontSize: '11px',
+                    width: '25%',
+                    padding: '8px 6px',
+                  }}
+                >
+                  Time
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    color: '#374151',
+                    fontSize: '11px',
+                    width: '20%',
+                    padding: '8px 6px',
+                  }}
+                >
+                  Notes
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    color: '#374151',
+                    fontSize: '11px',
+                    width: '10%',
+                    padding: '8px 6px',
+                  }}
+                >
+                  Status
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    color: '#374151',
+                    fontSize: '11px',
+                    width: '6%',
+                    padding: '8px 6px',
+                  }}
+                ></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredSchedules.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4, color: '#9ca3af' }}>
+                  <TableCell
+                    colSpan={7}
+                    align="center"
+                    sx={{ py: 4, color: '#9ca3af' }}
+                  >
                     No schedules found. Create schedules to see them here.
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredSchedules.map((schedule) => (
-                  <TableRow 
+                  <TableRow
                     key={schedule.id}
-                    sx={{ 
+                    sx={{
                       '&:hover': { backgroundColor: '#f9fafb' },
-                      borderBottom: '1px solid #f3f4f6'
+                      borderBottom: '1px solid #f3f4f6',
                     }}
                   >
-                    <TableCell sx={{ color: '#1f2937', fontWeight: 500, fontSize: '11px', padding: '8px 6px' }}>
+                    <TableCell
+                      sx={{
+                        color: '#1f2937',
+                        fontWeight: 500,
+                        fontSize: '11px',
+                        padding: '8px 6px',
+                      }}
+                    >
                       {schedule.staff?.name || 'Unknown'}
                     </TableCell>
-                    <TableCell sx={{ color: '#6b7280', fontSize: '11px', padding: '8px 6px' }}>
+                    <TableCell
+                      sx={{
+                        color: '#6b7280',
+                        fontSize: '11px',
+                        padding: '8px 6px',
+                      }}
+                    >
                       {schedule.staff?.role || 'N/A'}
                     </TableCell>
-                    <TableCell sx={{ color: '#6b7280', fontSize: '11px', padding: '8px 6px' }}>
+                    <TableCell
+                      sx={{
+                        color: '#6b7280',
+                        fontSize: '11px',
+                        padding: '8px 6px',
+                      }}
+                    >
                       {weekDays[schedule.day_of_week]}
                     </TableCell>
-                    <TableCell sx={{ color: '#6b7280', fontSize: '11px', padding: '8px 6px' }}>
-                      {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
+                    <TableCell
+                      sx={{
+                        color: '#6b7280',
+                        fontSize: '11px',
+                        padding: '8px 6px',
+                      }}
+                    >
+                      {formatTime(schedule.start_time)} -{' '}
+                      {formatTime(schedule.end_time)}
                     </TableCell>
-                    <TableCell sx={{ color: '#6b7280', fontSize: '10px', padding: '8px 6px' }}>
+                    <TableCell
+                      sx={{
+                        color: '#6b7280',
+                        fontSize: '10px',
+                        padding: '8px 6px',
+                      }}
+                    >
                       {schedule.notes || '-'}
                     </TableCell>
                     <TableCell sx={{ padding: '8px 6px' }}>
-                      <Box 
-                        sx={{ 
+                      <Box
+                        sx={{
                           display: 'inline-block',
                           padding: '2px 8px',
                           borderRadius: '12px',
                           fontSize: '10px',
                           fontWeight: 600,
-                          backgroundColor: schedule.is_active ? '#d1fae5' : '#fee2e2',
-                          color: schedule.is_active ? '#065f46' : '#991b1b'
+                          backgroundColor: schedule.is_active
+                            ? '#d1fae5'
+                            : '#fee2e2',
+                          color: schedule.is_active ? '#065f46' : '#991b1b',
                         }}
                       >
                         {schedule.is_active ? 'Active' : 'Inactive'}
@@ -489,7 +704,10 @@ function Schedule() {
                         <IconButton
                           size="small"
                           onClick={() => handleDelete(schedule.id)}
-                          sx={{ color: '#ef4444', '&:hover': { backgroundColor: '#fee2e2' } }}
+                          sx={{
+                            color: '#ef4444',
+                            '&:hover': { backgroundColor: '#fee2e2' },
+                          }}
                         >
                           <FiTrash2 size={14} />
                         </IconButton>
@@ -503,65 +721,155 @@ function Schedule() {
         </TableContainer>
       </Box>
       {/* Add Schedule Dialog */}
-      <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>Add Schedule</Typography>
+      <Dialog
+        open={openModal}
+        onClose={() => setOpenModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            pb: 1,
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Add Schedule
+          </Typography>
           <IconButton onClick={() => setOpenModal(false)} size="small">
             <FiX />
           </IconButton>
         </DialogTitle>
         <DialogContent dividers>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
+          <Box
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}
+          >
             {isAdmin && (
               <FormControl fullWidth size="small">
-                <Typography variant="caption" sx={{ fontWeight: 600, mb: 0.5, color: '#374151' }}>Staff Member</Typography>
+                <Typography
+                  variant="caption"
+                  sx={{ fontWeight: 600, mb: 0.5, color: '#374151' }}
+                >
+                  Staff Member
+                </Typography>
                 <Select
                   value={formData.staff_id}
-                  onChange={(e) => setFormData(prev => ({ ...prev, staff_id: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      staff_id: e.target.value,
+                    }))
+                  }
                   displayEmpty
                 >
-                  <MenuItem value="" disabled>Select staff…</MenuItem>
+                  <MenuItem value="" disabled>
+                    Select staff…
+                  </MenuItem>
                   {staff.map((s) => (
-                    <MenuItem key={s.id} value={s.id}>{s.name} — {s.role}</MenuItem>
+                    <MenuItem key={s.id} value={s.id}>
+                      {s.name} — {s.role}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             )}
             <FormControl fullWidth size="small">
-              <Typography variant="caption" sx={{ fontWeight: 600, mb: 0.5, color: '#374151' }}>Day of Week</Typography>
+              <Typography
+                variant="caption"
+                sx={{ fontWeight: 600, mb: 0.5, color: '#374151' }}
+              >
+                Day of Week
+              </Typography>
               <Select
                 value={formData.day_of_week}
-                onChange={(e) => setFormData(prev => ({ ...prev, day_of_week: Number(e.target.value) }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    day_of_week: Number(e.target.value),
+                  }))
+                }
               >
-                {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((day, i) => (
-                  <MenuItem key={day} value={i}>{day}</MenuItem>
+                {[
+                  'Sunday',
+                  'Monday',
+                  'Tuesday',
+                  'Wednesday',
+                  'Thursday',
+                  'Friday',
+                  'Saturday',
+                ].map((day, i) => (
+                  <MenuItem key={day} value={i}>
+                    {day}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" sx={{ fontWeight: 600, mb: 0.5, color: '#374151', display: 'block' }}>Start Time</Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 600,
+                    mb: 0.5,
+                    color: '#374151',
+                    display: 'block',
+                  }}
+                >
+                  Start Time
+                </Typography>
                 <TextField
                   type="time"
                   size="small"
                   fullWidth
                   value={formData.start_time}
-                  onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      start_time: e.target.value,
+                    }))
+                  }
                 />
               </Box>
               <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" sx={{ fontWeight: 600, mb: 0.5, color: '#374151', display: 'block' }}>End Time</Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 600,
+                    mb: 0.5,
+                    color: '#374151',
+                    display: 'block',
+                  }}
+                >
+                  End Time
+                </Typography>
                 <TextField
                   type="time"
                   size="small"
                   fullWidth
                   value={formData.end_time}
-                  onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      end_time: e.target.value,
+                    }))
+                  }
                 />
               </Box>
             </Box>
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, mb: 0.5, color: '#374151', display: 'block' }}>Notes (optional)</Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  mb: 0.5,
+                  color: '#374151',
+                  display: 'block',
+                }}
+              >
+                Notes (optional)
+              </Typography>
               <TextField
                 size="small"
                 fullWidth
@@ -569,17 +877,28 @@ function Schedule() {
                 rows={2}
                 placeholder="Any additional notes…"
                 value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, notes: e.target.value }))
+                }
               />
             </Box>
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setOpenModal(false)} sx={{ textTransform: 'none', color: '#6b7280' }}>Cancel</Button>
+          <Button
+            onClick={() => setOpenModal(false)}
+            sx={{ textTransform: 'none', color: '#6b7280' }}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
             onClick={handleSubmit}
-            sx={{ textTransform: 'none', backgroundColor: '#2563eb', '&:hover': { backgroundColor: '#1d4ed8' } }}
+            sx={{
+              textTransform: 'none',
+              backgroundColor: '#2563eb',
+              '&:hover': { backgroundColor: '#1d4ed8' },
+            }}
           >
             Save Schedule
           </Button>
@@ -590,11 +909,11 @@ function Schedule() {
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
-        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert
-          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
           severity={snackbar.severity}
           sx={{ width: '100%' }}
         >

@@ -4,6 +4,7 @@ import Layout from './Layout';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProtectedRoute } from './frontend/components/auth/ProtectedRoute';
 
+import Overview from './frontend/pages/Overview';
 import StaffInformation from './frontend/pages/StaffInformation';
 import Attendance from './frontend/pages/Attendance';
 import Analytics from './frontend/pages/Analytics';

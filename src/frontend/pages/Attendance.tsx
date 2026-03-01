@@ -17,11 +17,11 @@ import {
   CardContent,
 } from '@mui/material';
 import { getAllAttendance } from '../../backend/services/attendanceService';
-import type { Attendance } from '../../types';
+import type { Attendance as AttendanceType } from '../../types';
 
 // Main Component
 function Attendance() {
-  const [attendanceData, setAttendanceData] = useState<Attendance[]>([]);
+  const [attendanceData, setAttendanceData] = useState<AttendanceType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
