@@ -96,11 +96,12 @@ function Analytics() {
     { month: 'Jun', value: 98 },
   ];
 
+  // Work distribution based on actual statistics
+  const attendanceMultiplier = (stats?.attendanceRate ?? 0) / 100;
   const workDistributionData = [
-    { name: 'Doctor', value: 35 },
-    { name: 'Nurse', value: 25 },
-    { name: 'Staff', value: 20 },
-    { name: 'Admin', value: 20 },
+    { name: 'Receptionist', value: (stats?.totalConsultations ?? 0) * attendanceMultiplier },
+    { name: 'Doctor', value: stats?.avgPatientsPerDoctor ?? 0 },
+    { name: 'Nurse', value: (stats?.nurseAssistanceCount ?? 0) * attendanceMultiplier },
   ];
 
   const pieColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
@@ -290,28 +291,58 @@ function Analytics() {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, width: '100%' }}>
           {/* Work Distribution */}
           <Card sx={{ borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', width: '100%', boxSizing: 'border-box' }}>
-            <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', boxSizing: 'border-box' }}>
-              <Typography sx={{ fontSize: '16px', fontWeight: 'bold', mb: 2, alignSelf: 'flex-start' }}>
-                Work Distribution
-              </Typography>
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={workDistributionData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, value }) => `${name} ${value}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {workDistributionData.map((_entry, index) => (
-                      <Cell key={`cell-${index}`} fill={pieColors[index]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
+            <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'row', width: '100%', boxSizing: 'border-box', gap: 3 }}>
+              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <Typography sx={{ fontSize: '16px', fontWeight: 'bold', mb: 2 }}>
+                  Work Distribution
+                </Typography>
+                <Box sx={{ width: '100%', height: '260px', position: 'relative' }}>
+                  <PieChart width={380} height={260} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                    <Pie
+                      data={workDistributionData}
+                      cx={160}
+                      cy={130}
+                      labelLine={false}
+                      label={({ name, value }) => `${name} ${Math.round(value * 100) / 100}`}
+                      outerRadius={60}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {workDistributionData.map((_entry, index) => (
+                        <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </Box>
+              </Box>
+
+              {/* Data with color indicators */}
+              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2 }}>
+                <Typography sx={{ fontSize: '14px', fontWeight: 'bold', color: '#1a202c', mb: 1 }}>
+                  Distribution Data
+                </Typography>
+                {workDistributionData.map((item, index) => (
+                  <Box key={item.name} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box
+                      sx={{
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '4px',
+                        backgroundColor: pieColors[index % pieColors.length],
+                        flexShrink: 0,
+                      }}
+                    />
+                    <Box>
+                      <Typography sx={{ fontSize: '13px', fontWeight: '600', color: '#1a202c' }}>
+                        {item.name}
+                      </Typography>
+                      <Typography sx={{ fontSize: '12px', color: '#666' }}>
+                        {Math.round(item.value * 100) / 100} units
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
             </CardContent>
           </Card>
 
