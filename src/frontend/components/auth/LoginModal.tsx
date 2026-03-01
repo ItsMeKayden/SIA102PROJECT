@@ -41,14 +41,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({ open, onClose }) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+    console.log('LoginModal: submitting credentials', email);
 
-    const { error: signInError } = await signIn(email, password);
+    try {
+      const { error: signInError } = await signIn(email, password);
+      console.log('LoginModal: signIn returned', signInError);
 
-    if (signInError) {
-      setError(signInError);
+      if (signInError) {
+        setError(signInError);
+      } else {
+        handleClose();
+      }
+    } catch (err) {
+      console.error('LoginModal: unexpected error during signIn', err);
+      setError('An unexpected error occurred');
+    } finally {
       setLoading(false);
-    } else {
-      handleClose();
     }
   };
 

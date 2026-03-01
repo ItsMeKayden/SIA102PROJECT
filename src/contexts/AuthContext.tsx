@@ -34,12 +34,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchStaffProfile = async (userId: string) => {
     try {
       console.log('Fetching staff profile for user_id:', userId);
-      
-      const { data, error } = await supabase
+      // timeout wrapper to prevent hanging
+      const profilePromise = supabase
         .from('staff')
         .select('*')
         .eq('user_id', userId)
         .single();
+      const timeout = new Promise<null>((_, rej) =>
+        setTimeout(() => rej(new Error('staff profile fetch timeout')), 5000)
+      );
+      const { data, error } = await Promise.race([profilePromise, timeout]) as any;
 
       if (error) {
         console.error('Error fetching staff profile:', error);
@@ -60,10 +64,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Initialize auth state using onAuthStateChange only.
-  // It fires INITIAL_SESSION immediately on mount, so getSession() is not needed
-  // and avoids a race condition between the two.
+  // Initialize auth state. We explicitly fetch the current session on mount
+  // then subscribe to changes to keep state updated. The explicit getSession call
+  // ensures `loading` is cleared even if onAuthStateChange doesn't fire immediately.
   useEffect(() => {
+    let mounted = true;
+
+    const init = async () => {
+      console.log('AuthContext: starting initial session fetch');
+      let timer: NodeJS.Timeout | null = null;
+      try {
+        // guard against hung promise by racing with a timeout
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<{ data: { session: any } }>((_, rej) => {
+          timer = setTimeout(() => rej(new Error('session fetch timeout')), 5000);
+        });
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+
+        if (!mounted) return;
+
+        console.log('AuthContext: session fetched', session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          const profile = await fetchStaffProfile(session.user.id);
+          setStaffProfile(profile);
+          setUserRole(profile?.user_role as 'admin' | 'staff' ?? null);
+        } else {
+          setStaffProfile(null);
+          setUserRole(null);
+        }
+      } catch (err) {
+        console.error('Error during initial auth fetch', err);
+      } finally {
+        if (timer) clearTimeout(timer);
+        if (mounted) {
+          setLoading(false);
+          console.log('AuthContext: initial loading complete');
+        }
+      }
+    };
+
+    init();
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -83,11 +125,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setStaffProfile(null);
         setUserRole(null);
       }
-
-      setLoading(false);
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -96,10 +137,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Attempting sign in for:', email);
       
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // race sign-in with a short timeout to avoid infinite hangs
+      const signInPromise = supabase.auth.signInWithPassword({
         email,
         password,
       });
+      const timeout = new Promise<{ data: any; error: any }>((_, rej) =>
+        setTimeout(() => rej(new Error('signIn timeout')), 5000)
+      );
+      const { data, error } = await Promise.race([signInPromise, timeout]) as any;
 
       if (error) {
         console.error('Auth sign in error:', error);
