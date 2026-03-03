@@ -1,15 +1,16 @@
-body {
-  margin: 0;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: lightgray;
+.attendance-container {
+  padding: 24px;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .activityTitle {
   margin: 0 0 20px 0;
   font-size: 20px;
-  color: #333;
+  color: #1a202c;
   font-weight: 600;
-  justify-self: center;
 }
 
 .activityOverview {
