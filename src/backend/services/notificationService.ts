@@ -1,11 +1,17 @@
-import { supabase, handleSupabaseError } from '../../lib/supabase-client';
+import {
+  supabase,
+  handleSupabaseError,
+  withTimeout,
+} from '../../lib/supabase-client';
 import type { Notification, NotificationInsert } from '../../types';
 
 // Notification Service
 // Handles all notification-related database operations :)
 
 // Get all notifications
-export const getAllNotifications = async (staffId?: string): Promise<{ data: Notification[] | null; error: string | null }> => {
+export const getAllNotifications = async (
+  staffId?: string,
+): Promise<{ data: Notification[] | null; error: string | null }> => {
   try {
     let query = supabase
       .from('notifications')
@@ -16,7 +22,7 @@ export const getAllNotifications = async (staffId?: string): Promise<{ data: Not
       query = query.or(`staff_id.eq.${staffId},staff_id.is.null`);
     }
 
-    const { data, error } = await query;
+    const { data, error } = await withTimeout(query, 5000);
 
     if (error) throw error;
 
@@ -27,7 +33,9 @@ export const getAllNotifications = async (staffId?: string): Promise<{ data: Not
 };
 
 // Get unread notifications
-export const getUnreadNotifications = async (staffId?: string): Promise<{ data: Notification[] | null; error: string | null }> => {
+export const getUnreadNotifications = async (
+  staffId?: string,
+): Promise<{ data: Notification[] | null; error: string | null }> => {
   try {
     let query = supabase
       .from('notifications')
@@ -39,7 +47,7 @@ export const getUnreadNotifications = async (staffId?: string): Promise<{ data: 
       query = query.or(`staff_id.eq.${staffId},staff_id.is.null`);
     }
 
-    const { data, error } = await query;
+    const { data, error } = await withTimeout(query, 5000);
 
     if (error) throw error;
 
@@ -50,7 +58,9 @@ export const getUnreadNotifications = async (staffId?: string): Promise<{ data: 
 };
 
 // Get notification count
-export const getUnreadNotificationCount = async (staffId?: string): Promise<{ data: number; error: string | null }> => {
+export const getUnreadNotificationCount = async (
+  staffId?: string,
+): Promise<{ data: number; error: string | null }> => {
   try {
     let query = supabase
       .from('notifications')
@@ -61,7 +71,7 @@ export const getUnreadNotificationCount = async (staffId?: string): Promise<{ da
       query = query.or(`staff_id.eq.${staffId},staff_id.is.null`);
     }
 
-    const { count, error } = await query;
+    const { count, error } = await withTimeout(query, 5000);
 
     if (error) throw error;
 
@@ -72,13 +82,14 @@ export const getUnreadNotificationCount = async (staffId?: string): Promise<{ da
 };
 
 // Create notification
-export const createNotification = async (notificationData: NotificationInsert): Promise<{ data: Notification | null; error: string | null }> => {
+export const createNotification = async (
+  notificationData: NotificationInsert,
+): Promise<{ data: Notification | null; error: string | null }> => {
   try {
-    const { data, error } = await supabase
-      .from('notifications')
-      .insert(notificationData)
-      .select()
-      .single();
+    const { data, error } = await withTimeout(
+      supabase.from('notifications').insert(notificationData).select().single(),
+      5000,
+    );
 
     if (error) throw error;
 
@@ -89,14 +100,19 @@ export const createNotification = async (notificationData: NotificationInsert): 
 };
 
 // Mark notification as read
-export const markNotificationAsRead = async (id: string): Promise<{ data: Notification | null; error: string | null }> => {
+export const markNotificationAsRead = async (
+  id: string,
+): Promise<{ data: Notification | null; error: string | null }> => {
   try {
-    const { data, error } = await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', id)
-      .select()
-      .single();
+    const { data, error } = await withTimeout(
+      supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', id)
+        .select()
+        .single(),
+      5000,
+    );
 
     if (error) throw error;
 
@@ -107,7 +123,9 @@ export const markNotificationAsRead = async (id: string): Promise<{ data: Notifi
 };
 
 // Mark all notifications as read
-export const markAllNotificationsAsRead = async (staffId?: string): Promise<{ error: string | null }> => {
+export const markAllNotificationsAsRead = async (
+  staffId?: string,
+): Promise<{ error: string | null }> => {
   try {
     let query = supabase
       .from('notifications')
@@ -118,7 +136,7 @@ export const markAllNotificationsAsRead = async (staffId?: string): Promise<{ er
       query = query.or(`staff_id.eq.${staffId},staff_id.is.null`);
     }
 
-    const { error } = await query;
+    const { error } = await withTimeout(query, 5000);
 
     if (error) throw error;
 
@@ -129,12 +147,14 @@ export const markAllNotificationsAsRead = async (staffId?: string): Promise<{ er
 };
 
 // Delete notification
-export const deleteNotification = async (id: string): Promise<{ error: string | null }> => {
+export const deleteNotification = async (
+  id: string,
+): Promise<{ error: string | null }> => {
   try {
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('id', id);
+    const { error } = await withTimeout(
+      supabase.from('notifications').delete().eq('id', id),
+      5000,
+    );
 
     if (error) throw error;
 
@@ -145,18 +165,17 @@ export const deleteNotification = async (id: string): Promise<{ error: string | 
 };
 
 // Delete all read notifications
-export const deleteReadNotifications = async (staffId?: string): Promise<{ error: string | null }> => {
+export const deleteReadNotifications = async (
+  staffId?: string,
+): Promise<{ error: string | null }> => {
   try {
-    let query = supabase
-      .from('notifications')
-      .delete()
-      .eq('is_read', true);
+    let query = supabase.from('notifications').delete().eq('is_read', true);
 
     if (staffId) {
       query = query.or(`staff_id.eq.${staffId},staff_id.is.null`);
     }
 
-    const { error } = await query;
+    const { error } = await withTimeout(query, 5000);
 
     if (error) throw error;
 

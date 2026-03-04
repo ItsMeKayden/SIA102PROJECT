@@ -1,20 +1,13 @@
-import { supabase } from '../../supabase-client';
+import { supabase } from '../../lib/supabase-client';
+import type { Staff } from '../../types';
 
-export interface Doctor {
-  doctorID: number;
-  doctor_name: string;
-  department: string;
-  workingHours: string;
-  availableSlots: number;
-}
-
-// Fetch all doctors ordered by doctorID
-export const fetchDoctors = async (): Promise<Doctor[]> => {
+// Fetch all doctors ordered by ID
+export const fetchDoctors = async (): Promise<Staff[]> => {
   const { data, error } = await supabase
-    .from('doctors')
+    .from('staff')
     .select('*')
-    .order('doctorID', { ascending: true });
+    .order('id', { ascending: true });
 
   if (error) throw new Error(error.message);
-  return data as Doctor[];
+  return data as Staff[];
 };
