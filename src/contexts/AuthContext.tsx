@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase, withTimeout } from '../lib/supabase-client';
-import type { User } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase-client';
+import type { User, Session } from '@supabase/supabase-js';
 import type { Staff } from '../types';
 
 interface AuthContextType {
@@ -19,6 +19,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// eslint-disable-next-line
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -37,6 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Fetch staff profile when user changes
   const fetchStaffProfile = async (userId: string) => {
+    let profileTimer: ReturnType<typeof setTimeout> | null = null;
     try {
       console.log('Fetching staff profile for user_id:', userId);
       // timeout wrapper to prevent hanging
@@ -45,18 +47,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         .select('*')
         .eq('user_id', userId)
         .single();
-      const timeout = new Promise<null>((_, rej) =>
-        setTimeout(() => rej(new Error('staff profile fetch timeout')), 5000)
-      );
-      const { data, error } = await Promise.race([profilePromise, timeout]) as any;
+      const timeout = new Promise<null>((_, rej) => {
+        profileTimer = setTimeout(() => rej(new Error('staff profile fetch timeout')), 5000);
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await Promise.race([profilePromise, timeout]) as { data: Staff | null; error: any };
+
+      if (profileTimer) clearTimeout(profileTimer);
 
       if (error) {
         console.error('Error fetching staff profile:', error);
         console.error('Error details:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          code: (error as any).code,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          message: (error as any).message,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          details: (error as any).details,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          hint: (error as any).hint,
         });
         return null;
       }
@@ -64,6 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       console.log('Staff profile fetched successfully:', data);
       return data;
     } catch (error) {
+      if (profileTimer) clearTimeout(profileTimer);
       console.error('Unexpected error fetching staff profile:', error);
       return null;
     }
@@ -77,15 +87,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const init = async () => {
       console.log('AuthContext: starting initial session fetch');
-      let timer: NodeJS.Timeout | null = null;
+      let sessionTimer: ReturnType<typeof setTimeout> | null = null;
       try {
         // guard against hung promise by racing with a timeout
         const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise<{ data: { session: any } }>((_, rej) => {
-          timer = setTimeout(() => rej(new Error('session fetch timeout')), 5000);
+        const timeoutPromise = new Promise<{ data: { session: Session | null } }>((_, rej: (reason?: Error) => void) => {
+          sessionTimer = setTimeout(() => rej(new Error('session fetch timeout')), 5000);
         });
-        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as { data: { session: Session | null } };
 
+        if (sessionTimer) clearTimeout(sessionTimer);
         if (!mounted) return;
 
         console.log('AuthContext: session fetched', session);
@@ -99,9 +110,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setUserRole(null);
         }
       } catch (err) {
+        if (sessionTimer) clearTimeout(sessionTimer);
         console.error('Error during initial auth fetch', err);
       } finally {
-        if (timer) clearTimeout(timer);
+        if (sessionTimer) clearTimeout(sessionTimer);
         if (mounted) {
           setLoading(false);
           console.log('AuthContext: initial loading complete');
@@ -121,7 +133,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Set loading to false immediately - don't wait for staff profile
       setLoading(false);
-      clearTimeout(timeoutId);
 
       // Load staff profile in the background (non-blocking)
       if (session?.user) {
@@ -156,6 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     email: string,
     password: string,
   ): Promise<{ error: string | null }> => {
+    let signInTimer: ReturnType<typeof setTimeout> | null = null;
     try {
       console.log('Attempting sign in for:', email);
       
@@ -164,14 +176,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email,
         password,
       });
-      const timeout = new Promise<{ data: any; error: any }>((_, rej) =>
-        setTimeout(() => rej(new Error('signIn timeout')), 5000)
-      );
-      const { data, error } = await Promise.race([signInPromise, timeout]) as any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const timeout = new Promise<{ data: any; error: null }>((_, rej: (reason?: Error) => void) => {
+        signInTimer = setTimeout(() => rej(new Error('signIn timeout')), 5000);
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await Promise.race([signInPromise, timeout]) as { data: any; error: null };
+
+      if (signInTimer) clearTimeout(signInTimer);
 
       if (error) {
         console.error('Auth sign in error:', error);
-        return { error: error.message };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return { error: (error as any).message };
       }
 
       console.log('Auth successful, user ID:', data.user?.id);
@@ -194,6 +211,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       console.log('Sign in complete');
       return { error: null };
     } catch (error) {
+      if (signInTimer) clearTimeout(signInTimer);
       console.error('Unexpected sign in error:', error);
       const errorMsg =
         error instanceof Error
