@@ -24,7 +24,6 @@ import {
   Divider
 } from '@mui/material';
 import { 
-  FiMenu, 
   FiBell,
   FiInfo,
   FiAlertCircle,
@@ -45,6 +44,8 @@ import {
   getUnreadNotificationCount
 } from './backend/services/notificationService';
 import { useAuth } from './contexts/AuthContext';
+import Sidebar from './frontend/components/layout/Sidebar';
+
 import { LoginModal } from './frontend/components/auth/LoginModal';
 import { ChangePasswordModal } from './frontend/components/auth/ChangePasswordModal';
 
@@ -59,9 +60,7 @@ const Layout = () => {
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   
   // Navigation menu state
-  const [navMenuAnchorEl, setNavMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const navMenuOpen = Boolean(navMenuAnchorEl);
   
   // Notification state
   interface Notification {
@@ -164,28 +163,7 @@ const Layout = () => {
     'Dec 01 - Dec 31 2025',
   ];
 
-  // Navigation menu items
-  const menuItems = [
-    { label: 'Overview', path: '/', icon: '🏠' },
-    { label: 'Staff Information', path: '/staff', icon: '👥' },
-    { label: 'Attendance', path: '/attendance', icon: '🕐' },
-    { label: 'Analytics', path: '/analytics', icon: '📊' },
-    { label: 'Appointments', path: '/appointments', icon: '📋' },
-    { label: 'Schedule', path: '/schedule', icon: '📅' },
-  ];
 
-  const handleNavMenuClick = (event: MouseEvent<HTMLElement>) => {
-    setNavMenuAnchorEl(event.currentTarget);
-  };
-
-  const handleNavMenuClose = () => {
-    setNavMenuAnchorEl(null);
-  };
-
-  const handleNavigation = (path: string) => {
-    navigate(path);
-    handleNavMenuClose();
-  };
 
   // Fetch unread notification count
   useEffect(() => {
@@ -502,70 +480,8 @@ const Layout = () => {
             </IconButton>
           )}
 
-          {/* Burger Menu */}
-          <IconButton 
-            onClick={handleNavMenuClick}
-            size="small"
-            sx={{ 
-              color: '#374151',
-              '&:hover': { backgroundColor: '#f3f4f6' }
-            }}
-          >
-            <FiMenu size={22} />
-          </IconButton>
         </div>
 
-        {/* Navigation Dropdown Menu */}
-        <Menu
-          anchorEl={navMenuAnchorEl}
-          open={navMenuOpen}
-          onClose={handleNavMenuClose}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'right',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-          slotProps={{
-            paper: {
-              sx: {
-                minWidth: '220px',
-                mt: 1,
-                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
-                borderRadius: '8px'
-              },
-            },
-          }}
-        >
-          {menuItems.map((item) => (
-            <MenuItem
-              key={item.path}
-              onClick={() => handleNavigation(item.path)}
-              selected={location.pathname === item.path}
-              sx={{
-                fontSize: '14px',
-                padding: '10px 16px',
-                gap: '12px',
-                '&.Mui-selected': {
-                  backgroundColor: '#eff6ff',
-                  color: '#2563eb',
-                  fontWeight: 600,
-                  '&:hover': {
-                    backgroundColor: '#dbeafe',
-                  }
-                },
-                '&:hover': {
-                  backgroundColor: '#f3f4f6',
-                }
-              }}
-            >
-              <span style={{ fontSize: '18px' }}>{item.icon}</span>
-              {item.label}
-            </MenuItem>
-          ))}
-        </Menu>
 
         {/* Staff Filter Menu */}
         <Menu
@@ -732,22 +648,25 @@ const Layout = () => {
       {/* Change Password Modal */}
       <ChangePasswordModal open={showChangePasswordModal} onClose={() => setShowChangePasswordModal(false)} />
 
-      {/* Main Content */}
-      <main
-        style={{
-          flex: 1,
-          padding: '0',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          width: '100%',
-          maxWidth: '100%',
-          boxSizing: 'border-box',
-          backgroundColor: '#f3f4f6',
-          position: 'relative',
-        }}
-      >
-        <Outlet />
-      </main>
+      {/* Main Content with Sidebar */}
+      <div style={{ display: 'flex', flex: 1, height: '100%' }}>
+        <Sidebar />
+        <main
+          style={{
+            flex: 1,
+            padding: '0',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            width: '100%',
+            maxWidth: '100%',
+            boxSizing: 'border-box',
+            backgroundColor: '#f3f4f6',
+            position: 'relative',
+          }}
+        >
+          <Outlet />
+        </main>
+      </div>
 
       {/* Notification Modal */}
       <Dialog

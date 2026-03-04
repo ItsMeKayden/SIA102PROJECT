@@ -15,35 +15,13 @@ import {
   Alert,
   Card,
   CardContent,
-  Select,
-  MenuItem,
-  Button,
-  IconButton,
 } from '@mui/material';
-import { ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from '@mui/icons-material';
 import { getAllAttendance } from '../../backend/services/attendanceService';
-import type { Attendance as AttendanceRecord } from '../../types';
+import type { Attendance as AttendanceType } from '../../types';
 
-const MONTHS = [
-  { label: 'January', value: 1 },
-  { label: 'February', value: 2 },
-  { label: 'March', value: 3 },
-  { label: 'April', value: 4 },
-  { label: 'May', value: 5 },
-  { label: 'June', value: 6 },
-  { label: 'July', value: 7 },
-  { label: 'August', value: 8 },
-  { label: 'September', value: 9 },
-  { label: 'October', value: 10 },
-  { label: 'November', value: 11 },
-  { label: 'December', value: 12 },
-];
-
-const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = [CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1];
-
+// Main Component
 function Attendance() {
-  const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
+  const [attendanceData, setAttendanceData] = useState<AttendanceType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
@@ -52,10 +30,6 @@ function Attendance() {
     overtime: 0,
     compliance: 'Loading...',
   });
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => {
     fetchAttendanceData();
@@ -64,8 +38,10 @@ function Attendance() {
   const fetchAttendanceData = async () => {
     setLoading(true);
     try {
-      const { data: attendanceRecords, error: attendanceError } = await getAllAttendance();
-      
+      // Fetch all attendance records
+      const { data: attendanceRecords, error: attendanceError } =
+        await getAllAttendance();
+
       if (attendanceError) {
         setError(attendanceError);
         return;
@@ -74,17 +50,22 @@ function Attendance() {
       setAttendanceData(attendanceRecords || []);
 
       if (attendanceRecords && attendanceRecords.length > 0) {
-        const present = attendanceRecords.filter(a => a.status === 'Present').length;
-        const late = attendanceRecords.filter(a => a.status === 'Late').length;
-        
-        const overtime = attendanceRecords.filter(a => {
+        const present = attendanceRecords.filter(
+          (a) => a.status === 'Present',
+        ).length;
+        const late = attendanceRecords.filter(
+          (a) => a.status === 'Late',
+        ).length;
+
+        // Calculate overtime by checking hours worked
+        const overtime = attendanceRecords.filter((a) => {
           if (!a.time_in || !a.time_out) return false;
           const start = new Date(`2000-01-01T${a.time_in}`);
           const end = new Date(`2000-01-01T${a.time_out}`);
           const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
           return hours > 8;
         }).length;
-        
+
         setStats({
           present,
           late,
@@ -109,9 +90,33 @@ function Attendance() {
     });
   };
 
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const calculateHours = (timeIn: string | null, timeOut: string | null) => {
+    if (!timeIn || !timeOut) return 'N/A';
+
+    const start = new Date(`2000-01-01T${timeIn}`);
+    const end = new Date(`2000-01-01T${timeOut}`);
+    const diffMs = end.getTime() - start.getTime();
+    const hours = diffMs / (1000 * 60 * 60);
+
+    return `${hours.toFixed(1)} Hours`;
+  };
+
   if (loading) {
     return (
-      <div className="attendance-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+      <div
+        className="attendance-container"
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '400px',
+        }}
+      >
         <CircularProgress />
       </div>
     );
@@ -125,8 +130,6 @@ function Attendance() {
     );
   }
 
-  const monthLabel = MONTHS.find(m => m.value === selectedMonth)?.label || '';
-  
   const cardData = [
     { label: 'Present', value: stats.present, color: '#10b981', bgColor: '#ecfdf5' },
     { label: 'Late', value: stats.late, color: '#f59e0b', bgColor: '#fffbeb' },
@@ -134,19 +137,20 @@ function Attendance() {
     { label: 'Compliance', value: stats.compliance, color: '#6366f1', bgColor: '#eef2ff' },
   ];
 
-  const filteredData = attendanceData.filter(a => {
-    const aDate = new Date(a.date);
-    return aDate.getMonth() + 1 === selectedMonth && aDate.getFullYear() === selectedYear;
-  });
-
-  const startIndex = currentPage * rowsPerPage;
-  const visibleRows = filteredData.slice(startIndex, startIndex + rowsPerPage);
-
   return (
     <div className="attendance-container">
       {/* Staff Activity Overview */}
       <h2 className="activityTitle">Staff Activity Overview</h2>
-      <Box className="activityOverview" sx={{ gap: '12px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', mb: 3 }}>
+      <Box
+        className="activityOverview"
+        sx={{
+          gap: '12px',
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          mb: 3,
+        }}
+      >
         {cardData.map((card, index) => (
           <Card
             key={index}
@@ -164,11 +168,23 @@ function Attendance() {
               alignItems: 'center',
             }}
           >
-            <CardContent sx={{ padding: 0 }}>
-              <Typography variant="body1" sx={{ fontWeight: 'bold', color: card.color }}>
+            <CardContent>
+              <Typography
+                variant="body2"
+                color="textSecondary"
+                gutterBottom
+                sx={{ fontSize: '13px' }}
+              >
                 {card.label}
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 'bold', color: card.color }}>
+              <Typography
+                variant="h5"
+                sx={{
+                  fontWeight: 'bold',
+                  marginTop: 1,
+                  fontSize: '24px',
+                }}
+              >
                 {card.value}
               </Typography>
             </CardContent>
@@ -176,54 +192,85 @@ function Attendance() {
         ))}
       </Box>
 
-      {/* Date Filters */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
-        <Typography sx={{ fontWeight: 600 }}>Filter by date:</Typography>
-        <Select
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(Number(e.target.value))}
-          size="small"
-          sx={{ width: 120 }}
-        >
-          {MONTHS.map((m) => (
-            <MenuItem key={m.value} value={m.value}>
-              {m.label}
-            </MenuItem>
-          ))}
-        </Select>
-        <Select
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(Number(e.target.value))}
-          size="small"
-          sx={{ width: 100 }}
-        >
-          {YEARS.map((y) => (
-            <MenuItem key={y} value={y}>
-              {y}
-            </MenuItem>
-          ))}
-        </Select>
-      </Box>
-
-      {/* Attendance Table */}
-      <h2 className="tableTitle">Attendance Log for {monthLabel} {selectedYear}</h2>
-      <TableContainer component={Paper} sx={{ mt: 2, width: '100%', overflowX: 'auto' }}>
+      {/* Attendance Log Table */}
+      <h2 className="tableTitle">Attendance Log Table</h2>
+      <TableContainer
+        component={Paper}
+        sx={{ mt: 4, width: '100%', overflowX: 'auto' }}
+      >
         <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
           <TableHead sx={{ backgroundColor: '#f9fafb' }}>
             <TableRow>
-              <TableCell align="center" sx={{ fontWeight: 'bold', fontSize: '12px', width: '15%' }}>
-                Staff ID
+              <TableCell
+                align="center"
+                sx={{
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  padding: '10px 8px',
+                  width: '12%',
+                }}
+              >
+                Time
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: 'bold', fontSize: '12px', width: '15%' }}>
-                Date
+              <TableCell
+                align="center"
+                sx={{
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  padding: '10px 8px',
+                  width: '16%',
+                }}
+              >
+                Time In
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: 'bold', fontSize: '12px', width: '12%' }}>
-                Check In
+              <TableCell
+                align="center"
+                sx={{
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  padding: '10px 8px',
+                  width: '16%',
+                }}
+              >
+                Time Out
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: 'bold', fontSize: '12px', width: '12%' }}>
-                Check Out
+              <TableCell
+                align="center"
+                sx={{
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  padding: '10px 8px',
+                  width: '18%',
+                }}
+              >
+                Shift
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: 'bold', fontSize: '12px', width: '12%' }}>
+              <TableCell
+                align="center"
+                sx={{
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  padding: '10px 8px',
+                  width: '20%',
+                }}
+              >
+                Hours Worked
+              </TableCell>
+              <TableCell
+                align="center"
+                sx={{
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  padding: '10px 8px',
+                  width: '18%',
+                }}
+              >
                 Status
               </TableCell>
               <TableCell align="center" sx={{ fontWeight: 'bold', fontSize: '12px', width: '12%' }}>
@@ -232,53 +279,115 @@ function Attendance() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {visibleRows.length === 0 ? (
+            {attendanceData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 3, color: '#9ca3af' }}>
-                  No attendance records found for {monthLabel} {selectedYear}.
+                <TableCell
+                  colSpan={6}
+                  align="center"
+                  sx={{ py: 3, fontSize: 12, color: '#6b7280' }}
+                >
+                  No attendance records found.
                 </TableCell>
               </TableRow>
             ) : (
-              visibleRows.map((row, index) => (
-                <TableRow
-                  key={row.id}
-                  sx={{
-                    background: index % 2 === 0 ? '#fff' : '#f8faff',
-                    '&:hover': { backgroundColor: '#f3f4f6' },
-                  }}
-                >
-                  <TableCell sx={{ fontSize: '12px', padding: '10px 8px' }}>
-                    {row.staff_id || 'N/A'}
+              attendanceData.slice(0, 10).map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell
+                    align="center"
+                    sx={{
+                      fontSize: '12px',
+                      padding: '10px 8px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {formatDate(row.date)}
                   </TableCell>
-                  <TableCell sx={{ fontSize: '12px', padding: '10px 8px' }}>
-                    {new Date(row.date).toLocaleDateString('en-US')}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '12px', padding: '10px 8px' }}>
+                  <TableCell
+                    align="center"
+                    sx={{
+                      fontSize: '12px',
+                      padding: '10px 8px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
                     {formatTime(row.time_in)}
                   </TableCell>
-                  <TableCell sx={{ fontSize: '12px', padding: '10px 8px' }}>
+                  <TableCell
+                    align="center"
+                    sx={{
+                      fontSize: '12px',
+                      padding: '10px 8px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
                     {formatTime(row.time_out)}
                   </TableCell>
-                  <TableCell sx={{ fontSize: '12px', padding: '10px 8px' }}>
-                    <Box
-                      sx={{
-                        display: 'inline-block',
-                        px: 2,
-                        py: 0.5,
-                        borderRadius: 1,
-                        backgroundColor: row.status === 'Present' ? '#d1fae5' : row.status === 'Late' ? '#fef3c7' : '#fee2e2',
-                        color: row.status === 'Present' ? '#065f46' : row.status === 'Late' ? '#92400e' : '#991b1b',
-                        fontWeight: 500,
+                  <TableCell
+                    align="center"
+                    sx={{
+                      fontSize: '12px',
+                      padding: '10px 8px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    N/A
+                  </TableCell>
+                  <TableCell
+                    align="center"
+                    sx={{
+                      fontSize: '12px',
+                      padding: '10px 8px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {calculateHours(row.time_in, row.time_out)}
+                  </TableCell>
+                  <TableCell
+                    align="center"
+                    sx={{
+                      fontSize: '12px',
+                      padding: '10px 8px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    <span
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: '4px',
                         fontSize: '11px',
+                        fontWeight: 600,
+                        backgroundColor:
+                          row.status === 'Present'
+                            ? '#d1fae5'
+                            : row.status === 'Late'
+                              ? '#fee2e2'
+                              : row.status === 'Absent'
+                                ? '#fecaca'
+                                : '#fef3c7',
+                        color:
+                          row.status === 'Present'
+                            ? '#065f46'
+                            : row.status === 'Late'
+                              ? '#991b1b'
+                              : row.status === 'Absent'
+                                ? '#7f1d1d'
+                                : '#92400e',
                       }}
                     >
                       {row.status}
-                    </Box>
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '12px', padding: '10px 8px' }}>
-                    <Button size="small" variant="outlined" sx={{ fontSize: '11px' }}>
-                      View
-                    </Button>
+                    </span>
                   </TableCell>
                 </TableRow>
               ))
@@ -286,47 +395,6 @@ function Attendance() {
           </TableBody>
         </Table>
       </TableContainer>
-
-      {/* Pagination */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          <IconButton
-            size="small"
-            disabled={currentPage === 0}
-            onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-          >
-            <ChevronLeftIcon />
-          </IconButton>
-          <Typography variant="caption">
-            Page {currentPage + 1} of {Math.ceil(filteredData.length / rowsPerPage)}
-          </Typography>
-          <IconButton
-            size="small"
-            disabled={currentPage >= Math.ceil(filteredData.length / rowsPerPage) - 1}
-            onClick={() => setCurrentPage(p => p + 1)}
-          >
-            <ChevronRightIcon />
-          </IconButton>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="caption">Rows per page:</Typography>
-          <Select
-            value={rowsPerPage}
-            onChange={(e) => {
-              setRowsPerPage(Number(e.target.value));
-              setCurrentPage(0);
-            }}
-            size="small"
-            sx={{ width: 60 }}
-          >
-            {[5, 10, 25].map((n) => (
-              <MenuItem key={n} value={n}>
-                {n}
-              </MenuItem>
-            ))}
-          </Select>
-        </Box>
-      </Box>
     </div>
   );
 }
