@@ -16,6 +16,8 @@ const supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storage: window.localStorage,
   },
   db: {
     schema: 'public',
@@ -45,7 +47,7 @@ export const withTimeout = async <T>(
   promise: Promise<T>,
   timeoutMs: number = 8000,
 ): Promise<T> => {
-  let timeoutId: NodeJS.Timeout;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
       reject(
@@ -59,6 +61,6 @@ export const withTimeout = async <T>(
   try {
     return await Promise.race([promise, timeoutPromise]);
   } finally {
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
   }
 };
