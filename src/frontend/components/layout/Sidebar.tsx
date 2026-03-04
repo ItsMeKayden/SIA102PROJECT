@@ -26,10 +26,7 @@ const menuItems: MenuItem[] = [
 const Sidebar: React.FC = () => {
   return (
     <aside className="sidebar">
-      <div className="logo">
-        <span className="logoIcon">❤️</span>
-        CLINIKA+
-      </div>
+
 
       <nav className="nav">
         {menuItems.map((item) => (
