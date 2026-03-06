@@ -26,8 +26,6 @@ const menuItems: MenuItem[] = [
 const Sidebar: React.FC = () => {
   return (
     <aside className="sidebar">
-
-
       <nav className="nav">
         {menuItems.map((item) => (
           <NavLink
