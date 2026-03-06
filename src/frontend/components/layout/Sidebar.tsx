@@ -6,6 +6,7 @@ import {
   FiBarChart2,
   FiCalendar,
   FiClipboard,
+  FiHome,
 } from 'react-icons/fi';
 import '../../styles/Sidebar.css';
 
@@ -16,6 +17,7 @@ type MenuItem = {
 };
 
 const menuItems: MenuItem[] = [
+  { label: 'Overview', path: '/', icon: <FiHome /> },
   { label: 'Staff Information', path: 'staff', icon: <FiUsers /> },
   { label: 'Attendance', path: 'attendance', icon: <FiClock /> },
   { label: 'Analytics', path: 'analytics', icon: <FiBarChart2 /> },
