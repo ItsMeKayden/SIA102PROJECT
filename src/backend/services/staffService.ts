@@ -1,14 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import { supabase, handleSupabaseError } from '../../lib/supabase-client';
 import type { Staff, StaffInsert, StaffUpdate, StaffFormData } from '../../types';
-import type { Database } from '../../types/database.types';
 
 // Separate non-persisting client used ONLY for creating new auth users.
 // signUp() on this client won't overwrite the admin's active session.
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ghstchmtdmcssuqpbuwe.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoc3RjaG10ZG1jc3N1cXBidXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MzQxMzcsImV4cCI6MjA4NzUxMDEzN30.L6KQdh4NJbKszr8SUocc9F14tZWizelFT_fIs-BxAPw';
 // storageKey must differ from the main client to prevent interference with the admin session
-const supabaseSignUp = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+// No Database generic here — this client is only used for auth.signUp
+const supabaseSignUp = createClient(supabaseUrl, supabaseAnonKey, {
   auth: { persistSession: false, autoRefreshToken: false, storageKey: 'sb-signup-temp' },
 });
 
