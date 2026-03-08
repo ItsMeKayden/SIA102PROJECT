@@ -481,8 +481,8 @@ const Layout = () => {
           </IconButton>
         </DialogTitle>
         
-        <DialogContent sx={{ p: 0 }}>
-          <Box sx={{ p: 3 }}>
+        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
             {/* Action Buttons */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
               <Box sx={{ display: 'flex', gap: 1 }}>
@@ -522,7 +522,7 @@ const Layout = () => {
                 <CircularProgress />
               </Box>
             ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 'calc(80vh - 180px)', overflowY: 'auto' }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 'calc(80vh - 180px)', overflowY: 'auto', pr: 0.5 }}>
                 {filteredNotifications.length === 0 ? (
                   <Card sx={{ textAlign: 'center', py: 6 }}>
                     <FiBell size={48} color="#9ca3af" />
@@ -543,6 +543,7 @@ const Layout = () => {
                           borderLeft: `4px solid ${colors.border}`,
                           backgroundColor: notification.is_read ? '#ffffff' : '#fafafa',
                           transition: 'all 0.2s',
+                          flexShrink: 0,
                           '&:hover': {
                             boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                           }
