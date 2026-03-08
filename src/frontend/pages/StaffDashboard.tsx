@@ -1,24 +1,99 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Box, Card, CardContent, Typography, CircularProgress } from '@mui/material';
 import { FiCalendar, FiClock, FiCheckCircle, FiUsers } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAppointmentsByDoctorId } from '../../backend/services/appointmentService';
+import { supabase } from '../../lib/supabase-client';
 import type { Appointment } from '../../types';
 
 export const StaffDashboard: React.FC = () => {
   const { staffProfile } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [dutyStatus, setDutyStatus] = useState<string>(staffProfile?.duty_status || 'Off Duty');
   const [loading, setLoading] = useState(true);
 
+  const fetchData = useCallback(async () => {
+    if (!staffProfile?.id) return;
+    setLoading(true);
+    const { data } = await getAppointmentsByDoctorId(staffProfile.id);
+    if (data) setAppointments(data);
+    setLoading(false);
+  }, [staffProfile?.id]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Keep dutyStatus in sync when staffProfile changes (e.g. on login)
+  useEffect(() => {
+    if (staffProfile?.duty_status) setDutyStatus(staffProfile.duty_status);
+  }, [staffProfile?.duty_status]);
+
+  // Realtime: re-fetch appointments when any appointment assigned to this doctor changes
   useEffect(() => {
     if (!staffProfile?.id) return;
-    const fetchData = async () => {
-      setLoading(true);
-      const { data } = await getAppointmentsByDoctorId(staffProfile.id);
-      if (data) setAppointments(data);
-      setLoading(false);
+
+    const appointmentChannel = supabase
+      .channel(`dashboard-appointments-${staffProfile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments',
+          filter: `doctor_id=eq.${staffProfile.id}`,
+        },
+        () => {
+          fetchData();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(appointmentChannel);
     };
-    fetchData();
+  }, [staffProfile?.id, fetchData]);
+
+  // Realtime: update duty status instantly when the staff record changes
+  useEffect(() => {
+    if (!staffProfile?.id) return;
+
+    const staffChannel = supabase
+      .channel(`dashboard-staff-${staffProfile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'staff',
+          filter: `id=eq.${staffProfile.id}`,
+        },
+        (payload) => {
+          const updated = payload.new as { duty_status?: string };
+          if (updated.duty_status) setDutyStatus(updated.duty_status);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(staffChannel);
+    };
+  }, [staffProfile?.id]);
+
+  // Polling fallback: refresh duty status every 5 seconds in case Realtime
+  // replication is not enabled for the staff table in Supabase.
+  useEffect(() => {
+    if (!staffProfile?.id) return;
+    const poll = setInterval(async () => {
+      const { data } = await supabase
+        .from('staff')
+        .select('duty_status')
+        .eq('id', staffProfile.id)
+        .single();
+      if (data?.duty_status) setDutyStatus(data.duty_status);
+    }, 5000);
+    return () => clearInterval(poll);
   }, [staffProfile?.id]);
 
   const today = new Date().toISOString().split('T')[0];
@@ -50,7 +125,7 @@ export const StaffDashboard: React.FC = () => {
     {
       icon: <FiUsers size={24} color="#6366f1" />,
       bg: '#e0e7ff',
-      value: staffProfile?.duty_status || 'Off Duty',
+      value: dutyStatus,
       label: 'Current Status',
     },
   ];

@@ -127,6 +127,12 @@ function Appointments() {
   const showSnackbar = (msg: string, sev: 'success' | 'error') =>
     setSnackbar({ open: true, message: msg, severity: sev });
 
+  const today = new Date().toISOString().split('T')[0];
+
+  // PH phone: 09XXXXXXXXX (11 digits) or +639XXXXXXXXX (13 chars)
+  const isValidPHPhone = (v: string) =>
+    /^(09\d{9}|\+639\d{9})$/.test(v.trim());
+
   // ── Create ──────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (
@@ -136,6 +142,14 @@ function Appointments() {
       !formData.appointment_time
     ) {
       showSnackbar('Please fill in all required fields', 'error');
+      return;
+    }
+    if (formData.appointment_date < today) {
+      showSnackbar('Appointment date cannot be in the past', 'error');
+      return;
+    }
+    if (formData.patient_contact && !isValidPHPhone(formData.patient_contact)) {
+      showSnackbar('Enter a valid PH number: 09XXXXXXXXX or +639XXXXXXXXX', 'error');
       return;
     }
     const selectedDoctor = doctors.find((d) => d.id === formData.doctor_id);
@@ -920,11 +934,20 @@ function Appointments() {
               }
             />
             <TextField
-              label="Patient Contact"
+              label="Patient Contact (09XXXXXXXXX or +639XXXXXXXXX)"
               fullWidth
               value={formData.patient_contact}
-              onChange={(e) =>
-                setFormData({ ...formData, patient_contact: e.target.value })
+              onChange={(e) => {
+                // Allow only digits and leading +
+                const raw = e.target.value.replace(/[^0-9+]/g, '');
+                setFormData({ ...formData, patient_contact: raw });
+              }}
+              inputProps={{ inputMode: 'tel', maxLength: 13 }}
+              error={!!formData.patient_contact && !isValidPHPhone(formData.patient_contact)}
+              helperText={
+                formData.patient_contact && !isValidPHPhone(formData.patient_contact)
+                  ? 'Format: 09XXXXXXXXX or +639XXXXXXXXX'
+                  : ''
               }
             />
             <FormControl fullWidth>
@@ -952,7 +975,7 @@ function Appointments() {
               label="Date *"
               type="date"
               fullWidth
-              slotProps={{ inputLabel: { shrink: true } }}
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: today } }}
               value={formData.appointment_date}
               onChange={(e) =>
                 setFormData({ ...formData, appointment_date: e.target.value })
@@ -1020,7 +1043,7 @@ function Appointments() {
               label="New Date *"
               type="date"
               fullWidth
-              slotProps={{ inputLabel: { shrink: true } }}
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: today } }}
               value={rescheduleModal.date}
               onChange={(e) =>
                 setRescheduleModal((prev) => ({

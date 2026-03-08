@@ -66,3 +66,12 @@ $$;
 -- Allow authenticated users to call this function (the body enforces admin-only)
 REVOKE ALL ON FUNCTION delete_auth_user(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION delete_auth_user(UUID) TO authenticated;
+
+-- =====================================================
+-- 4. ENABLE REALTIME REPLICATION FOR LIVE DASHBOARD UPDATES
+-- =====================================================
+
+-- Add staff and appointments tables to the Supabase Realtime publication
+-- so that postgres_changes subscriptions fire on the client.
+ALTER PUBLICATION supabase_realtime ADD TABLE public.staff;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.appointments;
