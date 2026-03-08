@@ -20,6 +20,20 @@ export const StaffDashboard: React.FC = () => {
     setLoading(false);
   }, [staffProfile?.id]);
 
+  // Fetch latest duty_status directly from DB on every mount so we never
+  // show a stale value from the AuthContext (which is only fetched at login).
+  useEffect(() => {
+    if (!staffProfile?.id) return;
+    supabase
+      .from('staff')
+      .select('duty_status')
+      .eq('id', staffProfile.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.duty_status) setDutyStatus(data.duty_status);
+      });
+  }, [staffProfile?.id]);
+
   // Initial fetch
   useEffect(() => {
     fetchData();

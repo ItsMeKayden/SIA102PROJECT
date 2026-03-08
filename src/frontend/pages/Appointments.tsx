@@ -148,6 +148,14 @@ function Appointments() {
       showSnackbar('Appointment date cannot be in the past', 'error');
       return;
     }
+    // If today, also ensure the time is not in the past
+    if (formData.appointment_date === today) {
+      const nowTime = new Date().toTimeString().slice(0, 5); // 'HH:MM'
+      if (formData.appointment_time < nowTime) {
+        showSnackbar('Appointment time cannot be in the past', 'error');
+        return;
+      }
+    }
     if (formData.patient_contact && !isValidPHPhone(formData.patient_contact)) {
       showSnackbar('Enter a valid PH number: 09XXXXXXXXX or +639XXXXXXXXX', 'error');
       return;
