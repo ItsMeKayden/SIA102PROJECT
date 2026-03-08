@@ -24,7 +24,6 @@ import {
   Divider
 } from '@mui/material';
 import { 
-  FiMenu, 
   FiBell,
   FiInfo,
   FiAlertCircle,
@@ -37,7 +36,6 @@ import {
   FiLogIn,
   FiKey
 } from 'react-icons/fi';
-import type { Notification as NotificationType } from './types';
 import {
   getAllNotifications,
   markNotificationAsRead,
@@ -46,6 +44,8 @@ import {
   getUnreadNotificationCount
 } from './backend/services/notificationService';
 import { useAuth } from './contexts/AuthContext';
+import Sidebar from './frontend/components/layout/Sidebar';
+
 import { LoginModal } from './frontend/components/auth/LoginModal';
 import { ChangePasswordModal } from './frontend/components/auth/ChangePasswordModal';
 
@@ -60,13 +60,86 @@ const Layout = () => {
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   
   // Navigation menu state
-  const [navMenuAnchorEl, setNavMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const navMenuOpen = Boolean(navMenuAnchorEl);
   
-  // Notification modal state
+  // Notification state
+  interface Notification {
+    id: string;
+    type: string;
+    title: string;
+    message: string;
+    created_at: string;
+    is_read: boolean;
+    staff_id: string | null;
+  }
+
+  const [notifications, setNotifications] = useState<Notification[]>([
+    {
+      id: '1',
+      type: 'Schedule',
+      title: "Schedule Update",
+      message: "John Doe's Shift on February 9 has been updated...",
+      created_at: '2026-02-07T10:00:00Z',
+      is_read: false,
+      staff_id: null,
+    },
+    {
+      id: '2',
+      type: 'Appointment',
+      title: "New Appointment",
+      message: 'New PATIENT appointment assigned at ...',
+      created_at: '2026-02-07T10:00:00Z',
+      is_read: false,
+      staff_id: null,
+    },
+    {
+      id: '3',
+      type: 'System',
+      title: "System Alert",
+      message: 'Please Acknowledge the overtime for February...',
+      created_at: '2026-02-07T10:00:00Z',
+      is_read: false,
+      staff_id: null,
+    },
+    {
+      id: '4',
+      type: 'Appointment',
+      title: "New Appointment",
+      message: 'New PATIENT appointment assigned at ...',
+      created_at: '2026-02-07T10:00:00Z',
+      is_read: false,
+      staff_id: null,
+    },
+    {
+      id: '5',
+      type: 'System',
+      title: "Attendance Report",
+      message: "John Di's Attendance report for Jan 1 to ...",
+      created_at: '2026-02-07T10:00:00Z',
+      is_read: false,
+      staff_id: null,
+    },
+    {
+      id: '6',
+      type: 'ALERT',
+      title: "Alert",
+      message: 'TUMAE YUNG PASYENTE SA ROOM 9',
+      created_at: '2026-02-07T10:00:00Z',
+      is_read: false,
+      staff_id: null,
+    },
+    {
+      id: '7',
+      type: 'ALERT',
+      title: "Emergency",
+      message: 'EMERGENCY STAFF ASSISTANCE REQUIRED IN ROOM 5...',
+      created_at: '2026-02-07T10:00:00Z',
+      is_read: false,
+      staff_id: null,
+    },
+  ]);
+
   const [notificationModalOpen, setNotificationModalOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationType[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
@@ -80,6 +153,7 @@ const Layout = () => {
     'Jan 01 - Jan 31 2026',
   );
 
+
   const dateOpen = Boolean(dateAnchorEl);
   const staffList = ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Williams'];
   const dateRanges = [
@@ -89,28 +163,7 @@ const Layout = () => {
     'Dec 01 - Dec 31 2025',
   ];
 
-  // Navigation menu items
-  const menuItems = [
-    { label: 'Overview', path: '/', icon: '🏠' },
-    { label: 'Staff Information', path: '/staff', icon: '👥' },
-    { label: 'Attendance', path: '/attendance', icon: '🕐' },
-    { label: 'Analytics', path: '/analytics', icon: '📊' },
-    { label: 'Appointments', path: '/appointments', icon: '📋' },
-    { label: 'Schedule', path: '/schedule', icon: '📅' },
-  ];
 
-  const handleNavMenuClick = (event: MouseEvent<HTMLElement>) => {
-    setNavMenuAnchorEl(event.currentTarget);
-  };
-
-  const handleNavMenuClose = () => {
-    setNavMenuAnchorEl(null);
-  };
-
-  const handleNavigation = (path: string) => {
-    navigate(path);
-    handleNavMenuClose();
-  };
 
   // Fetch unread notification count
   useEffect(() => {
@@ -130,10 +183,13 @@ const Layout = () => {
 
   // Auto-show login modal if user is not authenticated
   useEffect(() => {
-    if (!user && !showLoginModal) {
-      setShowLoginModal(true);
+    // schedule opening on next tick so that state update isn't synchronous within the effect
+    if (!user) {
+      setTimeout(() => {
+        setShowLoginModal(true);
+      }, 0);
     }
-  }, [user, showLoginModal]);
+  }, [user]);
 
   // Fetch notifications when modal opens
   const fetchNotifications = async () => {
@@ -424,70 +480,8 @@ const Layout = () => {
             </IconButton>
           )}
 
-          {/* Burger Menu */}
-          <IconButton 
-            onClick={handleNavMenuClick}
-            size="small"
-            sx={{ 
-              color: '#374151',
-              '&:hover': { backgroundColor: '#f3f4f6' }
-            }}
-          >
-            <FiMenu size={22} />
-          </IconButton>
         </div>
 
-        {/* Navigation Dropdown Menu */}
-        <Menu
-          anchorEl={navMenuAnchorEl}
-          open={navMenuOpen}
-          onClose={handleNavMenuClose}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'right',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-          slotProps={{
-            paper: {
-              sx: {
-                minWidth: '220px',
-                mt: 1,
-                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
-                borderRadius: '8px'
-              },
-            },
-          }}
-        >
-          {menuItems.map((item, index) => (
-            <MenuItem
-              key={item.path}
-              onClick={() => handleNavigation(item.path)}
-              selected={location.pathname === item.path}
-              sx={{
-                fontSize: '14px',
-                padding: '10px 16px',
-                gap: '12px',
-                '&.Mui-selected': {
-                  backgroundColor: '#eff6ff',
-                  color: '#2563eb',
-                  fontWeight: 600,
-                  '&:hover': {
-                    backgroundColor: '#dbeafe',
-                  }
-                },
-                '&:hover': {
-                  backgroundColor: '#f3f4f6',
-                }
-              }}
-            >
-              <span style={{ fontSize: '18px' }}>{item.icon}</span>
-              {item.label}
-            </MenuItem>
-          ))}
-        </Menu>
 
         {/* Staff Filter Menu */}
         <Menu
@@ -654,22 +648,25 @@ const Layout = () => {
       {/* Change Password Modal */}
       <ChangePasswordModal open={showChangePasswordModal} onClose={() => setShowChangePasswordModal(false)} />
 
-      {/* Main Content */}
-      <main
-        style={{
-          flex: 1,
-          padding: '0',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          width: '100%',
-          maxWidth: '100%',
-          boxSizing: 'border-box',
-          backgroundColor: '#f3f4f6',
-          position: 'relative',
-        }}
-      >
-        <Outlet />
-      </main>
+      {/* Main Content with Sidebar */}
+      <div style={{ display: 'flex', flex: 1, height: '100%' }}>
+        <Sidebar />
+        <main
+          style={{
+            flex: 1,
+            padding: '0',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            width: '100%',
+            maxWidth: '100%',
+            boxSizing: 'border-box',
+            backgroundColor: '#f3f4f6',
+            position: 'relative',
+          }}
+        >
+          <Outlet />
+        </main>
+      </div>
 
       {/* Notification Modal */}
       <Dialog

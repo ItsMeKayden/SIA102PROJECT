@@ -146,8 +146,8 @@ export const clockOut = async (attendanceId: string): Promise<{ data: Attendance
     const now = new Date();
     const timeStr = now.toTimeString().split(' ')[0];
 
-    // Get the attendance record to calculate hours
-    const { data: attendance, error: fetchError } = await supabase
+    // Get the attendance record to calculate hours (data not needed right now)
+    const { error: fetchError } = await supabase
       .from('attendance')
       .select('*')
       .eq('id', attendanceId)

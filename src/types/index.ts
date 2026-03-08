@@ -60,3 +60,11 @@ export interface UpcomingAppointment {
   doctor: string;
   time: string;
 }
+
+// Analytics / dashboard values
+export interface AnalyticsStats {
+  totalConsultations: number;
+  avgPatientsPerDoctor: number;
+  nurseAssistanceCount: number;
+  attendanceRate: number; // percent 0-100
+}

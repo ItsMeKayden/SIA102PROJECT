@@ -1,13 +1,12 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  FiHome,
   FiUsers,
   FiClock,
   FiBarChart2,
   FiCalendar,
   FiClipboard,
-  FiBell,
+  FiHome,
 } from 'react-icons/fi';
 import '../../styles/Sidebar.css';
 
@@ -24,17 +23,11 @@ const menuItems: MenuItem[] = [
   { label: 'Analytics', path: 'analytics', icon: <FiBarChart2 /> },
   { label: 'Appointments', path: 'appointments', icon: <FiClipboard /> },
   { label: 'Schedule', path: 'schedule', icon: <FiCalendar /> },
-  { label: 'Notification', path: 'notification', icon: <FiBell /> },
 ];
 
 const Sidebar: React.FC = () => {
   return (
     <aside className="sidebar">
-      <div className="logo">
-        <span className="logoIcon">❤️</span>
-        CLINIKA+
-      </div>
-
       <nav className="nav">
         {menuItems.map((item) => (
           <NavLink
