@@ -73,95 +73,14 @@ const Layout = () => {
     staff_id: string | null;
   }
 
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      type: 'Schedule',
-      title: "Schedule Update",
-      message: "John Doe's Shift on February 9 has been updated...",
-      created_at: '2026-02-07T10:00:00Z',
-      is_read: false,
-      staff_id: null,
-    },
-    {
-      id: '2',
-      type: 'Appointment',
-      title: "New Appointment",
-      message: 'New PATIENT appointment assigned at ...',
-      created_at: '2026-02-07T10:00:00Z',
-      is_read: false,
-      staff_id: null,
-    },
-    {
-      id: '3',
-      type: 'System',
-      title: "System Alert",
-      message: 'Please Acknowledge the overtime for February...',
-      created_at: '2026-02-07T10:00:00Z',
-      is_read: false,
-      staff_id: null,
-    },
-    {
-      id: '4',
-      type: 'Appointment',
-      title: "New Appointment",
-      message: 'New PATIENT appointment assigned at ...',
-      created_at: '2026-02-07T10:00:00Z',
-      is_read: false,
-      staff_id: null,
-    },
-    {
-      id: '5',
-      type: 'System',
-      title: "Attendance Report",
-      message: "John Di's Attendance report for Jan 1 to ...",
-      created_at: '2026-02-07T10:00:00Z',
-      is_read: false,
-      staff_id: null,
-    },
-    {
-      id: '6',
-      type: 'ALERT',
-      title: "Alert",
-      message: 'TUMAE YUNG PASYENTE SA ROOM 9',
-      created_at: '2026-02-07T10:00:00Z',
-      is_read: false,
-      staff_id: null,
-    },
-    {
-      id: '7',
-      type: 'ALERT',
-      title: "Emergency",
-      message: 'EMERGENCY STAFF ASSISTANCE REQUIRED IN ROOM 5...',
-      created_at: '2026-02-07T10:00:00Z',
-      is_read: false,
-      staff_id: null,
-    },
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const [notificationModalOpen, setNotificationModalOpen] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
-  const [staffAnchorEl, setStaffAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedStaff, setSelectedStaff] = useState('John Doe');
-  const staffOpen = Boolean(staffAnchorEl);
 
-  const [dateAnchorEl, setDateAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedDateRange, setSelectedDateRange] = useState(
-    'Jan 01 - Jan 31 2026',
-  );
-
-
-  const dateOpen = Boolean(dateAnchorEl);
-  const staffList = ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Williams'];
-  const dateRanges = [
-    'Jan 01 - Jan 31 2026',
-    'Feb 01 - Feb 28 2026',
-    'Mar 01 - Mar 31 2026',
-    'Dec 01 - Dec 31 2025',
-  ];
 
 
 
@@ -268,32 +187,6 @@ const Layout = () => {
     return colors[type as keyof typeof colors] || colors['info'];
   };
 
-  const handleStaffClick = (event: MouseEvent<HTMLElement>) => {
-    setStaffAnchorEl(event.currentTarget);
-  };
-
-  const handleStaffClose = () => {
-    setStaffAnchorEl(null);
-  };
-
-  const handleStaffSelect = (staff: string) => {
-    setSelectedStaff(staff);
-    handleStaffClose();
-  };
-
-  const handleDateClick = (event: MouseEvent<HTMLElement>) => {
-    setDateAnchorEl(event.currentTarget);
-  };
-
-  const handleDateClose = () => {
-    setDateAnchorEl(null);
-  };
-
-  const handleDateSelect = (dateRange: string) => {
-    setSelectedDateRange(dateRange);
-    handleDateClose();
-  };
-
   const handleUserMenuClick = (event: MouseEvent<HTMLElement>) => {
     setUserMenuAnchorEl(event.currentTarget);
   };
@@ -368,55 +261,6 @@ const Layout = () => {
           </Typography>
         </div>
 
-        {/* Center Section - Staff & Date Filters (shown only on attendance/analytics) */}
-        {(location.pathname === '/attendance' || location.pathname === '/analytics') && !isMobile && (
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: '0 1 auto', minWidth: 0, overflow: 'hidden' }}>
-            <span style={{ fontSize: '12px', color: '#6b7280' }}>Staff:</span>
-            <Button
-              onClick={handleStaffClick}
-              endIcon={<span style={{ fontSize: '12px' }}>▼</span>}
-              sx={{
-                fontSize: '12px',
-                color: '#374151',
-                textTransform: 'none',
-                fontWeight: 600,
-                padding: '4px 8px',
-                minWidth: 'auto',
-                minHeight: 'auto',
-                '&:hover': {
-                  backgroundColor: '#f3f4f6',
-                },
-                '& .MuiButton-endIcon': {
-                  marginLeft: '4px',
-                },
-              }}
-            >
-              {selectedStaff}
-            </Button>
-
-            <Button
-              onClick={handleDateClick}
-              endIcon={<span style={{ fontSize: '12px' }}>▼</span>}
-              sx={{
-                fontSize: '12px',
-                color: '#374151',
-                textTransform: 'none',
-                padding: '4px 8px',
-                minWidth: 'auto',
-                minHeight: 'auto',
-                '&:hover': {
-                  backgroundColor: '#f3f4f6',
-                },
-                '& .MuiButton-endIcon': {
-                  marginLeft: '4px',
-                },
-              }}
-            >
-              {selectedDateRange}
-            </Button>
-          </div>
-        )}
-
         {/* Right Section - Notification Bell & Burger Menu */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', flexShrink: 0 }}>
           {/* Notification Bell */}
@@ -482,82 +326,6 @@ const Layout = () => {
 
         </div>
 
-
-        {/* Staff Filter Menu */}
-        <Menu
-          anchorEl={staffAnchorEl}
-          open={staffOpen}
-          onClose={handleStaffClose}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'left',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'left',
-          }}
-          slotProps={{
-            paper: {
-              sx: {
-                minWidth: '100px',
-                width: 'auto',
-              },
-            },
-          }}
-        >
-          {staffList.map((staff) => (
-            <MenuItem
-              key={staff}
-              onClick={() => handleStaffSelect(staff)}
-              selected={staff === selectedStaff}
-              sx={{
-                fontSize: '12px',
-                padding: '6px 12px',
-                minHeight: 'auto',
-              }}
-            >
-              {staff}
-            </MenuItem>
-          ))}
-        </Menu>
-
-        {/* Date Range Menu */}
-        <Menu
-          anchorEl={dateAnchorEl}
-          open={dateOpen}
-          onClose={handleDateClose}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'right',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-          slotProps={{
-            paper: {
-              sx: {
-                minWidth: '140px',
-                width: 'auto',
-              },
-            },
-          }}
-        >
-          {dateRanges.map((range) => (
-            <MenuItem
-              key={range}
-              onClick={() => handleDateSelect(range)}
-              selected={range === selectedDateRange}
-              sx={{
-                fontSize: '12px',
-                padding: '6px 12px',
-                minHeight: 'auto',
-              }}
-            >
-              {range}
-            </MenuItem>
-          ))}
-        </Menu>
 
         {/* User Menu */}
         <Menu
@@ -655,6 +423,7 @@ const Layout = () => {
           style={{
             flex: 1,
             padding: '0',
+            paddingBottom: '32px',
             overflowY: 'auto',
             overflowX: 'hidden',
             width: '100%',
@@ -808,7 +577,7 @@ const Layout = () => {
                                   {new Date(notification.created_at).toLocaleDateString()}
                                 </Typography>
                               </Box>
-                              <Typography variant="body2" sx={{ color: '#4b5563', mb: 1, fontSize: '13px' }}>
+                              <Typography variant="body2" sx={{ color: '#4b5563', mb: 1, fontSize: '13px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                                 {notification.message}
                               </Typography>
                               

@@ -306,13 +306,18 @@ function Appointments() {
   };
 
   // ── Complete — STAFF ONLY ─────────────────────────────────────────────────
-  const handleComplete = async (id: string) => {
+  const handleComplete = async (appt: Appointment) => {
     setAppointments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'Completed' } : a)),
+      prev.map((a) => (a.id === appt.id ? { ...a, status: 'Completed' } : a)),
     );
-    const { error } = await completeAppointment(id);
-    if (error) showSnackbar(error, 'error');
-    else showSnackbar('Appointment completed', 'success');
+    const { error } = await completeAppointment(appt.id);
+    if (error) {
+      showSnackbar(error, 'error');
+    } else {
+      // Reset doctor duty status back to Off Duty once appointment is done
+      if (appt.doctor_id) await updateDutyStatus(appt.doctor_id, 'Off Duty');
+      showSnackbar('Appointment completed — doctor is now Off Duty', 'success');
+    }
     fetchData();
   };
 
@@ -438,7 +443,7 @@ function Appointments() {
           <Button
             size="small"
             variant="contained"
-            onClick={() => handleComplete(appt.id)}
+            onClick={() => handleComplete(appt)}
             sx={{
               textTransform: 'none',
               fontSize: '10px',
@@ -477,7 +482,7 @@ function Appointments() {
           <Button
             size="small"
             variant="contained"
-            onClick={() => handleComplete(appt.id)}
+            onClick={() => handleComplete(appt)}
             sx={{
               textTransform: 'none',
               fontSize: '10px',

@@ -160,15 +160,35 @@ export const updateStaff = async (id: string, staffData: StaffFormData): Promise
   }
 };
 
-// Delete staff member
+// Delete staff member (also deletes the linked auth user via RPC)
 export const deleteStaff = async (id: string): Promise<{ error: string | null }> => {
   try {
-    const { error } = await supabase
+    // Fetch the user_id linked to this staff record first
+    const { data: staffRecord, error: fetchError } = await supabase
+      .from('staff')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Delete the staff record from the table
+    const { error: deleteError } = await supabase
       .from('staff')
       .delete()
       .eq('id', id);
 
-    if (error) throw error;
+    if (deleteError) throw deleteError;
+
+    // Delete the matching auth user (requires the delete_auth_user RPC in the DB)
+    if (staffRecord?.user_id) {
+      const { error: authDeleteError } = await supabase.rpc('delete_auth_user', {
+        target_user_id: staffRecord.user_id,
+      });
+      if (authDeleteError) {
+        console.error('Auth user deletion failed (staff record was already deleted):', authDeleteError);
+      }
+    }
 
     return { error: null };
   } catch (error) {
