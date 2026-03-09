@@ -98,6 +98,17 @@ function StaffInformation() {
     }
   };
 
+  const getDutyStatusColor = (dutyStatus: string | null | undefined) => {
+    switch (dutyStatus) {
+      case 'On Duty':
+        return '#3b82f6';
+      case 'On Leave':
+        return '#f59e0b';
+      default:
+        return '#9ca3af'; // Off Duty
+    }
+  };
+
   const filteredStaff = staffData.filter((staff) => {
     if (
       isAdmin &&
@@ -440,7 +451,7 @@ function StaffInformation() {
                         padding: '10px 8px',
                       }}
                     >
-                      Status
+                      Status / Duty
                     </TableCell>
                     <TableCell
                       sx={{
@@ -530,28 +541,38 @@ function StaffInformation() {
                         <Box
                           sx={{
                             display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
+                            flexDirection: 'column',
+                            gap: '2px',
                           }}
                         >
-                          <Box
-                            sx={{
-                              width: '6px',
-                              height: '6px',
-                              borderRadius: '50%',
-                              backgroundColor: getStatusColor(staff.status),
-                              flexShrink: 0,
-                            }}
-                          />
-                          <span
-                            style={{
-                              color: '#6b7280',
-                              fontSize: '11px',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {staff.status}
-                          </span>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Box
+                              sx={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                backgroundColor: getStatusColor(staff.status),
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span style={{ color: '#6b7280', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                              {staff.status}
+                            </span>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Box
+                              sx={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                backgroundColor: getDutyStatusColor(staff.duty_status),
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span style={{ color: '#6b7280', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                              {staff.duty_status || 'Off Duty'}
+                            </span>
+                          </Box>
                         </Box>
                       </TableCell>
                       <TableCell

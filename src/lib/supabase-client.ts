@@ -44,7 +44,7 @@ export const handleSupabaseError = (error: unknown): string => {
 
 // Wrapper to add timeout to Supabase queries
 export const withTimeout = async <T>(
-  promise: Promise<T>,
+  promise: PromiseLike<T>,
   timeoutMs: number = 8000,
 ): Promise<T> => {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
