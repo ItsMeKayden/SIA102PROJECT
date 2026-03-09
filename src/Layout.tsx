@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { MouseEvent } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { 
   Menu, 
   MenuItem, 
@@ -50,7 +50,7 @@ import { LoginModal } from './frontend/components/auth/LoginModal';
 import { ChangePasswordModal } from './frontend/components/auth/ChangePasswordModal';
 
 const Layout = () => {
-  const location = useLocation();
+  
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -73,95 +73,14 @@ const Layout = () => {
     staff_id: string | null;
   }
 
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      type: 'Schedule',
-      title: "Schedule Update",
-      message: "John Doe's Shift on February 9 has been updated...",
-      created_at: '2026-02-07T10:00:00Z',
-      is_read: false,
-      staff_id: null,
-    },
-    {
-      id: '2',
-      type: 'Appointment',
-      title: "New Appointment",
-      message: 'New PATIENT appointment assigned at ...',
-      created_at: '2026-02-07T10:00:00Z',
-      is_read: false,
-      staff_id: null,
-    },
-    {
-      id: '3',
-      type: 'System',
-      title: "System Alert",
-      message: 'Please Acknowledge the overtime for February...',
-      created_at: '2026-02-07T10:00:00Z',
-      is_read: false,
-      staff_id: null,
-    },
-    {
-      id: '4',
-      type: 'Appointment',
-      title: "New Appointment",
-      message: 'New PATIENT appointment assigned at ...',
-      created_at: '2026-02-07T10:00:00Z',
-      is_read: false,
-      staff_id: null,
-    },
-    {
-      id: '5',
-      type: 'System',
-      title: "Attendance Report",
-      message: "John Di's Attendance report for Jan 1 to ...",
-      created_at: '2026-02-07T10:00:00Z',
-      is_read: false,
-      staff_id: null,
-    },
-    {
-      id: '6',
-      type: 'ALERT',
-      title: "Alert",
-      message: 'TUMAE YUNG PASYENTE SA ROOM 9',
-      created_at: '2026-02-07T10:00:00Z',
-      is_read: false,
-      staff_id: null,
-    },
-    {
-      id: '7',
-      type: 'ALERT',
-      title: "Emergency",
-      message: 'EMERGENCY STAFF ASSISTANCE REQUIRED IN ROOM 5...',
-      created_at: '2026-02-07T10:00:00Z',
-      is_read: false,
-      staff_id: null,
-    },
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const [notificationModalOpen, setNotificationModalOpen] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
-  const [staffAnchorEl, setStaffAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedStaff, setSelectedStaff] = useState('John Doe');
-  const staffOpen = Boolean(staffAnchorEl);
 
-  const [dateAnchorEl, setDateAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedDateRange, setSelectedDateRange] = useState(
-    'Jan 01 - Jan 31 2026',
-  );
-
-
-  const dateOpen = Boolean(dateAnchorEl);
-  const staffList = ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Williams'];
-  const dateRanges = [
-    'Jan 01 - Jan 31 2026',
-    'Feb 01 - Feb 28 2026',
-    'Mar 01 - Mar 31 2026',
-    'Dec 01 - Dec 31 2025',
-  ];
 
 
 
@@ -268,32 +187,6 @@ const Layout = () => {
     return colors[type as keyof typeof colors] || colors['info'];
   };
 
-  const handleStaffClick = (event: MouseEvent<HTMLElement>) => {
-    setStaffAnchorEl(event.currentTarget);
-  };
-
-  const handleStaffClose = () => {
-    setStaffAnchorEl(null);
-  };
-
-  const handleStaffSelect = (staff: string) => {
-    setSelectedStaff(staff);
-    handleStaffClose();
-  };
-
-  const handleDateClick = (event: MouseEvent<HTMLElement>) => {
-    setDateAnchorEl(event.currentTarget);
-  };
-
-  const handleDateClose = () => {
-    setDateAnchorEl(null);
-  };
-
-  const handleDateSelect = (dateRange: string) => {
-    setSelectedDateRange(dateRange);
-    handleDateClose();
-  };
-
   const handleUserMenuClick = (event: MouseEvent<HTMLElement>) => {
     setUserMenuAnchorEl(event.currentTarget);
   };
@@ -368,55 +261,6 @@ const Layout = () => {
           </Typography>
         </div>
 
-        {/* Center Section - Staff & Date Filters (shown only on attendance/analytics) */}
-        {(location.pathname === '/attendance' || location.pathname === '/analytics') && !isMobile && (
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: '0 1 auto', minWidth: 0, overflow: 'hidden' }}>
-            <span style={{ fontSize: '12px', color: '#6b7280' }}>Staff:</span>
-            <Button
-              onClick={handleStaffClick}
-              endIcon={<span style={{ fontSize: '12px' }}>▼</span>}
-              sx={{
-                fontSize: '12px',
-                color: '#374151',
-                textTransform: 'none',
-                fontWeight: 600,
-                padding: '4px 8px',
-                minWidth: 'auto',
-                minHeight: 'auto',
-                '&:hover': {
-                  backgroundColor: '#f3f4f6',
-                },
-                '& .MuiButton-endIcon': {
-                  marginLeft: '4px',
-                },
-              }}
-            >
-              {selectedStaff}
-            </Button>
-
-            <Button
-              onClick={handleDateClick}
-              endIcon={<span style={{ fontSize: '12px' }}>▼</span>}
-              sx={{
-                fontSize: '12px',
-                color: '#374151',
-                textTransform: 'none',
-                padding: '4px 8px',
-                minWidth: 'auto',
-                minHeight: 'auto',
-                '&:hover': {
-                  backgroundColor: '#f3f4f6',
-                },
-                '& .MuiButton-endIcon': {
-                  marginLeft: '4px',
-                },
-              }}
-            >
-              {selectedDateRange}
-            </Button>
-          </div>
-        )}
-
         {/* Right Section - Notification Bell & Burger Menu */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', flexShrink: 0 }}>
           {/* Notification Bell */}
@@ -482,82 +326,6 @@ const Layout = () => {
 
         </div>
 
-
-        {/* Staff Filter Menu */}
-        <Menu
-          anchorEl={staffAnchorEl}
-          open={staffOpen}
-          onClose={handleStaffClose}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'left',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'left',
-          }}
-          slotProps={{
-            paper: {
-              sx: {
-                minWidth: '100px',
-                width: 'auto',
-              },
-            },
-          }}
-        >
-          {staffList.map((staff) => (
-            <MenuItem
-              key={staff}
-              onClick={() => handleStaffSelect(staff)}
-              selected={staff === selectedStaff}
-              sx={{
-                fontSize: '12px',
-                padding: '6px 12px',
-                minHeight: 'auto',
-              }}
-            >
-              {staff}
-            </MenuItem>
-          ))}
-        </Menu>
-
-        {/* Date Range Menu */}
-        <Menu
-          anchorEl={dateAnchorEl}
-          open={dateOpen}
-          onClose={handleDateClose}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'right',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-          slotProps={{
-            paper: {
-              sx: {
-                minWidth: '140px',
-                width: 'auto',
-              },
-            },
-          }}
-        >
-          {dateRanges.map((range) => (
-            <MenuItem
-              key={range}
-              onClick={() => handleDateSelect(range)}
-              selected={range === selectedDateRange}
-              sx={{
-                fontSize: '12px',
-                padding: '6px 12px',
-                minHeight: 'auto',
-              }}
-            >
-              {range}
-            </MenuItem>
-          ))}
-        </Menu>
 
         {/* User Menu */}
         <Menu
@@ -655,6 +423,7 @@ const Layout = () => {
           style={{
             flex: 1,
             padding: '0',
+            paddingBottom: '32px',
             overflowY: 'auto',
             overflowX: 'hidden',
             width: '100%',
@@ -715,43 +484,142 @@ const Layout = () => {
           </IconButton>
         </DialogTitle>
         
-        <DialogContent sx={{ 
-          p: 3, 
-          flex: 1, 
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}>
-          {/* Action Buttons */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1, flexShrink: 0 }}>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                variant={filter === 'all' ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => setFilter('all')}
-                sx={{ textTransform: 'none' }}
-              >
-                All ({notifications.length})
-              </Button>
-              <Button
-                variant={filter === 'unread' ? 'contained' : 'outlined'}
-                size="small"
-                onClick={() => setFilter('unread')}
-                sx={{ textTransform: 'none' }}
-              >
-                Unread ({unreadCount})
-              </Button>
+        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            {/* Action Buttons */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  variant={filter === 'all' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setFilter('all')}
+                  sx={{ textTransform: 'none' }}
+                >
+                  All ({notifications.length})
+                </Button>
+                <Button
+                  variant={filter === 'unread' ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => setFilter('unread')}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Unread ({unreadCount})
+                </Button>
+              </Box>
+              {unreadCount > 0 && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<FiCheck />}
+                  onClick={handleMarkAllAsRead}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Mark All as Read
+                </Button>
+              )}
             </Box>
-            {unreadCount > 0 && (
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<FiCheck />}
-                onClick={handleMarkAllAsRead}
-                sx={{ textTransform: 'none' }}
-              >
-                Mark All as Read
-              </Button>
+
+            {/* Notifications List */}
+            {notificationsLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 'calc(80vh - 180px)', overflowY: 'auto', pr: 0.5 }}>
+                {filteredNotifications.length === 0 ? (
+                  <Card sx={{ textAlign: 'center', py: 6 }}>
+                    <FiBell size={48} color="#9ca3af" />
+                    <Typography variant="h6" sx={{ mt: 2, color: '#6b7280' }}>
+                      No notifications
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#9ca3af' }}>
+                      You're all caught up!
+                    </Typography>
+                  </Card>
+                ) : (
+                  filteredNotifications.map((notification) => {
+                    const colors = getColor(notification.type);
+                    return (
+                      <Card
+                        key={notification.id}
+                        sx={{
+                          borderLeft: `4px solid ${colors.border}`,
+                          backgroundColor: notification.is_read ? '#ffffff' : '#fafafa',
+                          transition: 'all 0.2s',
+                          flexShrink: 0,
+                          '&:hover': {
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                          }
+                        }}
+                      >
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                            {/* Icon */}
+                            <Box
+                              sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: '50%',
+                                backgroundColor: colors.bg,
+                                color: colors.text,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                              }}
+                            >
+                              {getIcon(notification.type)}
+                            </Box>
+
+                            {/* Content */}
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5, gap: 1 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1a202c' }}>
+                                  {notification.title}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: '#9ca3af', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                                  {new Date(notification.created_at).toLocaleDateString()}
+                                </Typography>
+                              </Box>
+                              <Typography variant="body2" sx={{ color: '#4b5563', mb: 1, fontSize: '13px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                                {notification.message}
+                              </Typography>
+                              
+                              {/* Actions */}
+                              <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+                                {!notification.is_read && (
+                                  <Button
+                                    size="small"
+                                    startIcon={<FiCheck size={14} />}
+                                    onClick={() => handleMarkAsRead(notification.id)}
+                                    sx={{ 
+                                      textTransform: 'none', 
+                                      fontSize: '12px',
+                                      color: colors.text
+                                    }}
+                                  >
+                                    Mark as read
+                                  </Button>
+                                )}
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleDelete(notification.id)}
+                                  sx={{ 
+                                    color: '#ef4444',
+                                    '&:hover': { backgroundColor: '#fee2e2' }
+                                  }}
+                                >
+                                  <FiTrash2 size={14} />
+                                </IconButton>
+                              </Box>
+                            </Box>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                )}
+              </Box>
             )}
           </Box>
 
