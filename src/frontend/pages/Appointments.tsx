@@ -27,6 +27,7 @@ import {
   Snackbar,
   Alert,
   Divider,
+  InputAdornment,
 } from '@mui/material';
 import {
   FiPlus,
@@ -37,6 +38,7 @@ import {
   FiAlertCircle,
   FiCalendar,
   FiPlay,
+  FiSearch,
 } from 'react-icons/fi';
 import type { Appointment, Staff } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
@@ -131,10 +133,9 @@ function Appointments() {
 
   const today = new Date().toISOString().split('T')[0];
 
-  // PH phone: 09XXXXXXXXX (11 digits) or +639XXXXXXXXX (13 chars)
   const isValidPHPhone = (v: string) => /^(09\d{9}|\+639\d{9})$/.test(v.trim());
 
-  // ── Create ──────────────────────────────────────────────────────────────────
+  // ── Create ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (
       !formData.patient_name ||
@@ -149,9 +150,8 @@ function Appointments() {
       showSnackbar('Appointment date cannot be in the past', 'error');
       return;
     }
-    // If today, also ensure the time is not in the past
     if (formData.appointment_date === today) {
-      const nowTime = new Date().toTimeString().slice(0, 5); // 'HH:MM'
+      const nowTime = new Date().toTimeString().slice(0, 5);
       if (formData.appointment_time < nowTime) {
         showSnackbar('Appointment time cannot be in the past', 'error');
         return;
@@ -211,7 +211,6 @@ function Appointments() {
     });
   };
 
-  // ── Admin approves staff-submitted (Pending → Approved) — passes isAdmin ─
   const handleAdminApprove = async (id: string) => {
     setAppointments((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status: 'Approved' } : a)),
@@ -222,7 +221,6 @@ function Appointments() {
     fetchData();
   };
 
-  // ── Admin rejects staff-submitted (Pending → Rejected) — passes isAdmin ──
   const handleAdminReject = async (id: string) => {
     setAppointments((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status: 'Rejected' } : a)),
@@ -233,7 +231,6 @@ function Appointments() {
     fetchData();
   };
 
-  // ── Doctor accepts admin-assigned (Assigned → Approved) — passes isAdmin ─
   const handleDoctorAccept = async (id: string) => {
     setAppointments((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status: 'Approved' } : a)),
@@ -244,7 +241,6 @@ function Appointments() {
     fetchData();
   };
 
-  // ── Doctor rejects admin-assigned (Assigned → Rejected) — passes isAdmin ─
   const handleDoctorReject = async (id: string) => {
     setAppointments((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status: 'Rejected' } : a)),
@@ -255,7 +251,6 @@ function Appointments() {
     fetchData();
   };
 
-  // ── Start — STAFF ONLY ────────────────────────────────────────────────────
   const handleStart = async (appt: Appointment) => {
     setAppointments((prev) =>
       prev.map((a) => (a.id === appt.id ? { ...a, status: 'Accepted' } : a)),
@@ -271,7 +266,6 @@ function Appointments() {
     fetchData();
   };
 
-  // ── No Show — STAFF ONLY ──────────────────────────────────────────────────
   const handleNoShow = async (id: string) => {
     setAppointments((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status: 'No Show' } : a)),
@@ -282,7 +276,6 @@ function Appointments() {
     fetchData();
   };
 
-  // ── Cancel — STAFF ONLY ───────────────────────────────────────────────────
   const handleCancel = async (id: string) => {
     setAppointments((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status: 'Cancelled' } : a)),
@@ -293,7 +286,6 @@ function Appointments() {
     fetchData();
   };
 
-  // ── Reschedule — STAFF ONLY ───────────────────────────────────────────────
   const handleRescheduleOpen = (appt: Appointment) => {
     setRescheduleModal({
       open: true,
@@ -331,7 +323,6 @@ function Appointments() {
     fetchData();
   };
 
-  // ── Complete — STAFF ONLY ─────────────────────────────────────────────────
   const handleComplete = async (appt: Appointment) => {
     setAppointments((prev) =>
       prev.map((a) => (a.id === appt.id ? { ...a, status: 'Completed' } : a)),
@@ -340,7 +331,6 @@ function Appointments() {
     if (error) {
       showSnackbar(error, 'error');
     } else {
-      // Reset doctor duty status back to Off Duty once appointment is done
       if (appt.doctor_id) await updateDutyStatus(appt.doctor_id, 'Off Duty');
       showSnackbar('Appointment completed — doctor is now Off Duty', 'success');
     }
@@ -420,11 +410,10 @@ function Appointments() {
     );
   };
 
-  // ── Action buttons — STAFF ONLY (admin sees no action buttons here) ───────
+  // ── Action buttons ────────────────────────────────────────────────────────
   const renderStaffActions = (appt: Appointment) => {
     if (isAdmin) return null;
-    const isAssignedDoctor = appt.doctor_id === staffProfile?.id;
-    if (!isAssignedDoctor) return null;
+    if (appt.doctor_id !== staffProfile?.id) return null;
 
     if (appt.status === 'Approved') {
       return (
@@ -533,15 +522,19 @@ function Appointments() {
     : appointments.filter(
         (a) => a.status === 'Assigned' && a.doctor_id === staffProfile?.id,
       );
+
   const mainTableRows = isAdmin
     ? appointments.filter((a) => a.status !== 'Pending')
     : appointments.filter((a) => a.doctor_id === staffProfile?.id);
 
-  // Filter mainTableRows based on search and status filter
   const filteredRows = mainTableRows.filter((appt) => {
-    const matchesSearch = appt.patient_name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
+    const doctor = doctors.find((d) => d.id === appt.doctor_id);
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      q === '' ||
+      appt.patient_name.toLowerCase().includes(q) ||
+      (doctor?.name ?? '').toLowerCase().includes(q) ||
+      appt.appointment_date.includes(q);
     const matchesStatus = statusFilter === '' || appt.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -659,16 +652,21 @@ function Appointments() {
               boxShadow: 'none',
             }}
           >
-            <CardContent sx={{ py: '16px !important', px: '16px !important' }}>
+            <CardContent sx={{ py: '8px !important', px: '16px !important' }}>
               <Typography
                 variant="body2"
-                sx={{ color: '#374151', mb: 1, fontWeight: 500 }}
+                sx={{
+                  color: '#374151',
+                  mb: 0.5,
+                  fontWeight: 500,
+                  fontSize: '12px',
+                }}
               >
                 {card.label}
               </Typography>
               <Typography
-                variant="h4"
-                sx={{ color: card.color, fontWeight: 700 }}
+                variant="h5"
+                sx={{ color: card.color, fontWeight: 700, fontSize: '28px' }}
               >
                 {card.value}
               </Typography>
@@ -677,7 +675,7 @@ function Appointments() {
         ))}
       </Box>
 
-      {/* ── Admin: staff-submitted Pending queue ── */}
+      {/* ── Admin: Pending queue ── */}
       {isAdmin && adminPendingQueue.length > 0 && (
         <Box sx={{ mb: 3 }}>
           <Typography
@@ -699,13 +697,12 @@ function Appointments() {
             sx={{
               borderRadius: '12px',
               border: '2px solid #fde68a',
-              overflowX: 'auto',
               maxHeight: '300px',
               overflow: 'auto',
             }}
           >
             <Table size="small" stickyHeader>
-              <TableHead sx={{ backgroundColor: '#fef3c7' }}>
+              <TableHead>
                 <TableRow>
                   {[
                     'Patient',
@@ -717,7 +714,11 @@ function Appointments() {
                   ].map((h) => (
                     <TableCell
                       key={h}
-                      sx={{ fontWeight: 600, fontSize: '12px' }}
+                      sx={{
+                        fontWeight: 600,
+                        fontSize: '12px',
+                        backgroundColor: '#fef3c7',
+                      }}
                     >
                       {h}
                     </TableCell>
@@ -779,7 +780,7 @@ function Appointments() {
         </Box>
       )}
 
-      {/* ── Staff/Doctor: admin-assigned queue ── */}
+      {/* ── Doctor: Assigned queue ── */}
       {!isAdmin && doctorAssignedQueue.length > 0 && (
         <Box sx={{ mb: 3 }}>
           <Typography
@@ -801,18 +802,21 @@ function Appointments() {
             sx={{
               borderRadius: '12px',
               border: '2px solid #c4b5fd',
-              overflowX: 'auto',
               maxHeight: '300px',
               overflow: 'auto',
             }}
           >
             <Table size="small" stickyHeader>
-              <TableHead sx={{ backgroundColor: '#ede9fe' }}>
+              <TableHead>
                 <TableRow>
                   {['Patient', 'Date', 'Time', 'Notes', 'Actions'].map((h) => (
                     <TableCell
                       key={h}
-                      sx={{ fontWeight: 600, fontSize: '12px' }}
+                      sx={{
+                        fontWeight: 600,
+                        fontSize: '12px',
+                        backgroundColor: '#ede9fe',
+                      }}
                     >
                       {h}
                     </TableCell>
@@ -868,127 +872,213 @@ function Appointments() {
         </Box>
       )}
 
-      {/* ── Main appointments table ── */}
-      <Box sx={{ mb: 2 }}>
-        <Typography
-          variant="h6"
-          sx={{ fontWeight: 600, color: '#374151', mb: 2 }}
+      {/* ── Main appointments table (with search + filter INSIDE the Paper) ── */}
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: '16px',
+          border: '1px solid #e5e7eb',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Toolbar row — search left, filters right */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 1.5,
+            px: 2,
+            py: 1.5,
+            borderBottom: '1px solid #f3f4f6',
+            backgroundColor: '#fff',
+          }}
         >
-          {isAdmin ? 'All Appointments' : 'My Appointments'}
-        </Typography>
-
-        {/* Search & Filter Bar */}
-        <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+          {/* Search */}
           <TextField
-            placeholder="Search by patient name..."
-            variant="outlined"
             size="small"
+            placeholder="Search patient or doctor…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <FiSearch size={15} color="#9ca3af" />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery ? (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setSearchQuery('')}>
+                    <FiX size={13} />
+                  </IconButton>
+                </InputAdornment>
+              ) : null,
+            }}
             sx={{
-              flex: 1,
-              minWidth: '250px',
+              width: 300,
               '& .MuiOutlinedInput-root': {
-                borderRadius: '8px',
+                borderRadius: '10px',
+                fontSize: '13px',
+                backgroundColor: '#f9fafb',
+                '& fieldset': { borderColor: '#e5e7eb' },
               },
             }}
           />
-          <FormControl sx={{ minWidth: '150px' }}>
+
+          {/* Right side: title + filters */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{ color: '#9ca3af', fontSize: '12px' }}
+            >
+              {filteredRows.length} of {mainTableRows.length} appointments
+            </Typography>
+
+            {/* Status filter */}
             <Select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               displayEmpty
               size="small"
-              sx={{ borderRadius: '8px' }}
+              sx={{
+                borderRadius: '10px',
+                fontSize: '13px',
+                backgroundColor: '#f9fafb',
+                minWidth: 150,
+                '& fieldset': { borderColor: '#e5e7eb' },
+              }}
             >
-              <MenuItem value="">All statuses</MenuItem>
-              <MenuItem value="Pending">Pending</MenuItem>
-              <MenuItem value="Approved">Approved</MenuItem>
-              <MenuItem value="Completed">Completed</MenuItem>
-              <MenuItem value="Cancelled">Cancelled</MenuItem>
-              <MenuItem value="Rejected">Rejected</MenuItem>
-              <MenuItem value="No Show">No Show</MenuItem>
+              <MenuItem value="" sx={{ fontSize: '13px' }}>
+                All Statuses
+              </MenuItem>
+              <MenuItem value="Assigned" sx={{ fontSize: '13px' }}>
+                Assigned
+              </MenuItem>
+              <MenuItem value="Approved" sx={{ fontSize: '13px' }}>
+                Approved
+              </MenuItem>
+              <MenuItem value="Accepted" sx={{ fontSize: '13px' }}>
+                In Progress
+              </MenuItem>
+              <MenuItem value="Completed" sx={{ fontSize: '13px' }}>
+                Completed
+              </MenuItem>
+              <MenuItem value="Cancelled" sx={{ fontSize: '13px' }}>
+                Cancelled
+              </MenuItem>
+              <MenuItem value="Rejected" sx={{ fontSize: '13px' }}>
+                Rejected
+              </MenuItem>
+              <MenuItem value="No Show" sx={{ fontSize: '13px' }}>
+                No Show
+              </MenuItem>
             </Select>
-          </FormControl>
-        </Box>
-      </Box>
-      <Typography
-        variant="body2"
-        sx={{ color: '#6b7280', mb: 2, fontSize: '13px' }}
-      >
-        Showing {filteredRows.length} of {mainTableRows.length} appointments
-      </Typography>
-      <TableContainer
-        component={Paper}
-        sx={{
-          borderRadius: '12px',
-          overflowX: 'auto',
-          maxHeight: '450px',
-          overflow: 'auto',
-        }}
-      >
-        <Table size="small" stickyHeader>
-          <TableHead sx={{ backgroundColor: '#f9fafb' }}>
-            <TableRow>
-              {[
-                'Patient',
-                'Doctor',
-                'Date',
-                'Time',
-                'Status',
-                ...(isAdmin ? [] : ['Actions']),
-              ].map((h) => (
-                <TableCell key={h} sx={{ fontWeight: 600, fontSize: '12px' }}>
-                  {h}
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredRows.map((appt) => {
-              const doctor = doctors.find((d) => d.id === appt.doctor_id);
-              return (
-                <TableRow
-                  key={appt.id}
-                  sx={{ '&:hover': { backgroundColor: '#f9fafb' } }}
-                >
-                  <TableCell sx={{ fontSize: '12px' }}>
-                    {appt.patient_name}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '12px' }}>
-                    {doctor?.name ?? 'Unknown'}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '12px' }}>
-                    {new Date(appt.appointment_date).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '12px' }}>
-                    {appt.appointment_time}
-                  </TableCell>
-                  <TableCell>{getStatusChip(appt.status)}</TableCell>
-                  {!isAdmin && (
-                    <TableCell sx={{ minWidth: 280 }}>
-                      {renderStaffActions(appt)}
-                    </TableCell>
-                  )}
-                </TableRow>
-              );
-            })}
-            {filteredRows.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={isAdmin ? 5 : 6}
-                  align="center"
-                  sx={{ py: 4, color: '#9ca3af' }}
-                >
-                  {searchQuery || statusFilter
-                    ? 'No appointments match your filters'
-                    : 'No appointments found'}
-                </TableCell>
-              </TableRow>
+
+            {/* Clear — only when a filter is active */}
+            {(searchQuery || statusFilter) && (
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => {
+                  setSearchQuery('');
+                  setStatusFilter('');
+                }}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '12px',
+                  color: '#6b7280',
+                  minWidth: 0,
+                }}
+              >
+                Clear
+              </Button>
             )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+          </Box>
+        </Box>
+
+        {/* Table */}
+        <TableContainer
+          sx={{ maxHeight: 'calc(100vh - 380px)', overflow: 'auto' }}
+        >
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                {[
+                  'Patient',
+                  'Doctor',
+                  'Date',
+                  'Time',
+                  'Status',
+                  ...(isAdmin ? [] : ['Actions']),
+                ].map((h) => (
+                  <TableCell
+                    key={h}
+                    sx={{
+                      fontWeight: 600,
+                      fontSize: '12px',
+                      backgroundColor: '#f9fafb',
+                      borderBottom: '1px solid #e5e7eb',
+                    }}
+                  >
+                    {h}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredRows.map((appt) => {
+                const doctor = doctors.find((d) => d.id === appt.doctor_id);
+                return (
+                  <TableRow
+                    key={appt.id}
+                    sx={{ '&:hover': { backgroundColor: '#f9fafb' } }}
+                  >
+                    <TableCell sx={{ fontSize: '12px' }}>
+                      {appt.patient_name}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '12px' }}>
+                      {doctor?.name ?? 'Unknown'}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '12px' }}>
+                      {new Date(appt.appointment_date).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '12px' }}>
+                      {appt.appointment_time}
+                    </TableCell>
+                    <TableCell>{getStatusChip(appt.status)}</TableCell>
+                    {!isAdmin && (
+                      <TableCell sx={{ minWidth: 280 }}>
+                        {renderStaffActions(appt)}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
+              {filteredRows.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={isAdmin ? 5 : 6}
+                    align="center"
+                    sx={{ py: 4, color: '#9ca3af' }}
+                  >
+                    {searchQuery || statusFilter
+                      ? 'No appointments match your filters.'
+                      : 'No appointments found.'}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
       {/* ── New Appointment Modal ── */}
       <Dialog
@@ -1034,7 +1124,6 @@ function Appointments() {
               fullWidth
               value={formData.patient_contact}
               onChange={(e) => {
-                // Allow only digits and leading +
                 const raw = e.target.value.replace(/[^0-9+]/g, '');
                 setFormData({ ...formData, patient_contact: raw });
               }}
