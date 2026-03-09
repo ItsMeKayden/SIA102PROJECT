@@ -7,32 +7,149 @@ import {
   CardContent,
   CircularProgress,
   Alert,
-  Button,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   ResponsiveContainer,
+  LineChart,
   BarChart,
-  PieChart,
   CartesianGrid,
   XAxis,
   YAxis,
   Tooltip,
+  Line,
   Bar,
-  Pie,
-  Cell,
 } from 'recharts';
-import { getAnalyticsStats } from '../../backend/services/analyticsService';
+import { getAnalyticsStats, getMonthlyConsultations, getMonthlyPerformance } from '../../backend/services/analyticsService';
 import type { AnalyticsStats } from '../../types';
 
 function Analytics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<AnalyticsStats | null>(null);
- 
+  const [selectedMonth, setSelectedMonth] = useState<string>(`${new Date().getMonth() + 1}-2026`);
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const years = [2025, 2026, 2027]; // Adjust as needed
+  const [monthlyConsultations, setMonthlyConsultations] = useState<{ month: string, count: number }[]>([]);
+  const [monthlyPerformanceData, setMonthlyPerformanceData] = useState<{ month: string, value: number }[]>([]);
+  const [performanceInsight, setPerformanceInsight] = useState<string>('');
+  const [consultationInsight, setConsultationInsight] = useState<string>('');
+  const [doctorInsight, setDoctorInsight] = useState<string>('');
+  const [returnRateInsight, setReturnRateInsight] = useState<string>('');
+  const [attendanceInsight, setAttendanceInsight] = useState<string>('');
+  const [visitTrendsInsight, setVisitTrendsInsight] = useState<string>('');
 
-  useEffect(() => {
-    fetchAnalyticsData();
-  }, []);
+  const generatePerformanceInsight = (data: { month: string, value: number }[]) => {
+    if (data.length === 0) {
+      setPerformanceInsight('No data available');
+      return;
+    }
+
+    // Find best month
+    const bestMonth = data.reduce((prev, current) => current.value > prev.value ? current : prev);
+    
+    // Calculate trend (first half vs second half average)
+    const midpoint = Math.floor(data.length / 2);
+    const firstHalfAvg = data.slice(0, midpoint).reduce((sum, m) => sum + m.value, 0) / midpoint;
+    const secondHalfAvg = data.slice(midpoint).reduce((sum, m) => sum + m.value, 0) / (data.length - midpoint);
+    const trendDirection = secondHalfAvg > firstHalfAvg ? 'upward' : 'downward';
+    const trendPercent = Math.round(Math.abs(((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100));
+
+    // Check last month vs average
+    const lastMonth = data[data.length - 1];
+    const overallAvg = Math.round(data.reduce((sum, m) => sum + m.value, 0) / data.length);
+    const lastMonthStatus = lastMonth.value > overallAvg ? 'above average' : 'below average';
+
+    // Generate insight
+    let insight = `✓ ${bestMonth.month} was the top performing month (${bestMonth.value}% score). `;
+    insight += `Overall performance shows a ${trendDirection} trend with ${trendPercent}% change. `;
+    insight += `Current month is ${lastMonthStatus} (${lastMonth.value}% vs ${overallAvg}% average).`;
+
+    setPerformanceInsight(insight);
+  };
+
+  const generateStatInsights = (statsData: AnalyticsStats) => {
+    // Total Consultations Insight
+    const consultCount = statsData.totalConsultations;
+    if (consultCount === 0) {
+      setConsultationInsight('No consultation data available');
+    } else if (consultCount > 10) {
+      setConsultationInsight(`Strong activity: ${consultCount} consultations indicate high clinic engagement`);
+    } else if (consultCount > 5) {
+      setConsultationInsight(`Moderate activity: ${consultCount} consultations this period`);
+    } else {
+      setConsultationInsight(`Low activity: Consider outreach to increase consultations`);
+    }
+
+    // Average Patients Per Doctor Insight
+    const avgPatients = statsData.avgPatientsPerDoctor;
+    if (avgPatients >= 5) {
+      setDoctorInsight(`Each doctor manages ${avgPatients.toFixed(1)} patients on average - high workload`);
+    } else if (avgPatients >= 2) {
+      setDoctorInsight(`Each doctor manages ${avgPatients.toFixed(1)} patients on average - good balance`);
+    } else {
+      setDoctorInsight(`Each doctor manages ${avgPatients.toFixed(1)} patients - capacity available`);
+    }
+
+    // Patient Return Rate Insight
+    const returnRate = statsData.patientReturnRate;
+    if (returnRate >= 50) {
+      setReturnRateInsight(`Excellent retention: ${returnRate.toFixed(1)}% of patients return - strong loyalty`);
+    } else if (returnRate >= 20) {
+      setReturnRateInsight(`Good retention: ${returnRate.toFixed(1)}% of patients return`);
+    } else if (returnRate > 0) {
+      setReturnRateInsight(`${returnRate.toFixed(1)}% patient return rate - focus on retention strategies`);
+    } else {
+      setReturnRateInsight('No returning patients yet - continue building trust');
+    }
+
+    // Attendance Rate Insight
+    const attendRate = statsData.attendanceRate;
+    if (attendRate >= 95) {
+      setAttendanceInsight(`Outstanding: ${Math.round(attendRate)}% staff attendance rate`);
+    } else if (attendRate >= 85) {
+      setAttendanceInsight(`Good: ${Math.round(attendRate)}% staff attendance rate`);
+    } else if (attendRate >= 70) {
+      setAttendanceInsight(`Fair: ${Math.round(attendRate)}% attendance - monitor closely`);
+    } else {
+      setAttendanceInsight(`Low: ${Math.round(attendRate)}% attendance - address absences`);
+    }
+  };
+
+  const generateVisitTrendsInsight = (data: { month: string; count: number }[]) => {
+    if (data.length === 0) {
+      setVisitTrendsInsight('No visit data available');
+      return;
+    }
+
+    // Find peak month
+    const peakMonth = data.reduce((prev, current) => current.count > prev.count ? current : prev);
+    
+    // Calculate average
+    const avgVisits = Math.round(data.reduce((sum, m) => sum + m.count, 0) / data.length);
+    
+    // Calculate trend
+    const firstHalf = data.slice(0, Math.floor(data.length / 2));
+    const secondHalf = data.slice(Math.floor(data.length / 2));
+    const firstHalfAvg = Math.round(firstHalf.reduce((sum, m) => sum + m.count, 0) / firstHalf.length);
+    const secondHalfAvg = Math.round(secondHalf.reduce((sum, m) => sum + m.count, 0) / secondHalf.length);
+    const trendDirection = secondHalfAvg > firstHalfAvg ? 'increasing' : 'decreasing';
+    const trendChange = Math.round(Math.abs(((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100));
+
+    // Generate insights
+    let insight = `• Peak: ${peakMonth.month} with ${peakMonth.count} visits. `;
+    insight += `• Average: ${avgVisits} visits/month. `;
+    insight += `• Trend: ${trendDirection} by ${trendChange}%. `;
+    insight += `• Action: ${secondHalfAvg < firstHalfAvg ? 'Visit volume declining - consider marketing initiatives' : 'Strong upward momentum - maintain current strategies'}`;
+
+    setVisitTrendsInsight(insight);
+  };
 
   const fetchAnalyticsData = async () => {
     setLoading(true);
@@ -45,6 +162,7 @@ function Analytics() {
       }
 
       setStats(analytics);
+      generateStatInsights(analytics);
     } catch {
       setError('Failed to load analytics data');
     } finally {
@@ -52,6 +170,28 @@ function Analytics() {
     }
   };
 
+  const fetchMonthlyConsultations = async () => {
+    const { data, error } = await getMonthlyConsultations();
+    if (!error && data) {
+      setMonthlyConsultations(data);
+      generateVisitTrendsInsight(data);
+    }
+  };
+
+  const fetchMonthlyPerformanceData = async () => {
+    const { data, error } = await getMonthlyPerformance();
+    if (!error && data) {
+      setMonthlyPerformanceData(data);
+      generatePerformanceInsight(data);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnalyticsData();
+    fetchMonthlyConsultations();
+    fetchMonthlyPerformanceData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading) {
     return (
@@ -87,25 +227,6 @@ function Analytics() {
 
   // Chart data variables
 
-  const monthlyPerformanceData = [
-    { month: 'Jan', value: 85 },
-    { month: 'Feb', value: 90 },
-    { month: 'Mar', value: 88 },
-    { month: 'Apr', value: 92 },
-    { month: 'May', value: 95 },
-    { month: 'Jun', value: 98 },
-  ];
-
-  // Work distribution based on actual statistics
-  const attendanceMultiplier = (stats?.attendanceRate ?? 0) / 100;
-  const workDistributionData = [
-    { name: 'Receptionist', value: (stats?.totalConsultations ?? 0) * attendanceMultiplier },
-    { name: 'Doctor', value: stats?.avgPatientsPerDoctor ?? 0 },
-    { name: 'Nurse', value: (stats?.nurseAssistanceCount ?? 0) * attendanceMultiplier },
-  ];
-
-  const pieColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
-
   return (
     <div style={{ 
       padding: '24px', 
@@ -118,11 +239,10 @@ function Analytics() {
       <Box sx={{ 
         padding: '12px 0', 
         mb: 2,
-        textAlign: 'center'
       }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a202c' }}>
-          Staff Activity Overview
-        </Typography>
+        
+        <h1>Staff Activity Overview</h1>
+        
       </Box>
 
       
@@ -147,7 +267,7 @@ function Analytics() {
         >
           <CardContent sx={{ p: 2 }}>
             <Typography sx={{ fontSize: '14px', color: '#666', fontWeight: '600', mb: 1.5 }}>
-              Total Consultation
+              Total Consultations Completed
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Typography sx={{ fontSize: '20px' }}>Rx</Typography>
@@ -155,7 +275,9 @@ function Analytics() {
                 {stats ? `${stats.totalConsultations} Consultation${stats.totalConsultations === 1 ? '' : 's'}` : '--'}
               </Typography>
             </Box>
-            {/* optional percent change could go here */}
+            <Typography sx={{ fontSize: '12px', color: '#666', lineHeight: 1.4 }}>
+              {consultationInsight}
+            </Typography>
           </CardContent>
         </Card>
 
@@ -177,29 +299,33 @@ function Analytics() {
                 {stats ? `${stats.avgPatientsPerDoctor.toFixed(1)} Patients` : '--'}
               </Typography>
             </Box>
-            {/* percentage change */}
+            <Typography sx={{ fontSize: '12px', color: '#666', lineHeight: 1.4 }}>
+              {doctorInsight}
+            </Typography>
           </CardContent>
         </Card>
 
-        {/* Nurse Assistance Count */}
+        {/* Patient Return Rate */}
         <Card
           sx={{
-            background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(251, 191, 36, 0.05) 100%)',
-            border: '2px solid #fbbf24',
+            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%)',
+            border: '2px solid #f59e0b',
             borderRadius: '12px',
           }}
         >
           <CardContent sx={{ p: 2 }}>
             <Typography sx={{ fontSize: '14px', color: '#666', fontWeight: '600', mb: 1.5 }}>
-              Nurse Assistance Count
+              Patient Return Rate
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Typography sx={{ fontSize: '20px' }}>🏥</Typography>
+              <Typography sx={{ fontSize: '20px' }}>🔄</Typography>
               <Typography sx={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b' }}>
-                {stats ? `${stats.nurseAssistanceCount} Assistance` : '--'}
+                {stats ? `${stats.patientReturnRate.toFixed(1)}%` : '--'}
               </Typography>
             </Box>
-            {/* percentage change */}
+            <Typography sx={{ fontSize: '12px', color: '#666', lineHeight: 1.4 }}>
+              {returnRateInsight}
+            </Typography>
           </CardContent>
         </Card>
 
@@ -221,7 +347,9 @@ function Analytics() {
                 {stats ? `${Math.round(stats.attendanceRate)}%` : '--'}
               </Typography>
             </Box>
-            {/* remark could be added here */}
+            <Typography sx={{ fontSize: '12px', color: '#666', lineHeight: 1.4 }}>
+              {attendanceInsight}
+            </Typography>
           </CardContent>
         </Card>
       </Box>
@@ -245,30 +373,29 @@ function Analytics() {
               <Typography sx={{ fontSize: '16px', fontWeight: 'bold', color: '#3b82f6' }}>
                 Monthly Performance
               </Typography>
-              <Button 
-                size="small" 
-                sx={{ 
-                  fontSize: '13px', 
-                  textTransform: 'none', 
-                  color: '#666',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  px: 2,
-                  py: 0.8
-                }}
-              >
-                Last 6 Months
-              </Button>
+              <FormControl size="small" sx={{ minWidth: 160 }}>
+                <InputLabel id="month-year-picker-label">Month/Year</InputLabel>
+                <Select
+                  labelId="month-year-picker-label"
+                  value={selectedMonth}
+                  label="Month/Year"
+                  onChange={e => setSelectedMonth(e.target.value)}
+                >
+                  {years.map(year => months.map((month, idx) => (
+                    <MenuItem key={`${month}-${year}`} value={`${idx + 1}-${year}`}>{`${month} ${year}`}</MenuItem>
+                  )))}
+                </Select>
+              </FormControl>
             </Box>
             <Box sx={{ mb: 2 }}>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlyPerformanceData} margin={{ bottom: 10 }}>
+              <ResponsiveContainer width={400} height={300}>
+                <LineChart width={400} height={300} data={monthlyPerformanceData} margin={{ bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip />
-                  <Bar dataKey="value" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-                </BarChart>
+                  <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6', r: 4 }} />
+                </LineChart>
               </ResponsiveContainer>
             </Box>
             <Box sx={{ borderTop: '2px solid #d1d5db', pt: 2, mt: 2 }}>
@@ -279,7 +406,7 @@ function Analytics() {
                     Insight
                   </Typography>
                   <Typography sx={{ fontSize: '13px', color: '#555', lineHeight: 1.5 }}>
-                    <span style={{ color: '#22c55e', fontWeight: 'bold' }}>✓ Clinic productivity increased by 37%</span> from September to February, with steady growth across all staff roles.
+                    {performanceInsight}
                   </Typography>
                 </Box>
               </Box>
@@ -287,61 +414,24 @@ function Analytics() {
           </CardContent>
         </Card>
 
-        {/* Right Column: Work Distribution and Insight & Alerts */}
+        {/* Right Column: Patient Visit Trends and Insight & Alerts */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, width: '100%' }}>
-          {/* Work Distribution */}
+          {/* Patient Visit Trends */}
           <Card sx={{ borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', width: '100%', boxSizing: 'border-box' }}>
-            <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'row', width: '100%', boxSizing: 'border-box', gap: 3 }}>
-              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <Typography sx={{ fontSize: '16px', fontWeight: 'bold', mb: 2 }}>
-                  Work Distribution
-                </Typography>
-                <Box sx={{ width: '100%', height: '260px', position: 'relative' }}>
-                  <PieChart width={380} height={260} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                    <Pie
-                      data={workDistributionData}
-                      cx={160}
-                      cy={130}
-                      labelLine={false}
-                      label={({ name, value }) => `${name} ${Math.round(value * 100) / 100}`}
-                      outerRadius={60}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {workDistributionData.map((_entry, index) => (
-                        <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </Box>
-              </Box>
-
-              {/* Data with color indicators */}
-              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2 }}>
-                <Typography sx={{ fontSize: '14px', fontWeight: 'bold', color: '#1a202c', mb: 1 }}>
-                  Distribution Data
-                </Typography>
-                {workDistributionData.map((item, index) => (
-                  <Box key={item.name} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box
-                      sx={{
-                        width: '16px',
-                        height: '16px',
-                        borderRadius: '4px',
-                        backgroundColor: pieColors[index % pieColors.length],
-                        flexShrink: 0,
-                      }}
-                    />
-                    <Box>
-                      <Typography sx={{ fontSize: '13px', fontWeight: '600', color: '#1a202c' }}>
-                        {item.name}
-                      </Typography>
-                      <Typography sx={{ fontSize: '12px', color: '#666' }}>
-                        {Math.round(item.value * 100) / 100} units
-                      </Typography>
-                    </Box>
-                  </Box>
-                ))}
+            <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column', width: '100%', boxSizing: 'border-box', gap: 3, alignItems: 'center' }}>
+              <Typography sx={{ fontSize: '16px', fontWeight: 'bold', mb: 2, width: '100%' }}>
+                Patient Visit Trends
+              </Typography>
+              <Box sx={{ width: '100%', maxWidth: '400px', height: '300px', display: 'flex', justifyContent: 'center', position: 'relative' }}>
+                <ResponsiveContainer width={400} height={300}>
+                  <BarChart width={400} height={300} data={monthlyConsultations} margin={{ bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#10b981" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </Box>
             </CardContent>
           </Card>
@@ -355,17 +445,9 @@ function Analytics() {
                   <Typography sx={{ fontSize: '12px', fontWeight: 'bold', mb: 1 }}>
                     Insight & Alerts
                   </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Typography sx={{ fontSize: '12px', color: '#555' }}>
-                      • Doctor consultations increased by <strong>15.4%</strong> compared to last month
-                    </Typography>
-                    <Typography sx={{ fontSize: '12px', color: '#555' }}>
-                      • Nurse assistance tasks reached <strong>10k</strong> mark this month
-                    </Typography>
-                    <Typography sx={{ fontSize: '12px', color: '#555' }}>
-                      • Staff attendance remains high at <strong>96%</strong>, ensuring stable clinic operations
-                    </Typography>
-                  </Box>
+                  <Typography sx={{ fontSize: '12px', color: '#555', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                    {visitTrendsInsight}
+                  </Typography>
                 </Box>
               </Box>
             </CardContent>

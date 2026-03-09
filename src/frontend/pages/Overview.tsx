@@ -32,6 +32,7 @@ function Overview() {
 
   useEffect(() => {
     fetchDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchDashboardData = async () => {
@@ -107,7 +108,7 @@ function Overview() {
       });
 
       setRecentActivity(activities.slice(0, 4));
-    } catch (err) {
+    } catch {
       setError('Failed to load dashboard data');
     } finally {
       setLoading(false);

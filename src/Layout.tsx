@@ -679,7 +679,9 @@ const Layout = () => {
           paper: {
             sx: {
               borderRadius: isMobile ? 0 : '12px',
-              maxHeight: isMobile ? '100vh' : '80vh'
+              maxHeight: isMobile ? '100vh' : '90vh',
+              display: 'flex',
+              flexDirection: 'column'
             }
           }
         }}
@@ -689,7 +691,8 @@ const Layout = () => {
           pb: 2,
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          flexShrink: 0
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a202c' }}>
@@ -712,143 +715,170 @@ const Layout = () => {
           </IconButton>
         </DialogTitle>
         
-        <DialogContent sx={{ p: 0 }}>
-          <Box sx={{ p: 3 }}>
-            {/* Action Buttons */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button
-                  variant={filter === 'all' ? 'contained' : 'outlined'}
-                  size="small"
-                  onClick={() => setFilter('all')}
-                  sx={{ textTransform: 'none' }}
-                >
-                  All ({notifications.length})
-                </Button>
-                <Button
-                  variant={filter === 'unread' ? 'contained' : 'outlined'}
-                  size="small"
-                  onClick={() => setFilter('unread')}
-                  sx={{ textTransform: 'none' }}
-                >
-                  Unread ({unreadCount})
-                </Button>
-              </Box>
-              {unreadCount > 0 && (
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<FiCheck />}
-                  onClick={handleMarkAllAsRead}
-                  sx={{ textTransform: 'none' }}
-                >
-                  Mark All as Read
-                </Button>
-              )}
+        <DialogContent sx={{ 
+          p: 3, 
+          flex: 1, 
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}>
+          {/* Action Buttons */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1, flexShrink: 0 }}>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant={filter === 'all' ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => setFilter('all')}
+                sx={{ textTransform: 'none' }}
+              >
+                All ({notifications.length})
+              </Button>
+              <Button
+                variant={filter === 'unread' ? 'contained' : 'outlined'}
+                size="small"
+                onClick={() => setFilter('unread')}
+                sx={{ textTransform: 'none' }}
+              >
+                Unread ({unreadCount})
+              </Button>
             </Box>
-
-            {/* Notifications List */}
-            {notificationsLoading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 'calc(80vh - 180px)', overflowY: 'auto' }}>
-                {filteredNotifications.length === 0 ? (
-                  <Card sx={{ textAlign: 'center', py: 6 }}>
-                    <FiBell size={48} color="#9ca3af" />
-                    <Typography variant="h6" sx={{ mt: 2, color: '#6b7280' }}>
-                      No notifications
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: '#9ca3af' }}>
-                      You're all caught up!
-                    </Typography>
-                  </Card>
-                ) : (
-                  filteredNotifications.map((notification) => {
-                    const colors = getColor(notification.type);
-                    return (
-                      <Card
-                        key={notification.id}
-                        sx={{
-                          borderLeft: `4px solid ${colors.border}`,
-                          backgroundColor: notification.is_read ? '#ffffff' : '#fafafa',
-                          transition: 'all 0.2s',
-                          '&:hover': {
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                          }
-                        }}
-                      >
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                            {/* Icon */}
-                            <Box
-                              sx={{
-                                width: 40,
-                                height: 40,
-                                borderRadius: '50%',
-                                backgroundColor: colors.bg,
-                                color: colors.text,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0
-                              }}
-                            >
-                              {getIcon(notification.type)}
-                            </Box>
-
-                            {/* Content */}
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5, gap: 1 }}>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1a202c' }}>
-                                  {notification.title}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: '#9ca3af', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                                  {new Date(notification.created_at).toLocaleDateString()}
-                                </Typography>
-                              </Box>
-                              <Typography variant="body2" sx={{ color: '#4b5563', mb: 1, fontSize: '13px' }}>
-                                {notification.message}
-                              </Typography>
-                              
-                              {/* Actions */}
-                              <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
-                                {!notification.is_read && (
-                                  <Button
-                                    size="small"
-                                    startIcon={<FiCheck size={14} />}
-                                    onClick={() => handleMarkAsRead(notification.id)}
-                                    sx={{ 
-                                      textTransform: 'none', 
-                                      fontSize: '12px',
-                                      color: colors.text
-                                    }}
-                                  >
-                                    Mark as read
-                                  </Button>
-                                )}
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleDelete(notification.id)}
-                                  sx={{ 
-                                    color: '#ef4444',
-                                    '&:hover': { backgroundColor: '#fee2e2' }
-                                  }}
-                                >
-                                  <FiTrash2 size={14} />
-                                </IconButton>
-                              </Box>
-                            </Box>
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    );
-                  })
-                )}
-              </Box>
+            {unreadCount > 0 && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<FiCheck />}
+                onClick={handleMarkAllAsRead}
+                sx={{ textTransform: 'none' }}
+              >
+                Mark All as Read
+              </Button>
             )}
           </Box>
+
+          {/* Notifications List */}
+          {notificationsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: 2, 
+              minHeight: 0, 
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              pr: 1,
+              scrollbarWidth: 'auto',
+              '&::-webkit-scrollbar': {
+                width: '8px',
+              },
+              '&::-webkit-scrollbar-track': {
+                backgroundColor: 'transparent',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                backgroundColor: '#cbd5e1',
+                borderRadius: '4px',
+                '&:hover': {
+                  backgroundColor: '#94a3b8',
+                },
+              },
+            }}>
+              {filteredNotifications.length === 0 ? (
+                <Card sx={{ textAlign: 'center', py: 6 }}>
+                  <FiBell size={48} color="#9ca3af" />
+                  <Typography variant="h6" sx={{ mt: 2, color: '#6b7280' }}>
+                    No notifications
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#9ca3af' }}>
+                    You're all caught up!
+                  </Typography>
+                </Card>
+              ) : (
+                filteredNotifications.map((notification) => {
+                  const colors = getColor(notification.type);
+                  return (
+                    <Card
+                      key={notification.id}
+                      sx={{
+                        borderLeft: `4px solid ${colors.border}`,
+                        backgroundColor: notification.is_read ? '#ffffff' : '#fafafa',
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        },
+                        flexShrink: 0
+                      }}
+                    >
+                      <CardContent>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                          {/* Icon */}
+                          <Box
+                            sx={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: '50%',
+                              backgroundColor: colors.bg,
+                              color: colors.text,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}
+                          >
+                            {getIcon(notification.type)}
+                          </Box>
+
+                          {/* Content */}
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5, gap: 1 }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1a202c' }}>
+                                {notification.title}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#9ca3af', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                                {new Date(notification.created_at).toLocaleDateString()}
+                              </Typography>
+                            </Box>
+                            <Typography variant="body2" sx={{ color: '#4b5563', mb: 1, fontSize: '13px' }}>
+                              {notification.message}
+                            </Typography>
+                            
+                            {/* Actions */}
+                            <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+                              {!notification.is_read && (
+                                <Button
+                                  size="small"
+                                  startIcon={<FiCheck size={14} />}
+                                  onClick={() => handleMarkAsRead(notification.id)}
+                                  sx={{ 
+                                    textTransform: 'none', 
+                                    fontSize: '12px',
+                                    color: colors.text
+                                  }}
+                                >
+                                  Mark as read
+                                </Button>
+                              )}
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDelete(notification.id)}
+                                sx={{ 
+                                  color: '#ef4444',
+                                  '&:hover': { backgroundColor: '#fee2e2' }
+                                }}
+                              >
+                                <FiTrash2 size={14} />
+                              </IconButton>
+                            </Box>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </Box>
+          )}
         </DialogContent>
       </Dialog>
 
