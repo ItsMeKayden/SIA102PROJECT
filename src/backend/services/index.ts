@@ -4,3 +4,4 @@ export * from './attendanceService';
 export * from './appointmentService';
 export * from './scheduleService';
 export * from './notificationService';
+export * from './serviceServices';

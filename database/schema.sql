@@ -83,6 +83,7 @@ ALTER TABLE public.attendance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.schedules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.services ENABLE ROW LEVEL SECURITY;
 
 -- Create policies (allowing all operations for now - customize based on your auth needs)
 CREATE POLICY "Enable all operations for staff" ON public.staff FOR ALL USING (true);
@@ -90,3 +91,70 @@ CREATE POLICY "Enable all operations for attendance" ON public.attendance FOR AL
 CREATE POLICY "Enable all operations for appointments" ON public.appointments FOR ALL USING (true);
 CREATE POLICY "Enable all operations for schedules" ON public.schedules FOR ALL USING (true);
 CREATE POLICY "Enable all operations for notifications" ON public.notifications FOR ALL USING (true);
+CREATE POLICY "Enable all operations for services" ON public.services FOR ALL USING (true);
+
+
+-- Drop and recreate
+DROP TABLE public.services CASCADE;
+
+CREATE TABLE public.services (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  duration TEXT NOT NULL,
+  price NUMERIC NOT NULL DEFAULT 0,
+  downpayment NUMERIC NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'Available',
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE public.services ENABLE ROW LEVEL SECURITY;
+
+-- Only admins can SELECT
+CREATE POLICY "Admin can view services"
+  ON public.services FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.staff
+      WHERE staff.id = auth.uid()
+      AND staff.user_role = 'admin'
+    )
+  );
+
+-- Only admins can INSERT
+CREATE POLICY "Admin can add services"
+  ON public.services FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.staff
+      WHERE staff.id = auth.uid()
+      AND staff.user_role = 'admin'
+    )
+  );
+
+-- Only admins can UPDATE
+CREATE POLICY "Admin can edit services"
+  ON public.services FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.staff
+      WHERE staff.id = auth.uid()
+      AND staff.user_role = 'admin'
+    )
+  );
+
+-- Only admins can DELETE
+CREATE POLICY "Admin can delete services"
+  ON public.services FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.staff
+      WHERE staff.id = auth.uid()
+      AND staff.user_role = 'admin'
+    )
+  );
+
+NOTIFY pgrst, 'reload schema';
