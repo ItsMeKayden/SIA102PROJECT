@@ -10,7 +10,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIU
 // No Database generic here — this client is only used for auth.signUp
 const supabaseSignUp = createClient(supabaseUrl, supabaseAnonKey, {
   auth: { persistSession: false, autoRefreshToken: false, storageKey: 'sb-signup-temp' },
-});
+}); 
 
 // Staff Service
 // Handles all staff-related database operations :)
