@@ -20,9 +20,19 @@ type MenuItem = {
 
 const allMenuItems: MenuItem[] = [
   { label: 'Overview', path: '/', icon: <FiHome /> },
-  { label: 'Staff Information', path: 'staff', icon: <FiUsers />, adminOnly: true },
+  {
+    label: 'Staff Information',
+    path: 'staff',
+    icon: <FiUsers />,
+    adminOnly: true,
+  },
   { label: 'Attendance', path: 'attendance', icon: <FiClock /> },
-  { label: 'Analytics', path: 'analytics', icon: <FiBarChart2 />, adminOnly: true },
+  {
+    label: 'Analytics',
+    path: 'analytics',
+    icon: <FiBarChart2 />,
+    adminOnly: true,
+  },
   { label: 'Appointments', path: 'appointments', icon: <FiClipboard /> },
   { label: 'Schedule', path: 'schedule', icon: <FiCalendar /> },
 ];
@@ -31,9 +41,9 @@ const Sidebar: React.FC = () => {
   const { isAdmin } = useAuth();
 
   const menuItems = allMenuItems
-    .filter(item => !item.adminOnly || isAdmin)
-    .map(item =>
-      item.path === '/' && !isAdmin ? { ...item, label: 'Dashboard' } : item
+    .filter((item) => !item.adminOnly || isAdmin)
+    .map((item) =>
+      item.path === '/' && !isAdmin ? { ...item, label: 'Dashboard' } : item,
     );
 
   return (

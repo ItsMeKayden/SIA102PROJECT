@@ -93,7 +93,9 @@ function Schedule() {
     }
   }, [isAdmin, staffProfile]);
 
-  useEffect(() => { fetchData(); }, [staffProfile, fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [staffProfile, fetchData]);
 
   const showSnackbar = (msg: string, sev: 'success' | 'error') =>
     setSnackbar({ open: true, message: msg, severity: sev });
@@ -531,9 +533,15 @@ function Schedule() {
             border: '1px solid #e5e7eb',
             width: '100%',
             overflowX: 'auto',
+            maxHeight: '400px',
+            overflow: 'auto',
           }}
         >
-          <Table size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
+          <Table
+            size="small"
+            stickyHeader
+            sx={{ tableLayout: 'fixed', width: '100%' }}
+          >
             <TableHead>
               <TableRow sx={{ backgroundColor: '#f9fafb' }}>
                 <TableCell

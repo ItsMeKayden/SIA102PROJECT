@@ -19,3 +19,9 @@ div {
   box-sizing: border-box;
   max-width: 100%;
 }
+
+/* Add margin bottom to page containers to prevent content cutoff at bottom */
+main > div,
+main > section {
+  margin-bottom: 80px;
+}

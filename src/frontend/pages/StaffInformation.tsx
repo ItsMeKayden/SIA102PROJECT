@@ -382,9 +382,11 @@ function StaffInformation() {
                 width: '100%',
                 overflowX: 'auto',
                 marginTop: '16px',
+                maxHeight: '500px',
+                overflow: 'auto',
               }}
             >
-              <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
+              <Table stickyHeader sx={{ tableLayout: 'fixed', width: '100%' }}>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: '#f9fafb' }}>
                     <TableCell
@@ -545,7 +547,13 @@ function StaffInformation() {
                             gap: '2px',
                           }}
                         >
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
                             <Box
                               sx={{
                                 width: '6px',
@@ -555,21 +563,41 @@ function StaffInformation() {
                                 flexShrink: 0,
                               }}
                             />
-                            <span style={{ color: '#6b7280', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                            <span
+                              style={{
+                                color: '#6b7280',
+                                fontSize: '11px',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
                               {staff.status}
                             </span>
                           </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
                             <Box
                               sx={{
                                 width: '6px',
                                 height: '6px',
                                 borderRadius: '50%',
-                                backgroundColor: getDutyStatusColor(staff.duty_status),
+                                backgroundColor: getDutyStatusColor(
+                                  staff.duty_status,
+                                ),
                                 flexShrink: 0,
                               }}
                             />
-                            <span style={{ color: '#6b7280', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                            <span
+                              style={{
+                                color: '#6b7280',
+                                fontSize: '11px',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
                               {staff.duty_status || 'Off Duty'}
                             </span>
                           </Box>
