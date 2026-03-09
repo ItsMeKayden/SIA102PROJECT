@@ -65,6 +65,8 @@ export interface UpcomingAppointment {
 export interface AnalyticsStats {
   totalConsultations: number;
   avgPatientsPerDoctor: number;
-  nurseAssistanceCount: number;
+  patientReturnRate: number; // percent 0-100
   attendanceRate: number; // percent 0-100
+  patientAppointmentList: { name: string; count: number }[];
+  returningPatientsList: string[];
 }
