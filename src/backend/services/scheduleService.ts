@@ -169,3 +169,32 @@ export const getWeeklyScheduleWithStaff = async (): Promise<{
     return { data: null, error: handleSupabaseError(error) };
   }
 };
+
+// Soft-delete all Mon–Fri active schedules for the given staff IDs (used before re-balancing)
+export const clearWeeklySchedules = async (staffIds: string[]): Promise<{ error: string | null }> => {
+  try {
+    if (staffIds.length === 0) return { error: null };
+    const { error } = await supabase
+      .from('schedules')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .in('staff_id', staffIds)
+      .in('day_of_week', [1, 2, 3, 4, 5])
+      .eq('is_active', true);
+    if (error) throw error;
+    return { error: null };
+  } catch (error) {
+    return { error: handleSupabaseError(error) };
+  }
+};
+
+// Bulk-insert schedule rows in one round-trip
+export const createScheduleBulk = async (scheduleDataArray: ScheduleInsert[]): Promise<{ error: string | null }> => {
+  try {
+    if (scheduleDataArray.length === 0) return { error: null };
+    const { error } = await supabase.from('schedules').insert(scheduleDataArray);
+    if (error) throw error;
+    return { error: null };
+  } catch (error) {
+    return { error: handleSupabaseError(error) };
+  }
+};
