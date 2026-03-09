@@ -387,7 +387,7 @@ function Analytics() {
                 </Select>
               </FormControl>
             </Box>
-            <Box sx={{ mb: 2 }}>
+            <Box sx={{ mb: 2, width: '100%', maxWidth: '400px', height: '300px', display: 'flex', justifyContent: 'center', position: 'relative' }}>
               <ResponsiveContainer width={400} height={300}>
                 <LineChart width={400} height={300} data={monthlyPerformanceData} margin={{ bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
