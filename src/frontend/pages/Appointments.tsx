@@ -92,6 +92,8 @@ function Appointments() {
     appointment_time: '',
     notes: '',
   });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -130,8 +132,7 @@ function Appointments() {
   const today = new Date().toISOString().split('T')[0];
 
   // PH phone: 09XXXXXXXXX (11 digits) or +639XXXXXXXXX (13 chars)
-  const isValidPHPhone = (v: string) =>
-    /^(09\d{9}|\+639\d{9})$/.test(v.trim());
+  const isValidPHPhone = (v: string) => /^(09\d{9}|\+639\d{9})$/.test(v.trim());
 
   // ── Create ──────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
@@ -157,7 +158,10 @@ function Appointments() {
       }
     }
     if (formData.patient_contact && !isValidPHPhone(formData.patient_contact)) {
-      showSnackbar('Enter a valid PH number: 09XXXXXXXXX or +639XXXXXXXXX', 'error');
+      showSnackbar(
+        'Enter a valid PH number: 09XXXXXXXXX or +639XXXXXXXXX',
+        'error',
+      );
       return;
     }
     const selectedDoctor = doctors.find((d) => d.id === formData.doctor_id);
@@ -533,6 +537,15 @@ function Appointments() {
     ? appointments.filter((a) => a.status !== 'Pending')
     : appointments.filter((a) => a.doctor_id === staffProfile?.id);
 
+  // Filter mainTableRows based on search and status filter
+  const filteredRows = mainTableRows.filter((appt) => {
+    const matchesSearch = appt.patient_name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === '' || appt.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   if (loading) {
     return (
       <Box
@@ -604,38 +617,59 @@ function Appointments() {
           {
             label: 'Total',
             value: stats.total,
-            bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            bg: '#f0fdf4',
+            border: '#4caf50',
+            color: '#16a34a',
           },
           {
             label: 'Pending',
             value: stats.pending,
-            bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+            bg: '#fffbeb',
+            border: '#f59e0b',
+            color: '#d97706',
           },
           {
             label: 'Active',
             value: stats.scheduled,
-            bg: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+            bg: '#eff6ff',
+            border: '#3b82f6',
+            color: '#2563eb',
           },
           {
             label: 'Completed',
             value: stats.completed,
-            bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            bg: '#f0fdf4',
+            border: '#10b981',
+            color: '#059669',
           },
           {
             label: 'Cancelled',
             value: stats.cancelled,
-            bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+            bg: '#fef2f2',
+            border: '#ef4444',
+            color: '#dc2626',
           },
         ].map((card) => (
-          <Card key={card.label} sx={{ background: card.bg }}>
-            <CardContent sx={{ py: '12px !important' }}>
+          <Card
+            key={card.label}
+            sx={{
+              background: card.bg,
+              border: `1px solid ${card.border}`,
+              borderRadius: '16px',
+              boxShadow: 'none',
+            }}
+          >
+            <CardContent sx={{ py: '16px !important', px: '16px !important' }}>
               <Typography
                 variant="body2"
-                sx={{ color: 'rgba(255,255,255,0.9)', mb: 0.5 }}
+                sx={{ color: '#374151', mb: 1, fontWeight: 500 }}
               >
                 {card.label}
               </Typography>
-              <Typography variant="h4" sx={{ color: 'white', fontWeight: 700 }}>
+              <Typography
+                variant="h4"
+                sx={{ color: card.color, fontWeight: 700 }}
+              >
                 {card.value}
               </Typography>
             </CardContent>
@@ -666,9 +700,11 @@ function Appointments() {
               borderRadius: '12px',
               border: '2px solid #fde68a',
               overflowX: 'auto',
+              maxHeight: '300px',
+              overflow: 'auto',
             }}
           >
-            <Table size="small">
+            <Table size="small" stickyHeader>
               <TableHead sx={{ backgroundColor: '#fef3c7' }}>
                 <TableRow>
                   {[
@@ -766,9 +802,11 @@ function Appointments() {
               borderRadius: '12px',
               border: '2px solid #c4b5fd',
               overflowX: 'auto',
+              maxHeight: '300px',
+              overflow: 'auto',
             }}
           >
-            <Table size="small">
+            <Table size="small" stickyHeader>
               <TableHead sx={{ backgroundColor: '#ede9fe' }}>
                 <TableRow>
                   {['Patient', 'Date', 'Time', 'Notes', 'Actions'].map((h) => (
@@ -831,17 +869,65 @@ function Appointments() {
       )}
 
       {/* ── Main appointments table ── */}
+      <Box sx={{ mb: 2 }}>
+        <Typography
+          variant="h6"
+          sx={{ fontWeight: 600, color: '#374151', mb: 2 }}
+        >
+          {isAdmin ? 'All Appointments' : 'My Appointments'}
+        </Typography>
+
+        {/* Search & Filter Bar */}
+        <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+          <TextField
+            placeholder="Search by patient name..."
+            variant="outlined"
+            size="small"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{
+              flex: 1,
+              minWidth: '250px',
+              '& .MuiOutlinedInput-root': {
+                borderRadius: '8px',
+              },
+            }}
+          />
+          <FormControl sx={{ minWidth: '150px' }}>
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              displayEmpty
+              size="small"
+              sx={{ borderRadius: '8px' }}
+            >
+              <MenuItem value="">All statuses</MenuItem>
+              <MenuItem value="Pending">Pending</MenuItem>
+              <MenuItem value="Approved">Approved</MenuItem>
+              <MenuItem value="Completed">Completed</MenuItem>
+              <MenuItem value="Cancelled">Cancelled</MenuItem>
+              <MenuItem value="Rejected">Rejected</MenuItem>
+              <MenuItem value="No Show">No Show</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+      </Box>
       <Typography
-        variant="h6"
-        sx={{ fontWeight: 600, color: '#374151', mb: 1 }}
+        variant="body2"
+        sx={{ color: '#6b7280', mb: 2, fontSize: '13px' }}
       >
-        {isAdmin ? 'All Appointments' : 'My Appointments'}
+        Showing {filteredRows.length} of {mainTableRows.length} appointments
       </Typography>
       <TableContainer
         component={Paper}
-        sx={{ borderRadius: '12px', overflowX: 'auto' }}
+        sx={{
+          borderRadius: '12px',
+          overflowX: 'auto',
+          maxHeight: '450px',
+          overflow: 'auto',
+        }}
       >
-        <Table size="small">
+        <Table size="small" stickyHeader>
           <TableHead sx={{ backgroundColor: '#f9fafb' }}>
             <TableRow>
               {[
@@ -859,7 +945,7 @@ function Appointments() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {mainTableRows.map((appt) => {
+            {filteredRows.map((appt) => {
               const doctor = doctors.find((d) => d.id === appt.doctor_id);
               return (
                 <TableRow
@@ -887,14 +973,16 @@ function Appointments() {
                 </TableRow>
               );
             })}
-            {mainTableRows.length === 0 && (
+            {filteredRows.length === 0 && (
               <TableRow>
                 <TableCell
                   colSpan={isAdmin ? 5 : 6}
                   align="center"
                   sx={{ py: 4, color: '#9ca3af' }}
                 >
-                  No appointments found
+                  {searchQuery || statusFilter
+                    ? 'No appointments match your filters'
+                    : 'No appointments found'}
                 </TableCell>
               </TableRow>
             )}
@@ -951,9 +1039,13 @@ function Appointments() {
                 setFormData({ ...formData, patient_contact: raw });
               }}
               inputProps={{ inputMode: 'tel', maxLength: 13 }}
-              error={!!formData.patient_contact && !isValidPHPhone(formData.patient_contact)}
+              error={
+                !!formData.patient_contact &&
+                !isValidPHPhone(formData.patient_contact)
+              }
               helperText={
-                formData.patient_contact && !isValidPHPhone(formData.patient_contact)
+                formData.patient_contact &&
+                !isValidPHPhone(formData.patient_contact)
                   ? 'Format: 09XXXXXXXXX or +639XXXXXXXXX'
                   : ''
               }
@@ -983,7 +1075,10 @@ function Appointments() {
               label="Date *"
               type="date"
               fullWidth
-              slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: today } }}
+              slotProps={{
+                inputLabel: { shrink: true },
+                htmlInput: { min: today },
+              }}
               value={formData.appointment_date}
               onChange={(e) =>
                 setFormData({ ...formData, appointment_date: e.target.value })
@@ -1051,7 +1146,10 @@ function Appointments() {
               label="New Date *"
               type="date"
               fullWidth
-              slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: today } }}
+              slotProps={{
+                inputLabel: { shrink: true },
+                htmlInput: { min: today },
+              }}
               value={rescheduleModal.date}
               onChange={(e) =>
                 setRescheduleModal((prev) => ({

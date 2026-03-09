@@ -48,6 +48,7 @@ import Sidebar from './frontend/components/layout/Sidebar';
 
 import { LoginModal } from './frontend/components/auth/LoginModal';
 import { ChangePasswordModal } from './frontend/components/auth/ChangePasswordModal';
+import logo from './assets/logo.png';
 
 const Layout = () => {
   const navigate = useNavigate();
@@ -256,18 +257,11 @@ const Layout = () => {
             flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: '24px' }}>❤️</span>
-          <Typography
-            variant="h6"
-            sx={{
-              fontWeight: 700,
-              color: '#2563eb',
-              fontSize: isMobile ? '18px' : '20px',
-              letterSpacing: '0.5px',
-            }}
-          >
-            CLINIKA+
-          </Typography>
+          <img
+            src={logo}
+            alt="Logo"
+            style={{ height: '32px', width: 'auto' }}
+          />
         </div>
 
         {/* Right Section - Notification Bell & Burger Menu */}
