@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import '../styles/Pages.css';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   Paper,
   Table,
@@ -32,7 +30,7 @@ import {
   Chip,
   Avatar,
 } from '@mui/material';
-import { FiSearch, FiCalendar, FiPlus, FiTrash2, FiX, FiRefreshCw, FiAlertTriangle, FiAlertCircle, FiInfo } from 'react-icons/fi';
+import { FiSearch, FiCalendar, FiPlus, FiTrash2, FiX, FiRefreshCw, FiAlertTriangle, FiAlertCircle, FiInfo, FiUsers, FiClock, FiList, FiUserCheck } from 'react-icons/fi';
 import {
   getAllSchedules,
   getSchedulesByStaffId,
@@ -324,32 +322,32 @@ function Schedule() {
     {
       title: 'Active Staff',
       value: totalStaff.toString(),
-      bgColor: '#f0fdf4',
-      textColor: '#166534',
-      borderColor: '#bbf7d0',
+      icon: <FiUsers size={18} />,
+      accent: '#2563eb',
+      accentBg: '#eff6ff',
     },
     {
       title: 'Shifts Today',
       value: todaySchedules.toString(),
-      bgColor: '#eff6ff',
-      textColor: '#1e40af',
-      borderColor: '#bfdbfe',
+      icon: <FiClock size={18} />,
+      accent: '#059669',
+      accentBg: '#ecfdf5',
     },
     {
       title: 'Total Schedules',
       value: activeSchedules.toString(),
-      bgColor: '#fef2f2',
-      textColor: '#991b1b',
-      borderColor: '#fecaca',
+      icon: <FiList size={18} />,
+      accent: '#7c3aed',
+      accentBg: '#ede9fe',
     },
     {
       title: 'Staff Scheduled',
       value: new Set(
         schedules.filter((s) => s.is_active).map((s) => s.staff_id),
       ).size.toString(),
-      bgColor: '#fff7ed',
-      textColor: '#9a3412',
-      borderColor: '#fed7aa',
+      icon: <FiUserCheck size={18} />,
+      accent: '#d97706',
+      accentBg: '#fffbeb',
     },
   ];
 
@@ -671,15 +669,115 @@ function Schedule() {
         </Box>
       </Box>
 
-      {/* Alerts & Operational Risks — admin only */}
-      {isAdmin && (
-      <Box sx={{ mb: '24px', width: '100%' }}>
+      {/* Summary + Alerts side by side */}
+      <Box sx={{ display: 'flex', gap: '20px', alignItems: 'stretch', mb: '24px' }}>
+        {/* Schedule Summary — left */}
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <Box
+            sx={{
+              borderRadius: '14px',
+              border: '1.5px solid #e5e7eb',
+              overflow: 'hidden',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            {/* Panel header */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                px: 2.5,
+                py: 2,
+                background: 'linear-gradient(135deg, #fff 0%, #eff6ff 100%)',
+                borderBottom: '1px solid #e5e7eb',
+              }}
+            >
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '12px',
+                  backgroundColor: '#dbeafe',
+                  border: '1.5px solid #bfdbfe',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <FiCalendar size={22} color="#2563eb" />
+              </Box>
+              <Box>
+                <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827', lineHeight: 1.2 }}>
+                  Schedule Summary
+                </Typography>
+                <Typography sx={{ fontSize: '11px', color: '#6b7280', mt: 0.2 }}>
+                  Overview of active staff, shifts, and schedule coverage
+                </Typography>
+              </Box>
+            </Box>
+            {/* Cards body */}
+            <Box sx={{ p: 2, backgroundColor: '#fafafa', display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+              {summaryCards.map((card) => (
+                <Box
+                  key={card.title}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    backgroundColor: '#fff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '10px',
+                    px: '16px',
+                    py: '12px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '10px',
+                      backgroundColor: card.accentBg,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: card.accent,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {card.icon}
+                  </Box>
+                  <Box>
+                    <Typography sx={{ fontSize: '11px', fontWeight: 500, color: '#9ca3af', lineHeight: 1, mb: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      {card.title}
+                    </Typography>
+                    <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#111827', lineHeight: 1 }}>
+                      {card.value}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Alerts & Operational Risks — right, admin only */}
+        {isAdmin && (
+        <Box sx={{ flex: 1.5, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <Box
           sx={{
             borderRadius: '14px',
             border: '1.5px solid #e5e7eb',
             overflow: 'hidden',
             boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
           {/* Panel header */}
@@ -806,64 +904,8 @@ function Schedule() {
             )}
           </Box>
         </Box>
-      </Box>
-      )}
-
-      {/* Schedule Summary Cards */}
-      <Box sx={{ marginBottom: '24px' }}>
-        <Typography
-          variant="h6"
-          sx={{
-            marginBottom: '14px',
-            color: '#374151',
-            fontSize: '15px',
-            fontWeight: 600,
-          }}
-        >
-          Schedule Summary
-        </Typography>
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-            gap: '14px',
-          }}
-        >
-          {summaryCards.map((card) => (
-            <Card
-              key={card.title}
-              sx={{
-                backgroundColor: card.bgColor,
-                borderRadius: '10px',
-                boxShadow: 'none',
-                border: `1px solid ${card.borderColor}`,
-              }}
-            >
-              <CardContent sx={{ padding: '18px !important' }}>
-                <Typography
-                  sx={{
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    color: card.textColor,
-                    marginBottom: '8px',
-                    opacity: 0.85,
-                  }}
-                >
-                  {card.title}
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: '28px',
-                    fontWeight: 700,
-                    color: card.textColor,
-                  }}
-                >
-                  {card.value}
-                </Typography>
-              </CardContent>
-            </Card>
-          ))}
         </Box>
+        )}
       </Box>
 
       {/* Weekly Schedule */}
