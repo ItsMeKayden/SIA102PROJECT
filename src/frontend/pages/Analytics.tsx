@@ -23,7 +23,7 @@ import {
   Line,
   Bar,
 } from 'recharts';
-import { getAnalyticsStats, getMonthlyConsultations, getMonthlyPerformance } from '../../backend/services/analyticsService';
+import { getAnalyticsStats, getMonthlyConsultations, getWeeklyPerformance } from '../../backend/services/analyticsService';
 import type { AnalyticsStats } from '../../types';
 
 function Analytics() {
@@ -151,10 +151,10 @@ function Analytics() {
     setVisitTrendsInsight(insight);
   };
 
-  const fetchAnalyticsData = async () => {
+  const fetchAnalyticsData = async (month?: string) => {
     setLoading(true);
     try {
-      const { data: analytics, error: analyticsError } = await getAnalyticsStats();
+      const { data: analytics, error: analyticsError } = await getAnalyticsStats(month);
 
       if (analyticsError || !analytics) {
         setError('Failed to load analytics data');
@@ -178,20 +178,55 @@ function Analytics() {
     }
   };
 
-  const fetchMonthlyPerformanceData = async () => {
-    const { data, error } = await getMonthlyPerformance();
-    if (!error && data) {
-      setMonthlyPerformanceData(data);
-      generatePerformanceInsight(data);
-    }
-  };
-
   useEffect(() => {
     fetchAnalyticsData();
     fetchMonthlyConsultations();
-    fetchMonthlyPerformanceData();
+    // Don't fetch monthly performance on initial load - wait for month selection
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Refetch data when month changes
+  useEffect(() => {
+    const [month, year] = selectedMonth.split('-');
+    const monthIndex = parseInt(month);
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthYear = `${monthNames[monthIndex - 1]} ${year}`;
+    
+    const loadMonthData = async () => {
+      setLoading(true);
+      try {
+        const [analyticsRes, consultRes, perfRes] = await Promise.all([
+          getAnalyticsStats(monthYear),
+          getMonthlyConsultations(),
+          getWeeklyPerformance(monthYear)
+        ]);
+        
+        if (analyticsRes.data) {
+          setStats(analyticsRes.data);
+          generateStatInsights(analyticsRes.data);
+        }
+        if (consultRes.data) {
+          setMonthlyConsultations(consultRes.data);
+          generateVisitTrendsInsight(consultRes.data);
+        }
+        if (perfRes.data) {
+          // Map week data to the same format as monthly data for the chart
+          const mappedData = perfRes.data.map(item => ({
+            month: item.week,
+            value: item.value
+          }));
+          setMonthlyPerformanceData(mappedData);
+          generatePerformanceInsight(mappedData);
+        }
+      } catch (error) {
+        console.error('Failed to load month data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadMonthData();
+  }, [selectedMonth]);
 
   if (loading) {
     return (
@@ -239,10 +274,26 @@ function Analytics() {
       <Box sx={{ 
         padding: '12px 0', 
         mb: 2,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 2,
+        flexWrap: { xs: 'wrap', md: 'nowrap' }
       }}>
-        
         <h1>Staff Activity Overview</h1>
-        
+        <FormControl size="small" sx={{ minWidth: 160, flexShrink: 0 }}>
+          <InputLabel id="month-year-picker-label">Month/Year</InputLabel>
+          <Select
+            labelId="month-year-picker-label"
+            value={selectedMonth}
+            label="Month/Year"
+            onChange={e => setSelectedMonth(e.target.value)}
+          >
+            {years.map(year => months.map((month, idx) => (
+              <MenuItem key={`${month}-${year}`} value={`${idx + 1}-${year}`}>{`${month} ${year}`}</MenuItem>
+            )))}
+          </Select>
+        </FormControl>
       </Box>
 
       
@@ -373,19 +424,6 @@ function Analytics() {
               <Typography sx={{ fontSize: '16px', fontWeight: 'bold', color: '#3b82f6' }}>
                 Monthly Performance
               </Typography>
-              <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel id="month-year-picker-label">Month/Year</InputLabel>
-                <Select
-                  labelId="month-year-picker-label"
-                  value={selectedMonth}
-                  label="Month/Year"
-                  onChange={e => setSelectedMonth(e.target.value)}
-                >
-                  {years.map(year => months.map((month, idx) => (
-                    <MenuItem key={`${month}-${year}`} value={`${idx + 1}-${year}`}>{`${month} ${year}`}</MenuItem>
-                  )))}
-                </Select>
-              </FormControl>
             </Box>
             <Box sx={{ mb: 2, width: '100%', maxWidth: '400px', height: '300px', display: 'flex', justifyContent: 'center', position: 'relative' }}>
               <ResponsiveContainer width={400} height={300}>
