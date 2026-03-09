@@ -21,8 +21,8 @@ type MenuItem = {
 const allMenuItems: MenuItem[] = [
   { label: 'Overview', path: '/', icon: <FiHome /> },
   {
-    label: 'Staff Information',
-    path: 'staff',
+    label: 'Staff & Services',
+    path: 'staffnservices',
     icon: <FiUsers />,
     adminOnly: true,
   },
