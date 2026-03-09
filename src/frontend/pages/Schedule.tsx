@@ -721,7 +721,7 @@ function Schedule() {
               </Box>
             </Box>
             {/* Cards body */}
-            <Box sx={{ p: 2, backgroundColor: '#fafafa', display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+            <Box sx={{ p: 2, backgroundColor: '#fafafa', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', flex: 1 }}>
               {summaryCards.map((card) => (
                 <Box
                   key={card.title}
