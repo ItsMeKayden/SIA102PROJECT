@@ -44,6 +44,11 @@ function StaffInformation() {
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    open: boolean;
+    id: string;
+    name: string;
+  }>({ open: false, id: '', name: '' });
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -179,17 +184,25 @@ function StaffInformation() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete ${name}?`)) {
-      setStaffData((prevStaff) => prevStaff.filter((staff) => staff.id !== id));
+  const handleDelete = (id: string, name: string) => {
+    const targetStaff = staffData.find((s) => s.id === id);
+    if (targetStaff?.user_role === 'admin') {
+      showSnackbar('Admin accounts cannot be deleted.', 'error');
+      return;
+    }
+    setDeleteConfirm({ open: true, id, name });
+  };
 
-      const { error } = await deleteStaff(id);
-      if (error) {
-        showSnackbar(error, 'error');
-        fetchStaff();
-      } else {
-        showSnackbar('Staff member deleted successfully', 'success');
-      }
+  const handleConfirmDelete = async () => {
+    const { id } = deleteConfirm;
+    setDeleteConfirm({ open: false, id: '', name: '' });
+    setStaffData((prevStaff) => prevStaff.filter((staff) => staff.id !== id));
+    const { error } = await deleteStaff(id);
+    if (error) {
+      showSnackbar(error, 'error');
+      fetchStaff();
+    } else {
+      showSnackbar('Staff member deleted successfully', 'success');
     }
   };
 
@@ -544,16 +557,22 @@ function StaffInformation() {
                       <TableCell
                         sx={{ padding: '10px 8px', textAlign: 'center' }}
                       >
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDelete(staff.id, staff.name)}
-                          sx={{
-                            color: '#ef4444',
-                            '&:hover': { backgroundColor: '#fee2e2' },
-                          }}
-                        >
-                          <FiTrash2 size={14} />
-                        </IconButton>
+                        {staff.user_role !== 'admin' ? (
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDelete(staff.id, staff.name)}
+                            sx={{
+                              color: '#ef4444',
+                              '&:hover': { backgroundColor: '#fee2e2' },
+                            }}
+                          >
+                            <FiTrash2 size={14} />
+                          </IconButton>
+                        ) : (
+                          <span style={{ color: '#d1d5db', fontSize: '11px' }}>
+                            —
+                          </span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -836,6 +855,102 @@ function StaffInformation() {
                 }}
               >
                 {modalMode === 'add' ? 'Add Staff' : 'Save Changes'}
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Delete Confirmation Modal */}
+          <Dialog
+            open={deleteConfirm.open}
+            onClose={() => setDeleteConfirm({ open: false, id: '', name: '' })}
+            maxWidth="xs"
+            fullWidth
+            PaperProps={{ sx: { borderRadius: '12px' } }}
+          >
+            <DialogTitle
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: '18px',
+                fontWeight: 600,
+                color: '#1f2937',
+                pb: 1,
+                m: 0,
+              }}
+            >
+              Delete Staff Member
+              <IconButton
+                onClick={() =>
+                  setDeleteConfirm({ open: false, id: '', name: '' })
+                }
+                size="small"
+              >
+                <FiX />
+              </IconButton>
+            </DialogTitle>
+            <DialogContent sx={{ pt: 1 }}>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: -2 }}
+              >
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: '50%',
+                    backgroundColor: '#fee2e2',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <FiTrash2 size={18} color="#ef4444" />
+                </Box>
+                <Box>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: '14px',
+                      color: '#1f2937',
+                      fontWeight: 500,
+                    }}
+                  >
+                    Are you sure you want to delete{' '}
+                    <strong>{deleteConfirm.name}</strong>?
+                  </p>
+                  <p
+                    style={{
+                      margin: '4px 0 0',
+                      fontSize: '13px',
+                      color: '#6b7280',
+                    }}
+                  >
+                    This action cannot be undone.
+                  </p>
+                </Box>
+              </Box>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+              <Button
+                onClick={() =>
+                  setDeleteConfirm({ open: false, id: '', name: '' })
+                }
+                sx={{ textTransform: 'none', color: '#6b7280' }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmDelete}
+                variant="contained"
+                sx={{
+                  textTransform: 'none',
+                  backgroundColor: '#ef4444',
+                  fontWeight: 600,
+                  '&:hover': { backgroundColor: '#dc2626' },
+                }}
+              >
+                Delete
               </Button>
             </DialogActions>
           </Dialog>
