@@ -577,11 +577,6 @@ function Appointments() {
           <Typography variant="h5" sx={{ fontWeight: 600, color: '#1a202c' }}>
             Appointments
           </Typography>
-          <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
-            {isAdmin
-              ? 'Approve staff submissions · Assign appointments to doctors'
-              : 'Submit appointments for admin approval · Manage your assigned schedule'}
-          </Typography>
         </Box>
         <Button
           variant="contained"
@@ -1006,7 +1001,7 @@ function Appointments() {
 
         {/* Table */}
         <TableContainer
-          sx={{ maxHeight: 'calc(100vh - 380px)', overflow: 'auto' }}
+          sx={{ maxHeight: 'calc(100vh - 350px)', overflow: 'auto' }}
         >
           <Table size="small" stickyHeader>
             <TableHead>
