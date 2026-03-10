@@ -18,15 +18,33 @@ import { CircularProgress, Box } from '@mui/material';
 const theme = createTheme({
   typography: {
     fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
-    h1: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    h2: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    h3: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    h4: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    h5: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    h6: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    body1: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    body2: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    button: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
+    h1: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    h2: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    h3: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    h4: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    h5: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    h6: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    body1: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    body2: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    button: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
   },
 });
 
@@ -36,7 +54,14 @@ const DashboardRouter = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -58,13 +83,34 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
               <Route index element={<DashboardRouter />} />
-              
+
               {/* Admin-only routes */}
-              <Route path="staff" element={<ProtectedRoute requireAdmin><StaffInformation /></ProtectedRoute>} />
-              <Route path="analytics" element={<ProtectedRoute requireAdmin><Analytics /></ProtectedRoute>} />
-              
+              <Route
+                path="staffnservices"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <StaffInformation />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="analytics"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <Analytics />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* Shared routes */}
               <Route path="attendance" element={<Attendance />} />
               <Route path="appointments" element={<Appointments />} />

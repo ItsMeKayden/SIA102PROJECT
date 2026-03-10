@@ -1670,6 +1670,8 @@ function StaffInformation() {
               minHeight: '40px',
               padding: '8px 16px',
               color: '#6b7280',
+              outline: 'none',
+              '&:focus-visible': { outline: 'none' },
               '&.Mui-selected': { color: '#2563EB' },
             },
           }}
