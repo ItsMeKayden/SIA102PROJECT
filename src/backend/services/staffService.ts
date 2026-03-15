@@ -32,10 +32,10 @@ export interface ServiceFormData {
 
 const supabaseUrl =
   import.meta.env.VITE_SUPABASE_URL ||
-  'https://ghstchmtdmcssuqpbuwe.supabase.co';
+  'https://wwcbujfwzxcmyzzkwdav.supabase.co';
 const supabaseAnonKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoc3RjaG10ZG1jc3N1cXBidXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MzQxMzcsImV4cCI6MjA4NzUxMDEzN30.L6KQdh4NJbKszr8SUocc9F14tZWizelFT_fIs-BxAPw';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3Y2J1amZ3enhjbXl6emt3ZGF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1Njg0MTgsImV4cCI6MjA4OTE0NDQxOH0.hNJA299svpfxUu7iFo05W7Mj7tnyebKzt3bvU4_b2JM';
 const supabaseSignUp = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: false,
