@@ -251,20 +251,6 @@ function StaffTab() {
     setQrCodeModal({ open: true, staffId, staffName });
   };
 
-  const handleDownloadQRCode = () => {
-    const qrElement = document.querySelector('#staff-qr-code');
-    if (qrElement) {
-      const canvas = qrElement.querySelector('canvas');
-      if (canvas) {
-        const url = canvas.toDataURL('image/png');
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `Staff_QR_Code_${qrCodeModal.staffName}.png`;
-        link.click();
-      }
-    }
-  };
-
   if (loading)
     return (
       <Box
@@ -576,19 +562,21 @@ function StaffTab() {
                 </TableCell>
                 <TableCell sx={{ padding: '10px 8px', textAlign: 'center' }}>
                   <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                    <IconButton
-                      size="small"
-                      onClick={() =>
-                        handleGenerateQRCode(staff.id, staff.name)
-                      }
-                      sx={{
-                        color: '#3b82f6',
-                        '&:hover': { backgroundColor: '#dbeafe' },
-                      }}
-                      title="Generate QR Code"
-                    >
-                      <FiCode size={14} />
-                    </IconButton>
+                    {staff.user_role !== 'admin' && (
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          handleGenerateQRCode(staff.id, staff.name)
+                        }
+                        sx={{
+                          color: '#3b82f6',
+                          '&:hover': { backgroundColor: '#dbeafe' },
+                        }}
+                        title="Generate QR Code"
+                      >
+                        <FiCode size={14} />
+                      </IconButton>
+                    )}
                     {staff.user_role !== 'admin' ? (
                       <IconButton
                         size="small"
@@ -1073,18 +1061,7 @@ function StaffTab() {
           >
             Close
           </Button>
-          <Button
-            onClick={handleDownloadQRCode}
-            variant="contained"
-            sx={{
-              textTransform: 'none',
-              backgroundColor: '#3b82f6',
-              fontWeight: 600,
-              '&:hover': { backgroundColor: '#2563eb' },
-            }}
-          >
-            Download QR Code
-          </Button>
+
         </DialogActions>
       </Dialog>
 

@@ -13,6 +13,7 @@ export type AttendanceInsert =
   Database['public']['Tables']['attendance']['Insert'];
 export type AttendanceUpdate =
   Database['public']['Tables']['attendance']['Update'];
+export type AttendanceWithStaff = Attendance & { staff_name?: string };
 
 // Appointment types
 export type Appointment = Database['public']['Tables']['appointments']['Row'];

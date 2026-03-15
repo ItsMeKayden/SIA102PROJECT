@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS Subsystem2.staff (
 );
 
 -- =====================================================
--- 2. CREATE ATTENDANCE TABLE
+-- 2. CREATE DANCE TABLE
 -- =====================================================
 CREATE TABLE IF NOT EXISTS Subsystem2.attendance (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,

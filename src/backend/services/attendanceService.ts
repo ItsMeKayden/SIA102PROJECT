@@ -4,17 +4,23 @@ import type { Attendance, AttendanceInsert, AttendanceUpdate } from '../../types
 // Attendance Backend Service
 // Handles all attendance-related database operations :)
 
-// Get all attendance records
-export const getAllAttendance = async (): Promise<{ data: Attendance[] | null; error: string | null }> => {
+// Get all attendance records with staff information
+export const getAllAttendance = async (): Promise<{ data: (Attendance & { staff_name?: string })[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
       .from('attendance')
-      .select('*')
+      .select('*, staff:staff_id(id, name)')
       .order('date', { ascending: false });
 
     if (error) throw error;
 
-    return { data, error: null };
+    // Transform data to flatten staff name
+    const transformedData = (data || []).map((record: any) => ({
+      ...record,
+      staff_name: record.staff?.name || 'Unknown',
+    }));
+
+    return { data: transformedData, error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
   }

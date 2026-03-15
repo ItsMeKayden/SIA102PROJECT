@@ -6,6 +6,7 @@ import Layout from './Layout';
 import Landing from './frontend/pages/Landing';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProtectedRoute } from './frontend/components/auth/ProtectedRoute';
+import { ErrorBoundary } from './frontend/components/ErrorBoundary';
 import Overview from './frontend/pages/Overview';
 import StaffInformation from './frontend/pages/StaffInformation';
 import Attendance from './frontend/pages/Attendance';
@@ -80,8 +81,9 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AuthProvider>
-        <BrowserRouter>
+      <ErrorBoundary>
+        <AuthProvider>
+          <BrowserRouter>
           <Routes>
             <Route path="/" element={<MainRouter />}>
               {/* Admin-only routes */}
@@ -121,6 +123,7 @@ function App() {
           </Routes>
         </BrowserRouter>
       </AuthProvider>
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }
