@@ -52,7 +52,7 @@ function Attendance() {
   });
 
   // Fetch attendance data
-  const fetchAttendanceData = async () => {
+  const fetchAttendanceData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -118,7 +118,7 @@ function Attendance() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Handle clock in/out
   const handleClockInOut = useCallback(
@@ -164,7 +164,6 @@ function Attendance() {
               })}`,
               severity: 'success',
             });
-            setIsClockedIn(false);
             setManualStaffId('');
             setManualEntryOpen(false);
             setQrScannerOpen(false);
@@ -189,7 +188,6 @@ function Attendance() {
               })}`,
               severity: 'success',
             });
-            setIsClockedIn(true);
             setManualStaffId('');
             setManualEntryOpen(false);
             setQrScannerOpen(false);
@@ -211,7 +209,7 @@ function Attendance() {
 
   useEffect(() => {
     fetchAttendanceData();
-  }, []);
+  }, [fetchAttendanceData]);
 
 
   const formatTime = (time: string | null) => {
@@ -225,7 +223,7 @@ function Attendance() {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const calculateHours = (timeIn: string | null, timeOut: string | null) => {

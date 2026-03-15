@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Box, CircularProgress, Typography, Button, Alert } from '@mui/material';
 import { FiX } from 'react-icons/fi';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -13,6 +13,19 @@ export function QRScanner({ open, onClose, onScan }: QRScannerProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleClose = useCallback(async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+        await scannerRef.current.clear();
+        scannerRef.current = null;
+      } catch (e) {
+        console.error('Error closing scanner:', e);
+      }
+    }
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) {
@@ -87,20 +100,7 @@ export function QRScanner({ open, onClose, onScan }: QRScannerProps) {
         });
       }
     };
-  }, [open, onScan]);
-
-  const handleClose = async () => {
-    if (scannerRef.current) {
-      try {
-        await scannerRef.current.stop();
-        await scannerRef.current.clear();
-        scannerRef.current = null;
-      } catch (e) {
-        console.error('Error closing scanner:', e);
-      }
-    }
-    onClose();
-  };
+  }, [open, onScan, handleClose]);
 
   if (!open) {
     return null;
