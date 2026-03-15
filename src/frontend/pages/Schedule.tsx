@@ -246,8 +246,10 @@ function Schedule() {
       }
 
       const maxCount = Math.max(...workDays.map((d) => appointmentCounts[d] || 0));
-      const desiredMaxStaffPerDay = Math.min(activeStaff.length, 4);
-      const minStaffPerDay = Math.min(2, activeStaff.length);
+      const MIN_STAFF_PER_DAY = 2;
+      const MAX_STAFF_PER_DAY = 100;
+      const maxStaffPerDay = Math.min(activeStaff.length, MAX_STAFF_PER_DAY);
+      const minStaffPerDay = Math.min(MIN_STAFF_PER_DAY, activeStaff.length);
 
       const dayTargets: Record<number, number> = {};
       for (const day of workDays) {
@@ -257,14 +259,12 @@ function Schedule() {
         if (maxCount <= 0) {
           target = minStaffPerDay;
         } else {
-          // Scale staffing by relative appointment volume, but never go below the minimum.
-          target = Math.max(
-            minStaffPerDay,
-            Math.round((count / maxCount) * desiredMaxStaffPerDay),
-          );
+          // Scale staffing by relative appointment volume, but always stay within minimum/maximum bounds.
+          target = Math.round((count / maxCount) * maxStaffPerDay);
+          target = Math.max(minStaffPerDay, target);
         }
 
-        dayTargets[day] = Math.min(target, activeStaff.length);
+        dayTargets[day] = Math.min(target, maxStaffPerDay);
       }
 
       const doctors = activeStaff.filter((s) =>
@@ -279,7 +279,7 @@ function Schedule() {
 
       const groupedCurrent: Record<number, ScheduleWithStaff[]> = {};
       schedules
-        .filter((s) => s.is_active && s.day_of_week >= 1 && s.day_of_week <= 5)
+        .filter((s) => s.is_active && s.day_of_week >= 0 && s.day_of_week <= 6)
         .forEach((schedule) => {
           if (!groupedCurrent[schedule.day_of_week]) {
             groupedCurrent[schedule.day_of_week] = [];
