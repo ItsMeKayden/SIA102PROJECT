@@ -70,6 +70,20 @@ CREATE TABLE IF NOT EXISTS Subsystem2.notifications (
     is_read BOOLEAN DEFAULT false NOT NULL
 );
 
+-- Create services table
+CREATE TABLE IF NOT EXISTS Subsystem2.services (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    duration TEXT NOT NULL,
+    price NUMERIC NOT NULL DEFAULT 0,
+    downpayment NUMERIC NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'Available',
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_attendance_staff_id ON Subsystem2.attendance(staff_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_date ON Subsystem2.attendance(date);
@@ -94,29 +108,8 @@ CREATE POLICY "Enable all operations for attendance" ON Subsystem2.attendance FO
 CREATE POLICY "Enable all operations for appointments" ON Subsystem2.appointments FOR ALL USING (true);
 CREATE POLICY "Enable all operations for schedules" ON Subsystem2.schedules FOR ALL USING (true);
 CREATE POLICY "Enable all operations for notifications" ON Subsystem2.notifications FOR ALL USING (true);
-CREATE POLICY "Enable all operations for services" ON Subsystem2.services FOR ALL USING (true);
-
-
--- Drop and recreate
-DROP TABLE IF EXISTS Subsystem2.services CASCADE;
-
-CREATE TABLE Subsystem2.services (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  name TEXT NOT NULL,
-  category TEXT NOT NULL,
-  duration TEXT NOT NULL,
-  price NUMERIC NOT NULL DEFAULT 0,
-  downpayment NUMERIC NOT NULL DEFAULT 0,
-  status TEXT NOT NULL DEFAULT 'Available',
-  description TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Enable RLS
-ALTER TABLE Subsystem2.services ENABLE ROW LEVEL SECURITY;
-
--- Only admins can SELECT
+-- Admin-only policies for services
+-- Only admins can SELECT services
 CREATE POLICY "Admin can view services"
   ON Subsystem2.services FOR SELECT
   USING (
