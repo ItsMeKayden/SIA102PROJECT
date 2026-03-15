@@ -20,7 +20,8 @@ const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
     storage: window.localStorage,
   },
   db: {
-    schema: 'Subsystem2',
+    // Supabase schema names are case-sensitive in search_path; our schema is created as lowercase.
+    schema: 'subsystem2',
   },
 });
 

@@ -35,8 +35,11 @@ import {
   getAllSchedules,
   getSchedulesByStaffId,
   createSchedule,
+  createScheduleBulk,
+  clearWeeklySchedules,
   deleteSchedule,
 } from '../../backend/services/scheduleService';
+import { getAllAppointments } from '../../backend/services/appointmentService';
 import { getAllStaff } from '../../backend/services/staffService';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Schedule as ScheduleRecord, Staff } from '../../types';
@@ -64,27 +67,32 @@ function Schedule() {
     end_time: '17:00',
     notes: '',
   });
-  const [generating] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   // Preview state for Generate Schedule
-  type StaffEntry = {
-    scheduleId: string;
+  type DayPreviewEntry = {
     staffId: string;
     name: string;
     role: string;
     specialization: string | null;
-    removed: boolean;
   };
-  type DayChange = {
+  type DayPreview = {
     day: number;
-    before: number;
-    after: number;
-    entries: StaffEntry[];
+    currentCount: number;
+    targetCount: number;
+    assigned: DayPreviewEntry[];
   };
   type PreviewData = {
-    toDeactivate: string[];
-    target: number;
-    dayChanges: DayChange[];
+    staffIdsToClear: string[];
+    scheduleInserts: Array<{
+      staff_id: string;
+      day_of_week: number;
+      start_time: string;
+      end_time: string;
+      notes: string | null;
+      is_active: boolean;
+    }>;
+    dayPreviews: DayPreview[];
   };
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
@@ -108,10 +116,13 @@ function Schedule() {
       const allStaff = staffResult.data ?? [];
       setStaff(allStaff);
       if (schedulesResult.data) {
-        const merged = schedulesResult.data.map((s) => ({
-          ...s,
-          staff: allStaff.find((st) => st.id === s.staff_id),
-        }));
+        const merged = schedulesResult.data
+          .map((s) => ({
+            ...s,
+            staff: allStaff.find((st) => st.id === s.staff_id),
+          }))
+          // Exclude any schedules assigned to admin accounts
+          .filter((s) => !s.staff?.role?.toLowerCase().includes('admin'));
         setSchedules(merged);
       }
     } catch (err) {
@@ -140,7 +151,11 @@ function Schedule() {
   };
 
   const handleSubmit = async () => {
-    const targetStaffId = isAdmin ? formData.staff_id : staffProfile?.id;
+    if (!isAdmin) {
+      showSnackbar('Only administrators can modify schedules.', 'error');
+      return;
+    }
+    const targetStaffId = formData.staff_id;
     if (!targetStaffId) {
       showSnackbar('No staff selected', 'error');
       return;
@@ -187,116 +202,175 @@ function Schedule() {
     }
   };
 
-  const handleGenerateSchedule = () => {
-    // Compute what would change and open the preview modal — nothing is saved yet.
-    const workDaySchedules = schedules.filter(
-      (s) => s.is_active && s.day_of_week >= 1 && s.day_of_week <= 5,
-    );
+  const handleGenerateSchedule = async () => {
+    setGenerating(true);
 
-    if (workDaySchedules.length === 0) {
-      showSnackbar(
-        'No Mon–Fri schedules submitted yet. Staff need to add their schedules first.',
-        'error',
+    try {
+      const activeStaff = staff.filter(
+        (s) =>
+          s.status === 'Active' &&
+          !s.role?.toLowerCase().includes('admin'),
       );
-      return;
-    }
 
-    const workDays = [1, 2, 3, 4, 5];
-    const byDay: Record<number, ScheduleWithStaff[]> = {};
-    for (const s of workDaySchedules) {
-      if (!byDay[s.day_of_week]) byDay[s.day_of_week] = [];
-      byDay[s.day_of_week].push(s);
-    }
+      if (activeStaff.length === 0) {
+        showSnackbar('No active staff to schedule.', 'error');
+        setGenerating(false);
+        return;
+      }
 
-    const total = workDaySchedules.length;
-    const target = Math.ceil(total / workDays.length);
+      const appointmentResult = await getAllAppointments();
+      const appointments = appointmentResult.data ?? [];
 
-    // How many days each staff member has submitted across the week
-    const staffDayCount: Record<string, number> = {};
-    for (const s of workDaySchedules) {
-      staffDayCount[s.staff_id] = (staffDayCount[s.staff_id] ?? 0) + 1;
-    }
+      const workDays = [1, 2, 3, 4, 5];
+      const appointmentCounts: Record<number, number> = {
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0,
+        5: 0,
+      };
 
-    const toDeactivate: string[] = [];
-    const dayChanges: PreviewData['dayChanges'] = [];
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 30);
 
-    for (const day of workDays) {
-      const dayEntries = byDay[day] ?? [];
-      const overflow = dayEntries.length - target;
-      const removedIds = new Set<string>();
-
-      if (overflow > 0) {
-        // Build a specialization frequency map for this day so we know which
-        // specializations are duplicated vs unique.
-        const specCount = new Map<string, number>();
-        for (const e of dayEntries) {
-          const spec =
-            e.staff?.specialization?.trim() ||
-            e.staff?.role ||
-            'General';
-          specCount.set(spec, (specCount.get(spec) ?? 0) + 1);
-        }
-
-        // Sort candidates — most removable first:
-        //  1. Has a duplicate specialization on this day (removing won't lose coverage)
-        //  2. Covers more total days (still available on other days)
-        const sorted = [...dayEntries].sort((a, b) => {
-          const specA =
-            a.staff?.specialization?.trim() || a.staff?.role || 'General';
-          const specB =
-            b.staff?.specialization?.trim() || b.staff?.role || 'General';
-          const dupA = (specCount.get(specA) ?? 1) > 1 ? 0 : 1;
-          const dupB = (specCount.get(specB) ?? 1) > 1 ? 0 : 1;
-          // Prefer removing duplicates before unique specializations
-          if (dupA !== dupB) return dupA - dupB;
-          // Tie-break: more total days = more dispensable here
-          return (
-            (staffDayCount[b.staff_id] ?? 0) -
-            (staffDayCount[a.staff_id] ?? 0)
-          );
-        });
-
-        for (let i = 0; i < overflow; i++) {
-          toDeactivate.push(sorted[i].id);
-          removedIds.add(sorted[i].id);
+      for (const appt of appointments) {
+        const date = new Date(appt.appointment_date);
+        if (Number.isNaN(date.getTime())) continue;
+        if (date < cutoff) continue;
+        const day = date.getDay();
+        if (workDays.includes(day)) {
+          appointmentCounts[day] = (appointmentCounts[day] ?? 0) + 1;
         }
       }
 
-      dayChanges.push({
-        day,
-        before: dayEntries.length,
-        after: dayEntries.length - removedIds.size,
-        entries: dayEntries.map((e) => ({
-          scheduleId: e.id,
-          staffId: e.staff_id,
-          name: e.staff?.name ?? 'Unknown',
-          role: e.staff?.role ?? 'N/A',
-          specialization: e.staff?.specialization ?? null,
-          removed: removedIds.has(e.id),
-        })),
-      });
-    }
+      const maxCount = Math.max(...workDays.map((d) => appointmentCounts[d] || 0));
+      const desiredMaxStaffPerDay = Math.min(activeStaff.length, 4);
 
-    setPreviewData({ toDeactivate, target, dayChanges });
-    setPreviewOpen(true);
+      const dayTargets: Record<number, number> = {};
+      for (const day of workDays) {
+        const count = appointmentCounts[day] ?? 0;
+        let target = 0;
+
+        if (maxCount <= 0) {
+          target = Math.min(2, activeStaff.length);
+        } else {
+          target = Math.max(
+            1,
+            Math.round((count / maxCount) * desiredMaxStaffPerDay),
+          );
+        }
+
+        dayTargets[day] = Math.min(target, activeStaff.length);
+      }
+
+      const doctors = activeStaff.filter((s) =>
+        /doctor|physician/i.test(s.role || ''),
+      );
+      const hasDoctor = doctors.length > 0;
+      if (hasDoctor) {
+        for (const day of workDays) {
+          dayTargets[day] = Math.max(dayTargets[day], 1);
+        }
+      }
+
+      const groupedCurrent: Record<number, ScheduleWithStaff[]> = {};
+      schedules
+        .filter((s) => s.is_active && s.day_of_week >= 1 && s.day_of_week <= 5)
+        .forEach((schedule) => {
+          if (!groupedCurrent[schedule.day_of_week]) {
+            groupedCurrent[schedule.day_of_week] = [];
+          }
+          groupedCurrent[schedule.day_of_week].push(schedule);
+        });
+
+      const scheduleInserts: PreviewData['scheduleInserts'] = [];
+      const dayPreviews: DayPreview[] = [];
+      const staffIdsToClear = activeStaff.map((s) => s.id);
+
+      let rotationIndex = 0;
+      for (const day of workDays) {
+        const targetCount = dayTargets[day];
+        const currentCount = (groupedCurrent[day]?.length ?? 0);
+
+        const assigned: DayPreviewEntry[] = [];
+        const used = new Set<string>();
+
+        if (hasDoctor) {
+          const doc = doctors[day % doctors.length];
+          assigned.push({
+            staffId: doc.id,
+            name: doc.name,
+            role: doc.role,
+            specialization: doc.specialization,
+          });
+          used.add(doc.id);
+        }
+
+        while (assigned.length < targetCount && used.size < activeStaff.length) {
+          const candidate = activeStaff[rotationIndex % activeStaff.length];
+          rotationIndex += 1;
+          if (used.has(candidate.id)) continue;
+          used.add(candidate.id);
+          assigned.push({
+            staffId: candidate.id,
+            name: candidate.name,
+            role: candidate.role,
+            specialization: candidate.specialization,
+          });
+        }
+
+        const startTime = '08:00';
+        const endTime = '17:00';
+        for (const entry of assigned) {
+          scheduleInserts.push({
+            staff_id: entry.staffId,
+            day_of_week: day,
+            start_time: startTime,
+            end_time: endTime,
+            notes: 'Auto-generated schedule',
+            is_active: true,
+          });
+        }
+
+        dayPreviews.push({
+          day,
+          currentCount,
+          targetCount: assigned.length,
+          assigned,
+        });
+      }
+
+      setPreviewData({
+        staffIdsToClear,
+        scheduleInserts,
+        dayPreviews,
+      });
+      setPreviewOpen(true);
+    } catch (error) {
+      console.error(error);
+      showSnackbar('Failed to generate schedule.', 'error');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleApplyGenerate = async () => {
-    if (!previewData || previewData.toDeactivate.length === 0) {
+    if (!previewData) {
       setPreviewOpen(false);
       return;
     }
     setApplying(true);
     try {
-      let deactivated = 0;
-      for (const id of previewData.toDeactivate) {
-        const { error } = await deleteSchedule(id);
-        if (!error) deactivated++;
+      await clearWeeklySchedules(previewData.staffIdsToClear);
+      const { error } = await createScheduleBulk(previewData.scheduleInserts);
+      if (error) {
+        showSnackbar(error, 'error');
+      } else {
+        showSnackbar(
+          `Schedule generated: ${previewData.scheduleInserts.length} entries created. Doctors have been notified.`,
+          'success',
+        );
       }
-      showSnackbar(
-        `Schedule balanced — removed ${deactivated} excess entr${deactivated === 1 ? 'y' : 'ies'} from overloaded days. Each day now has at most ${previewData.target} staff.`,
-        'success',
-      );
       setPreviewOpen(false);
       fetchData();
     } finally {
@@ -305,6 +379,11 @@ function Schedule() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!isAdmin) {
+      showSnackbar('Only administrators can delete schedules.', 'error');
+      return;
+    }
+
     setSchedules((prev) => prev.filter((s) => s.id !== id));
     const { error } = await deleteSchedule(id);
     if (error) {
@@ -599,7 +678,7 @@ function Schedule() {
           </Typography>
           {!isAdmin && (
             <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
-              Manage your personal work schedule
+              Schedule assignments are managed by administrators.
             </Typography>
           )}
         </Box>
@@ -652,22 +731,24 @@ function Schedule() {
               </span>
             </Tooltip>
           )}
-          <Button
-            variant="contained"
-            startIcon={<FiPlus />}
-            onClick={handleOpenModal}
-            sx={{
-              backgroundColor: '#2563eb',
-              '&:hover': { backgroundColor: '#1d4ed8' },
-              borderRadius: '8px',
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '13px',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Add Schedule
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="contained"
+              startIcon={<FiPlus />}
+              onClick={handleOpenModal}
+              sx={{
+                backgroundColor: '#2563eb',
+                '&:hover': { backgroundColor: '#1d4ed8' },
+                borderRadius: '8px',
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '13px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Add Schedule
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -1374,7 +1455,7 @@ function Schedule() {
                       </Box>
                     </TableCell>
                     <TableCell sx={{ padding: '8px 6px' }}>
-                      {(isAdmin || schedule.staff_id === staffProfile?.id) && (
+                      {isAdmin && (
                         <IconButton
                           size="small"
                           onClick={() => handleDelete(schedule.id)}
@@ -1412,10 +1493,10 @@ function Schedule() {
         >
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Balanced Schedule Preview
+              Schedule Generation Preview
             </Typography>
             <Typography variant="caption" sx={{ color: '#6b7280' }}>
-              Review changes before applying. Only overloaded days are trimmed.
+              Review the proposed schedule before applying. The system uses recent appointment trends to allocate staff where demand is highest.
             </Typography>
           </Box>
           <IconButton
@@ -1429,7 +1510,7 @@ function Schedule() {
         <DialogContent dividers>
           {previewData && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {/* Target info bar */}
+              {/* Summary info */}
               <Box
                 sx={{
                   backgroundColor: '#eff6ff',
@@ -1439,185 +1520,126 @@ function Schedule() {
                 }}
               >
                 <Typography sx={{ fontSize: '12px', color: '#1e40af' }}>
-                  <strong>Target:</strong> at most{' '}
-                  <strong>{previewData.target}</strong> staff per day.
-                  {previewData.toDeactivate.length === 0
-                    ? ' The schedule is already balanced — no changes needed.'
-                    : ` ${previewData.toDeactivate.length} entr${previewData.toDeactivate.length === 1 ? 'y' : 'ies'} will be deactivated from overloaded days.`}
-                  {' '}Balancing preserves <strong>specialization diversity</strong> — duplicate specializations are removed first.
+                  <strong>Preview:</strong> This will clear existing Mon–Fri schedules for{' '}
+                  <strong>{previewData.staffIdsToClear.length}</strong> staff and create{' '}
+                  <strong>{previewData.scheduleInserts.length}</strong> new schedule entries.
                 </Typography>
               </Box>
 
               {/* Per-day breakdown */}
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {previewData.dayChanges.map((dc) => {
-                  const isOverloaded = dc.entries.some((e) => e.removed);
-                  return (
+                {previewData.dayPreviews.map((dp) => (
+                  <Box
+                    key={dp.day}
+                    sx={{
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb',
+                      overflow: 'hidden',
+                    }}
+                  >
                     <Box
-                      key={dc.day}
                       sx={{
-                        borderRadius: '8px',
-                        border: `1px solid ${isOverloaded ? '#fecaca' : '#e5e7eb'}`,
-                        overflow: 'hidden',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        px: 1.5,
+                        py: 0.8,
+                        backgroundColor: '#f9fafb',
+                        borderBottom: '1px solid #e5e7eb',
                       }}
                     >
-                      {/* Day header */}
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          px: 1.5,
-                          py: 0.8,
-                          backgroundColor: isOverloaded ? '#fef2f2' : '#f9fafb',
-                          borderBottom: dc.entries.length > 0 ? '1px solid #e5e7eb' : 'none',
-                        }}
-                      >
-                        <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#1f2937' }}>
-                          {['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'][dc.day]}
+                      <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#1f2937' }}>
+                        {weekDaysFull[dp.day]}
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography sx={{ fontSize: '11px', color: '#6b7280' }}>
+                          {dp.currentCount} currently scheduled
                         </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography sx={{ fontSize: '11px', color: '#6b7280' }}>
-                            {dc.before} staff
-                          </Typography>
-                          {isOverloaded && (
-                            <>
-                              <Typography sx={{ fontSize: '11px', color: '#9ca3af' }}>→</Typography>
-                              <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#16a34a' }}>
-                                {dc.after} staff
-                              </Typography>
-                            </>
-                          )}
-                          {!isOverloaded && (
+                        <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#16a34a' }}>
+                          → {dp.targetCount} planned
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    {dp.assigned.length === 0 ? (
+                      <Box sx={{ px: 1.5, py: 1 }}>
+                        <Typography sx={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>
+                          No staff assigned
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        {dp.assigned.map((entry, idx) => (
+                          <Box
+                            key={entry.staffId}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                              px: 1.5,
+                              py: 0.7,
+                              backgroundColor: idx % 2 === 0 ? '#fff' : '#f9fafb',
+                              borderBottom:
+                                idx < dp.assigned.length - 1 ? '1px solid #f3f4f6' : 'none',
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                color: '#1f2937',
+                                minWidth: '110px',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {entry.name}
+                            </Typography>
                             <Chip
-                              label="Balanced"
+                              label={entry.role}
                               size="small"
                               sx={{
                                 height: '18px',
                                 fontSize: '9px',
-                                backgroundColor: '#d1fae5',
-                                color: '#065f46',
                                 fontWeight: 600,
+                                backgroundColor: '#eff6ff',
+                                color: '#1e40af',
+                                flexShrink: 0,
                               }}
                             />
-                          )}
-                        </Box>
-                      </Box>
-
-                      {/* Staff list for this day */}
-                      {dc.entries.length === 0 ? (
-                        <Box sx={{ px: 1.5, py: 1 }}>
-                          <Typography sx={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>
-                            No staff scheduled
-                          </Typography>
-                        </Box>
-                      ) : (
-                        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                          {dc.entries.map((entry, idx) => (
-                            <Box
-                              key={entry.scheduleId}
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1,
-                                px: 1.5,
-                                py: 0.7,
-                                backgroundColor: entry.removed ? '#fff5f5' : '#fff',
-                                borderBottom:
-                                  idx < dc.entries.length - 1
-                                    ? '1px solid #f3f4f6'
-                                    : 'none',
-                                opacity: entry.removed ? 0.85 : 1,
-                              }}
-                            >
-                              {/* Status dot */}
-                              <Box
-                                sx={{
-                                  width: 6,
-                                  height: 6,
-                                  borderRadius: '50%',
-                                  flexShrink: 0,
-                                  backgroundColor: entry.removed ? '#ef4444' : '#22c55e',
-                                }}
-                              />
-                              {/* Name */}
-                              <Typography
-                                sx={{
-                                  fontSize: '12px',
-                                  fontWeight: 600,
-                                  color: entry.removed ? '#b91c1c' : '#1f2937',
-                                  textDecoration: entry.removed ? 'line-through' : 'none',
-                                  minWidth: '110px',
-                                  flexShrink: 0,
-                                }}
-                              >
-                                {entry.name}
-                              </Typography>
-                              {/* Role */}
+                            {entry.specialization && (
                               <Chip
-                                label={entry.role}
+                                label={entry.specialization}
                                 size="small"
                                 sx={{
                                   height: '18px',
                                   fontSize: '9px',
-                                  fontWeight: 600,
-                                  backgroundColor: entry.removed ? '#fee2e2' : '#eff6ff',
-                                  color: entry.removed ? '#991b1b' : '#1e40af',
+                                  fontWeight: 500,
+                                  backgroundColor: '#f0fdf4',
+                                  color: '#166534',
                                   flexShrink: 0,
                                 }}
                               />
-                              {/* Specialization */}
-                              {entry.specialization && (
-                                <Chip
-                                  label={entry.specialization}
-                                  size="small"
-                                  sx={{
-                                    height: '18px',
-                                    fontSize: '9px',
-                                    fontWeight: 500,
-                                    backgroundColor: entry.removed ? '#fef2f2' : '#f0fdf4',
-                                    color: entry.removed ? '#b91c1c' : '#166534',
-                                    flexShrink: 0,
-                                  }}
-                                />
-                              )}
-                              {/* Remove label */}
-                              {entry.removed && (
-                                <Typography
-                                  sx={{
-                                    fontSize: '9px',
-                                    color: '#ef4444',
-                                    fontWeight: 700,
-                                    ml: 'auto',
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  REMOVED
-                                </Typography>
-                              )}
-                            </Box>
-                          ))}
-                        </Box>
-                      )}
-                    </Box>
-                  );
-                })}
+                            )}
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
+                ))}
               </Box>
 
-              {previewData.toDeactivate.length > 0 && (
-                <Box
-                  sx={{
-                    backgroundColor: '#fff7ed',
-                    border: '1px solid #fed7aa',
-                    borderRadius: '8px',
-                    p: 1.5,
-                  }}
-                >
-                  <Typography sx={{ fontSize: '11px', color: '#92400e' }}>
-                    <strong>Note:</strong> Removed entries are soft-deleted. Affected staff can re-add their schedule if needed.
-                  </Typography>
-                </Box>
-              )}
+              <Box
+                sx={{
+                  backgroundColor: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  borderRadius: '8px',
+                  p: 1.5,
+                }}
+              >
+                <Typography sx={{ fontSize: '11px', color: '#92400e' }}>
+                  <strong>Note:</strong> Doctors will be notified when their schedule is created.
+                </Typography>
+              </Box>
             </Box>
           )}
         </DialogContent>
@@ -1631,23 +1653,15 @@ function Schedule() {
           </Button>
           <Button
             variant="contained"
-            onClick={
-              previewData?.toDeactivate.length === 0
-                ? () => setPreviewOpen(false)
-                : handleApplyGenerate
-            }
-            disabled={applying}
+            onClick={handleApplyGenerate}
+            disabled={applying || !previewData || previewData.scheduleInserts.length === 0}
             sx={{
               textTransform: 'none',
               backgroundColor: '#16a34a',
               '&:hover': { backgroundColor: '#15803d' },
             }}
           >
-            {applying
-              ? 'Applying…'
-              : previewData?.toDeactivate.length === 0
-                ? 'OK'
-                : 'Apply Changes'}
+            {applying ? 'Applying…' : 'Apply Schedule'}
           </Button>
         </DialogActions>
       </Dialog>
