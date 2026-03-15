@@ -318,7 +318,7 @@ export default function Landing() {
                 fontFamily: "'Poppins', sans-serif",
                 fontWeight: 600,
                 fontSize: '16px',
-                padding: '12px 32px',
+                padding: '12px 22px',
                 borderRadius: '8px',
                 textTransform: 'capitalize',
                 transition: 'all 0.3s ease-in-out',
@@ -331,7 +331,7 @@ export default function Landing() {
                 },
               }}
             >
-              Start
+              Log in
             </Button>
             </Box>
           </Card>
