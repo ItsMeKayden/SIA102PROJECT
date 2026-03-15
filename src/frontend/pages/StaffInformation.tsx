@@ -33,18 +33,23 @@ import {
   createStaff,
   updateStaff,
   deleteStaff,
+} from '../../backend/services/staffService';
+import {
   getAllServices,
   createService,
   updateService,
   deleteService,
+  getAllDepartments,
+  getSpecializations,
   type Service,
   type ServiceFormData,
-} from '../../backend/services';
+} from '../../backend/services/serviceServices';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 const EMPTY_SERVICE_FORM: ServiceFormData = {
   serviceName: '',
-  category: '',
+  department: '',
+  specialization: '',
   duration: '',
   price: 0,
   downpayment: 0,
@@ -53,13 +58,15 @@ const EMPTY_SERVICE_FORM: ServiceFormData = {
 };
 
 // ─── Staff Tab ────────────────────────────────────────────────────────────────
-
 function StaffTab() {
   const { staffProfile, isAdmin } = useAuth();
-  // const staffProfile: any = null;
-  // const isAdmin = true;
 
   const [staffData, setStaffData] = useState<Staff[]>([]);
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [allSpecializations, setAllSpecializations] = useState<string[]>([]);
+  const [filteredSpecializations, setFilteredSpecializations] = useState<
+    string[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [specializationFilter, setSpecializationFilter] = useState('all');
@@ -81,6 +88,7 @@ function StaffTab() {
     name: '',
     role: '',
     specialization: '',
+    department: '',
     status: 'Active',
     email: '',
     phone: '',
@@ -92,9 +100,19 @@ function StaffTab() {
   const fetchStaff = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await getAllStaff();
-      if (error) showSnackbar(error, 'error');
-      else setStaffData(data || []);
+      const [
+        { data: staffRes, error: staffErr },
+        { data: deptRes },
+        { data: specRes },
+      ] = await Promise.all([
+        getAllStaff(),
+        getAllDepartments(),
+        getSpecializations(),
+      ]);
+      if (staffErr) showSnackbar(staffErr, 'error');
+      else setStaffData(staffRes || []);
+      setDepartments(deptRes || []);
+      setAllSpecializations(specRes || []);
     } catch {
       showSnackbar('Failed to load staff data', 'error');
     } finally {
@@ -106,9 +124,19 @@ function StaffTab() {
     fetchStaff();
   }, [fetchStaff]);
 
+  // Filter specializations when department changes in form
+  useEffect(() => {
+    if (formData.department) {
+      getSpecializations(formData.department).then(({ data }) => {
+        setFilteredSpecializations(data || []);
+      });
+    } else {
+      setFilteredSpecializations([]);
+    }
+  }, [formData.department]);
+
   const getStatusColor = (status: string) =>
     status === 'Active' ? '#10b981' : '#6b7280';
-
   const getDutyStatusColor = (dutyStatus: string | null | undefined) => {
     if (dutyStatus === 'On Duty') return '#3b82f6';
     if (dutyStatus === 'On Leave') return '#f59e0b';
@@ -141,6 +169,7 @@ function StaffTab() {
       name: '',
       role: '',
       specialization: '',
+      department: '',
       status: 'Active',
       email: '',
       phone: '',
@@ -156,6 +185,7 @@ function StaffTab() {
         name: staff.name,
         role: staff.role,
         specialization: staff.specialization || '',
+        department: staff.department || '',
         status: (staff.status as 'Active' | 'Inactive') || 'Active',
         email: staff.email || '',
         phone: staff.phone || '',
@@ -274,9 +304,11 @@ function StaffTab() {
             sx={{ borderRadius: '6px', fontSize: '14px' }}
           >
             <MenuItem value="all">All Specializations</MenuItem>
-            <MenuItem value="Pharmacy">Pharmacy</MenuItem>
-            <MenuItem value="Emergency">Emergency</MenuItem>
-            <MenuItem value="Surgery">Surgery</MenuItem>
+            {allSpecializations.map((s) => (
+              <MenuItem key={s} value={s}>
+                {s}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
         <FormControl
@@ -350,6 +382,7 @@ function StaffTab() {
                 'Name',
                 'Role',
                 'Specialization',
+                'Department',
                 'Email',
                 'Status / Duty',
                 'Actions',
@@ -361,7 +394,16 @@ function StaffTab() {
                     color: '#374151',
                     fontSize: '12px',
                     padding: '10px 8px',
-                    width: ['8%', '20%', '15%', '15%', '20%', '12%', '10%'][i],
+                    width: [
+                      '8%',
+                      '20%',
+                      '15%',
+                      '15%',
+                      '15%',
+                      '20%',
+                      '12%',
+                      '10%',
+                    ][i],
                     textAlign: h === 'Actions' ? 'center' : 'left',
                   }}
                 >
@@ -427,6 +469,18 @@ function StaffTab() {
                   }}
                 >
                   {staff.specialization || 'N/A'}
+                </TableCell>
+                <TableCell
+                  sx={{
+                    color: '#6b7280',
+                    fontSize: '12px',
+                    padding: '10px 8px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {staff.department || 'N/A'}
                 </TableCell>
                 <TableCell
                   sx={{
@@ -519,7 +573,7 @@ function StaffTab() {
             {filteredStaff.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   align="center"
                   sx={{ py: 4, color: '#9ca3af' }}
                 >
@@ -608,6 +662,7 @@ function StaffTab() {
                 key: 'email',
                 type: 'email',
                 placeholder: 'staff@clinika.com',
+                disableOnEdit: true,
               },
               {
                 label: 'Phone (Optional)',
@@ -615,7 +670,7 @@ function StaffTab() {
                 type: 'tel',
                 placeholder: '555-0000',
               },
-            ].map(({ label, key, type, placeholder }) => (
+            ].map(({ label, key, type, placeholder, disableOnEdit }) => (
               <Box key={key}>
                 <label
                   style={{
@@ -637,60 +692,156 @@ function StaffTab() {
                   onChange={(e) =>
                     setFormData({ ...formData, [key]: e.target.value })
                   }
-                  disabled={modalMode === 'edit' && !selectedStaffId}
+                  disabled={
+                    (modalMode === 'edit' && !selectedStaffId) ||
+                    (modalMode === 'edit' && !!disableOnEdit)
+                  }
                   sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
                 />
               </Box>
             ))}
-            {[
-              {
-                label: 'Role',
-                key: 'role',
-                options: ['Doctor', 'Nurse', 'Receptionist'],
-              },
-              {
-                label: 'Specialization',
-                key: 'specialization',
-                options: ['Pharmacy', 'Emergency', 'Surgery'],
-              },
-              {
-                label: 'Status',
-                key: 'status',
-                options: ['Active', 'Inactive'],
-              },
-            ].map(({ label, key, options }) => (
-              <Box key={key}>
-                <label
-                  style={{
-                    display: 'block',
-                    marginBottom: '6px',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: '#374151',
-                  }}
+
+            {/* Role */}
+            <Box>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: '#374151',
+                }}
+              >
+                Role
+              </label>
+              <FormControl fullWidth size="small">
+                <Select
+                  value={formData.role}
+                  onChange={(e) =>
+                    setFormData({ ...formData, role: e.target.value })
+                  }
+                  displayEmpty
+                  disabled={modalMode === 'edit' && !selectedStaffId}
+                  sx={{ borderRadius: '6px' }}
                 >
-                  {label}
-                </label>
-                <FormControl fullWidth size="small">
-                  <Select
-                    value={formData[key as keyof StaffFormData]}
-                    onChange={(e) =>
-                      setFormData({ ...formData, [key]: e.target.value })
-                    }
-                    displayEmpty
-                    disabled={modalMode === 'edit' && !selectedStaffId}
-                    sx={{ borderRadius: '6px' }}
-                  >
-                    <MenuItem value="">Select {label.toLowerCase()}</MenuItem>
-                    {options.map((o) => (
-                      <MenuItem key={o} value={o}>
-                        {o}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-            ))}
+                  <MenuItem value="">Select role</MenuItem>
+                  {['Doctor', 'Nurse', 'Receptionist'].map((o) => (
+                    <MenuItem key={o} value={o}>
+                      {o}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Department — dynamic from staff table */}
+            <Box>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: '#374151',
+                }}
+              >
+                Department
+              </label>
+              <FormControl fullWidth size="small">
+                <Select
+                  value={formData.department}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      department: e.target.value,
+                      specialization: '',
+                    })
+                  }
+                  displayEmpty
+                  disabled={modalMode === 'edit' && !selectedStaffId}
+                  sx={{ borderRadius: '6px' }}
+                >
+                  <MenuItem value="">Select department</MenuItem>
+                  {departments.map((d) => (
+                    <MenuItem key={d} value={d}>
+                      {d}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Specialization — filtered by selected department */}
+            <Box>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: '#374151',
+                }}
+              >
+                Specialization
+              </label>
+              <FormControl fullWidth size="small">
+                <Select
+                  value={formData.specialization}
+                  onChange={(e) =>
+                    setFormData({ ...formData, specialization: e.target.value })
+                  }
+                  displayEmpty
+                  sx={{ borderRadius: '6px' }}
+                >
+                  <MenuItem value="">
+                    {formData.department
+                      ? 'Select specialization'
+                      : 'Select department first'}
+                  </MenuItem>
+                  {filteredSpecializations.map((s) => (
+                    <MenuItem key={s} value={s}>
+                      {s}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Status */}
+            <Box>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: '#374151',
+                }}
+              >
+                Status
+              </label>
+              <FormControl fullWidth size="small">
+                <Select
+                  value={formData.status}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      status: e.target.value as 'Active' | 'Inactive',
+                    })
+                  }
+                  displayEmpty
+                  disabled={modalMode === 'edit' && !selectedStaffId}
+                  sx={{ borderRadius: '6px' }}
+                >
+                  <MenuItem value="">Select status</MenuItem>
+                  {['Active', 'Inactive'].map((o) => (
+                    <MenuItem key={o} value={o}>
+                      {o}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
@@ -823,13 +974,18 @@ function StaffTab() {
 }
 
 // ─── Services Tab ─────────────────────────────────────────────────────────────
-
 function ServicesTab() {
   const { isAdmin } = useAuth();
   const [services, setServices] = useState<Service[]>([]);
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [allSpecializations, setAllSpecializations] = useState<string[]>([]);
+  const [filteredSpecializations, setFilteredSpecializations] = useState<
+    string[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [specializationFilter, setSpecializationFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [openModal, setOpenModal] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
@@ -852,9 +1008,19 @@ function ServicesTab() {
   const fetchServices = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await getAllServices();
-      if (error) showSnackbar(error, 'error');
-      else setServices(data || []);
+      const [
+        { data: svcRes, error: svcErr },
+        { data: deptRes },
+        { data: specRes },
+      ] = await Promise.all([
+        getAllServices(),
+        getAllDepartments(),
+        getSpecializations(),
+      ]);
+      if (svcErr) showSnackbar(svcErr, 'error');
+      else setServices(svcRes || []);
+      setDepartments(deptRes || []);
+      setAllSpecializations(specRes || []);
     } catch {
       showSnackbar('Failed to load services', 'error');
     } finally {
@@ -866,13 +1032,23 @@ function ServicesTab() {
     fetchServices();
   }, [fetchServices]);
 
-  if (!isAdmin) {
+  // Filter specializations when department changes in modal form
+  useEffect(() => {
+    if (formData.department) {
+      getSpecializations(formData.department).then(({ data }) => {
+        setFilteredSpecializations(data || []);
+      });
+    } else {
+      setFilteredSpecializations([]);
+    }
+  }, [formData.department]);
+
+  if (!isAdmin)
     return (
       <Box sx={{ textAlign: 'center', py: 6, color: '#9ca3af' }}>
         You don't have permission to view this section.
       </Box>
     );
-  }
 
   if (loading)
     return (
@@ -891,11 +1067,17 @@ function ServicesTab() {
   const filtered = services.filter((s) => {
     const matchesSearch =
       s.serviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCat =
-      categoryFilter === 'all' || s.category === categoryFilter;
+      (s.department ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.specialization ?? '')
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+    const matchesDept =
+      departmentFilter === 'all' || s.department === departmentFilter;
+    const matchesSpec =
+      specializationFilter === 'all' ||
+      s.specialization === specializationFilter;
     const matchesStatus = statusFilter === 'all' || s.status === statusFilter;
-    return matchesSearch && matchesCat && matchesStatus;
+    return matchesSearch && matchesDept && matchesSpec && matchesStatus;
   });
 
   const openAddModal = () => {
@@ -904,12 +1086,14 @@ function ServicesTab() {
     setEditingService(null);
     setOpenModal(true);
   };
+
   const openEditModal = (service: Service) => {
     setModalMode('edit');
     setEditingService(service);
     setFormData({
       serviceName: service.serviceName,
-      category: service.category,
+      department: service.department || '',
+      specialization: service.specialization || '',
       duration: service.duration,
       price: service.price,
       downpayment: service.downpayment,
@@ -920,7 +1104,7 @@ function ServicesTab() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.serviceName || !formData.category || !formData.duration) {
+    if (!formData.serviceName || !formData.duration) {
       showSnackbar('Please fill in all required fields', 'error');
       return;
     }
@@ -928,7 +1112,6 @@ function ServicesTab() {
       showSnackbar('Price must be a positive number', 'error');
       return;
     }
-
     if (modalMode === 'add') {
       const { error } = await createService(formData);
       if (error) showSnackbar(error, 'error');
@@ -962,20 +1145,6 @@ function ServicesTab() {
   const getServiceStatusColor = (status: string) =>
     status === 'Available' ? '#10b981' : '#6b7280';
 
-  if (loading)
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '400px',
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-
   return (
     <>
       <Box
@@ -995,7 +1164,7 @@ function ServicesTab() {
           sx={{
             flex: '1 1 180px',
             minWidth: '150px',
-            maxWidth: '280px',
+            maxWidth: '200px',
             backgroundColor: 'white',
             borderRadius: '6px',
             '& .MuiOutlinedInput-root': { borderRadius: '6px' },
@@ -1008,10 +1177,36 @@ function ServicesTab() {
             ),
           }}
         />
+        {/* Department filter — dynamic */}
         <FormControl
           size="small"
           sx={{
             minWidth: 120,
+            maxWidth: 150,
+            flex: '0 1 auto',
+            backgroundColor: 'white',
+            borderRadius: '6px',
+          }}
+        >
+          <Select
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            displayEmpty
+            sx={{ borderRadius: '6px', fontSize: '14px' }}
+          >
+            <MenuItem value="all">All Departments</MenuItem>
+            {departments.map((d) => (
+              <MenuItem key={d} value={d}>
+                {d}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {/* Specialization filter — dynamic */}
+        <FormControl
+          size="small"
+          sx={{
+            minWidth: 130,
             maxWidth: 160,
             flex: '0 1 auto',
             backgroundColor: 'white',
@@ -1019,23 +1214,24 @@ function ServicesTab() {
           }}
         >
           <Select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            value={specializationFilter}
+            onChange={(e) => setSpecializationFilter(e.target.value)}
             displayEmpty
             sx={{ borderRadius: '6px', fontSize: '14px' }}
           >
-            <MenuItem value="all">All Categories</MenuItem>
-            <MenuItem value="Consultation">Consultation</MenuItem>
-            <MenuItem value="Emergency">Emergency</MenuItem>
-            <MenuItem value="Surgery">Surgery</MenuItem>
-            <MenuItem value="Pharmacy">Pharmacy</MenuItem>
+            <MenuItem value="all">All Specializations</MenuItem>
+            {allSpecializations.map((s) => (
+              <MenuItem key={s} value={s}>
+                {s}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
         <FormControl
           size="small"
           sx={{
             minWidth: 100,
-            maxWidth: 140,
+            maxWidth: 130,
             flex: '0 1 auto',
             backgroundColor: 'white',
             borderRadius: '6px',
@@ -1085,13 +1281,14 @@ function ServicesTab() {
             <TableRow>
               {[
                 { label: 'Name', w: '20%' },
-                { label: 'Category', w: '12%' },
-                { label: 'Duration', w: '10%' },
-                { label: 'Price (₱)', w: '10%' },
-                { label: 'Downpayment (₱)', w: '13%' },
-                { label: 'Description', w: '15%' },
-                { label: 'Status', w: '8%' },
-                { label: 'Actions', w: '10%', center: true },
+                { label: 'Department', w: '12%' },
+                { label: 'Specialization', w: '12%' },
+                { label: 'Duration', w: '9%' },
+                { label: 'Price (₱)', w: '9%' },
+                { label: 'Downpayment (₱)', w: '11%' },
+                { label: 'Description', w: '13%' },
+                { label: 'Status', w: '7%' },
+                { label: 'Actions', w: '7%', center: true },
               ].map(({ label, w, center }) => (
                 <TableCell
                   key={label}
@@ -1099,7 +1296,7 @@ function ServicesTab() {
                     fontWeight: 600,
                     color: '#374151',
                     fontSize: '12px',
-                    padding: '12px 12px',
+                    padding: '12px 8px',
                     width: w,
                     textAlign: center ? 'center' : 'left',
                   }}
@@ -1132,21 +1329,50 @@ function ServicesTab() {
                   {service.serviceName}
                 </TableCell>
                 <TableCell sx={{ padding: '10px 8px' }}>
-                  <Box
-                    sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      backgroundColor: '#eff6ff',
-                      color: '#2563eb',
-                      borderRadius: '4px',
-                      px: '6px',
-                      py: '2px',
-                      fontSize: '11px',
-                      fontWeight: 500,
-                    }}
-                  >
-                    {service.category}
-                  </Box>
+                  {service.department ? (
+                    <Box
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        backgroundColor: '#eff6ff',
+                        color: '#2563eb',
+                        borderRadius: '4px',
+                        px: '6px',
+                        py: '2px',
+                        fontSize: '11px',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {service.department}
+                    </Box>
+                  ) : (
+                    <span style={{ color: '#9ca3af', fontSize: '11px' }}>
+                      All
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell sx={{ padding: '10px 8px' }}>
+                  {service.specialization ? (
+                    <Box
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        backgroundColor: '#f0fdf4',
+                        color: '#16a34a',
+                        borderRadius: '4px',
+                        px: '6px',
+                        py: '2px',
+                        fontSize: '11px',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {service.specialization}
+                    </Box>
+                  ) : (
+                    <span style={{ color: '#9ca3af', fontSize: '11px' }}>
+                      All
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell
                   sx={{
@@ -1254,7 +1480,7 @@ function ServicesTab() {
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={9}
                   align="center"
                   sx={{ py: 4, color: '#9ca3af' }}
                 >
@@ -1322,38 +1548,82 @@ function ServicesTab() {
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
               />
             </Box>
-            <Box>
-              <label
-                style={{
-                  display: 'block',
-                  marginBottom: '6px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: '#374151',
-                }}
-              >
-                Category *
-              </label>
-              <FormControl fullWidth size="small">
-                <Select
-                  value={formData.category}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
-                  }
-                  displayEmpty
-                  sx={{ borderRadius: '6px' }}
+
+            {/* Department + Specialization — both dynamic */}
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Box sx={{ flex: 1 }}>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '6px',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: '#374151',
+                  }}
                 >
-                  <MenuItem value="">Select category</MenuItem>
-                  {['Consultation', 'Emergency', 'Surgery', 'Pharmacy'].map(
-                    (c) => (
-                      <MenuItem key={c} value={c}>
-                        {c}
+                  Department
+                </label>
+                <FormControl fullWidth size="small">
+                  <Select
+                    value={formData.department ?? ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        department: e.target.value,
+                        specialization: '',
+                      })
+                    }
+                    displayEmpty
+                    sx={{ borderRadius: '6px' }}
+                  >
+                    <MenuItem value="">All departments</MenuItem>
+                    {departments.map((d) => (
+                      <MenuItem key={d} value={d}>
+                        {d}
                       </MenuItem>
-                    ),
-                  )}
-                </Select>
-              </FormControl>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '6px',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: '#374151',
+                  }}
+                >
+                  Specialization
+                </label>
+                <FormControl
+                  fullWidth
+                  size="small"
+                  disabled={!formData.department}
+                >
+                  <Select
+                    value={formData.specialization ?? ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        specialization: e.target.value,
+                      })
+                    }
+                    displayEmpty
+                    sx={{ borderRadius: '6px' }}
+                  >
+                    <MenuItem value="">All specializations</MenuItem>
+                    {filteredSpecializations.map((s) => (
+                      <MenuItem key={s} value={s}>
+                        {s}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
             </Box>
+
             <Box sx={{ display: 'flex', gap: 2 }}>
               <Box sx={{ flex: 1 }}>
                 <label
@@ -1433,6 +1703,7 @@ function ServicesTab() {
                 />
               </Box>
             </Box>
+
             <Box>
               <label
                 style={{
@@ -1461,6 +1732,7 @@ function ServicesTab() {
                 </Select>
               </FormControl>
             </Box>
+
             <Box>
               <label
                 style={{
@@ -1618,7 +1890,6 @@ function ServicesTab() {
 }
 
 // ─── Root Component ───────────────────────────────────────────────────────────
-
 function StaffInformation() {
   const [activeTab, setActiveTab] = useState(0);
 
@@ -1639,7 +1910,6 @@ function StaffInformation() {
           padding: { xs: '16px', sm: '20px', md: '24px' },
         }}
       >
-        {/* Page Title */}
         <h2
           style={{
             margin: '0 0 16px 0',
@@ -1650,8 +1920,6 @@ function StaffInformation() {
         >
           {activeTab === 0 ? 'Staff Profile' : 'Services'}
         </h2>
-
-        {/* Tab Navigation */}
         <Tabs
           value={activeTab}
           onChange={(_, val) => setActiveTab(val)}
@@ -1679,8 +1947,6 @@ function StaffInformation() {
           <Tab label="Staff Information" />
           <Tab label="Services" />
         </Tabs>
-
-        {/* Tab Content */}
         {activeTab === 0 && <StaffTab />}
         {activeTab === 1 && <ServicesTab />}
       </Box>

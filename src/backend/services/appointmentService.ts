@@ -6,10 +6,6 @@ import type {
 } from '../../types';
 import { createNotification } from './notificationService';
 
-//Appointment Service
-// Appoint Backend Service
-
-// Get all appointments
 export const getAllAppointments = async (): Promise<{
   data: Appointment[] | null;
   error: string | null;
@@ -22,14 +18,12 @@ export const getAllAppointments = async (): Promise<{
       .order('appointment_time', { ascending: true });
 
     if (error) throw error;
-
     return { data, error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
   }
 };
 
-// Get appointments by doctor
 export const getAppointmentsByDoctorId = async (
   doctorId: string,
 ): Promise<{ data: Appointment[] | null; error: string | null }> => {
@@ -42,14 +36,12 @@ export const getAppointmentsByDoctorId = async (
       .order('appointment_time', { ascending: true });
 
     if (error) throw error;
-
     return { data, error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
   }
 };
 
-// Get appointments by date
 export const getAppointmentsByDate = async (
   date: string,
 ): Promise<{ data: Appointment[] | null; error: string | null }> => {
@@ -61,20 +53,17 @@ export const getAppointmentsByDate = async (
       .order('appointment_time', { ascending: true });
 
     if (error) throw error;
-
     return { data, error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
   }
 };
 
-// Get upcoming appointments
 export const getUpcomingAppointments = async (
   limit: number = 10,
 ): Promise<{ data: Appointment[] | null; error: string | null }> => {
   try {
     const today = new Date().toISOString().split('T')[0];
-
     const { data, error } = await supabase
       .from('appointments')
       .select('*')
@@ -85,16 +74,19 @@ export const getUpcomingAppointments = async (
       .limit(limit);
 
     if (error) throw error;
-
     return { data, error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
   }
 };
 
-// Create appointment
+// ── Updated to accept specialization, service_id, service_name ──
 export const createAppointment = async (
-  appointmentData: AppointmentInsert,
+  appointmentData: AppointmentInsert & {
+    specialization?: string | null;
+    service_id?: string | null;
+    service_name?: string | null;
+  },
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
@@ -104,14 +96,12 @@ export const createAppointment = async (
       .single();
 
     if (error) throw error;
-
     return { data, error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
   }
 };
 
-// Update appointment
 export const updateAppointment = async (
   id: string,
   appointmentData: AppointmentUpdate,
@@ -125,75 +115,60 @@ export const updateAppointment = async (
       .single();
 
     if (error) throw error;
-
     return { data, error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
   }
 };
 
-// Delete appointment
 export const deleteAppointment = async (
   id: string,
 ): Promise<{ error: string | null }> => {
   try {
     const { error } = await supabase.from('appointments').delete().eq('id', id);
-
     if (error) throw error;
-
     return { error: null };
   } catch (error) {
     return { error: handleSupabaseError(error) };
   }
 };
 
-// Cancel appointment
 export const cancelAppointment = async (
   id: string,
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
       .from('appointments')
-      .update({
-        status: 'Cancelled',
-        updated_at: new Date().toISOString(),
-      })
+      .update({ status: 'Cancelled', updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-
     return { data, error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
   }
 };
 
-// Complete appointment
 export const completeAppointment = async (
   id: string,
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
       .from('appointments')
-      .update({
-        status: 'Completed',
-        updated_at: new Date().toISOString(),
-      })
+      .update({ status: 'Completed', updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-
     return { data, error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
   }
 };
 
-// Approve a pending appointment (admin only) - notifies the assigned doctor
 export const approveAppointment = async (
   id: string,
 ): Promise<{ data: Appointment | null; error: string | null }> => {
@@ -206,52 +181,50 @@ export const approveAppointment = async (
       .single();
 
     if (error) throw error;
-
-    // Notify the assigned doctor/staff
-    if (data?.doctor_id) {
-      await createNotification({
-        staff_id: data.doctor_id,
-        title: 'Appointment Approved',
-        message: `Your appointment request for patient "${data.patient_name}" on ${new Date(data.appointment_date).toLocaleDateString()} at ${data.appointment_time} has been approved by admin.`,
-        type: 'success',
-      });
-    }
-
     return { data, error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
   }
 };
 
-// Accept an admin-assigned appointment (staff/doctor only) - notifies admin
 export const acceptAssignedAppointment = async (
   id: string,
+  doctorId: string,
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
       .from('appointments')
-      .update({ status: 'Approved', updated_at: new Date().toISOString() })
+      .update({
+        status: 'Approved',
+        doctor_id: doctorId,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', id)
-      .select()
-      .single();
+      .is('doctor_id', null)
+      .select();
 
     if (error) throw error;
 
-    // Notify admin (staff_id: null = broadcast to admins)
+    if (!data || data.length === 0) {
+      return {
+        data: null,
+        error: 'Appointment was already claimed by another doctor.',
+      };
+    }
+
     await createNotification({
       staff_id: null,
       title: 'Appointment Accepted by Doctor',
-      message: `The appointment for patient "${data.patient_name}" on ${new Date(data.appointment_date).toLocaleDateString()} at ${data.appointment_time} has been accepted by the assigned doctor.`,
+      message: `The appointment for patient "${data[0].patient_name}" on ${new Date(data[0].appointment_date).toLocaleDateString()} at ${data[0].appointment_time} has been accepted by a doctor.`,
       type: 'success',
     });
 
-    return { data, error: null };
+    return { data: data[0], error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
   }
 };
 
-// Reject a pending appointment (admin only) - notifies the assigned doctor
 export const rejectAppointment = async (
   id: string,
   reason?: string,
@@ -281,7 +254,6 @@ export const rejectAppointment = async (
   }
 };
 
-// Staff rejects an admin-assigned appointment - notifies admin
 export const rejectAssignedAppointment = async (
   id: string,
 ): Promise<{ data: Appointment | null; error: string | null }> => {
@@ -308,8 +280,6 @@ export const rejectAssignedAppointment = async (
   }
 };
 
-// Start an appointment — sets status to 'Accepted' (in-progress)
-// The caller is responsible for also setting the doctor's duty_status to 'On Duty'
 export const startAppointment = async (
   id: string,
 ): Promise<{ data: Appointment | null; error: string | null }> => {
@@ -336,7 +306,6 @@ export const startAppointment = async (
   }
 };
 
-// Mark appointment as No Show
 export const noShowAppointment = async (
   id: string,
 ): Promise<{ data: Appointment | null; error: string | null }> => {
@@ -363,7 +332,6 @@ export const noShowAppointment = async (
   }
 };
 
-// Reschedule an appointment — updates date/time, keeps status 'Approved'
 export const rescheduleAppointment = async (
   id: string,
   newDate: string,
@@ -397,7 +365,6 @@ export const rescheduleAppointment = async (
   }
 };
 
-// Get appointment statistics
 export const getAppointmentStats = async (): Promise<{
   data: {
     total: number;
@@ -412,7 +379,6 @@ export const getAppointmentStats = async (): Promise<{
     const { data, error } = await supabase
       .from('appointments')
       .select('status');
-
     if (error) throw error;
 
     const stats = {

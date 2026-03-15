@@ -13,6 +13,7 @@ interface AuthContextType {
     password: string,
   ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
   isAdmin: boolean;
   isStaff: boolean;
 }
@@ -36,22 +37,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [userRole, setUserRole] = useState<'admin' | 'staff' | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch staff profile when user changes
   const fetchStaffProfile = async (userId: string) => {
     let profileTimer: ReturnType<typeof setTimeout> | null = null;
     try {
       console.log('Fetching staff profile for user_id:', userId);
-      // timeout wrapper to prevent hanging
       const profilePromise = supabase
         .from('staff')
         .select('*')
         .eq('user_id', userId)
         .single();
       const timeout = new Promise<null>((_, rej) => {
-        profileTimer = setTimeout(() => rej(new Error('staff profile fetch timeout')), 5000);
+        profileTimer = setTimeout(
+          () => rej(new Error('staff profile fetch timeout')),
+          5000,
+        );
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await Promise.race([profilePromise, timeout]) as { data: Staff | null; error: any };
+      const { data, error } = (await Promise.race([
+        profilePromise,
+        timeout,
+      ])) as { data: Staff | null; error: any };
 
       if (profileTimer) clearTimeout(profileTimer);
 
@@ -79,9 +84,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Initialize auth state. We explicitly fetch the current session on mount
-  // then subscribe to changes to keep state updated. The explicit getSession call
-  // ensures `loading` is cleared even if onAuthStateChange doesn't fire immediately.
+  // Refreshes the staffProfile from the database without requiring a re-login.
+  // Call this after an admin updates a staff member's department/role so the
+  // logged-in doctor's profile reflects the latest values immediately.
+  const refreshProfile = async () => {
+    if (!user) return;
+    try {
+      const profile = await fetchStaffProfile(user.id);
+      if (profile) {
+        setStaffProfile(profile);
+        setUserRole(profile.user_role as 'admin' | 'staff');
+      }
+    } catch (error) {
+      console.warn('refreshProfile failed:', error);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     let lastFetchedUserId: string | null = null;
@@ -89,10 +107,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const refreshSessionFromStorage = async () => {
       console.log('AuthContext: checking stored session');
       try {
-        // Just get the session that's stored - don't try to refresh the token
-        // Supabase handles token refresh automatically via autoRefreshToken
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
         if (sessionError) {
           console.error('Session fetch error:', sessionError);
           setUser(null);
@@ -106,17 +125,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         if (session?.user) {
           console.log('AuthContext: session found in storage', session.user.id);
           setUser(session.user);
-          
-          // Fetch profile but don't fail the entire auth if profile fetch fails
+
           try {
             const profile = await fetchStaffProfile(session.user.id);
             if (mounted) {
               setStaffProfile(profile);
-              setUserRole(profile?.user_role as 'admin' | 'staff' ?? null);
+              setUserRole((profile?.user_role as 'admin' | 'staff') ?? null);
             }
           } catch (profileErr) {
-            console.warn('Profile fetch failed but keeping user logged in:', profileErr);
-            // Keep the user logged in even if profile fetch fails
+            console.warn(
+              'Profile fetch failed but keeping user logged in:',
+              profileErr,
+            );
             if (mounted) {
               setStaffProfile(null);
               setUserRole(null);
@@ -143,8 +163,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       console.log('AuthContext: starting initial session fetch');
       const result = await refreshSessionFromStorage();
       if (result && lastFetchedUserId === null) {
-        // Get the current session to set lastFetchedUserId
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         if (session?.user) {
           lastFetchedUserId = session.user.id;
         }
@@ -157,34 +178,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     init();
 
-    // Listen for visibility changes - when user switches back to this tab, just verify session
     const handleVisibilityChange = () => {
       if (document.hidden) {
         console.log('AuthContext: tab hidden');
       } else {
         console.log('AuthContext: tab visible - quick session check');
-        // Just do a quick non-blocking check
-        // If session is gone but we think user is logged in, refresh
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          if (mounted && !session?.user) {
-            console.log('AuthContext: session lost on tab return');
-            refreshSessionFromStorage();
-          }
-        }).catch(err => {
-          console.warn('Session check failed:', err);
-        });
+        supabase.auth
+          .getSession()
+          .then(({ data: { session } }) => {
+            if (mounted && !session?.user) {
+              console.log('AuthContext: session lost on tab return');
+              refreshSessionFromStorage();
+            }
+          })
+          .catch((err) => {
+            console.warn('Session check failed:', err);
+          });
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Also set up periodic session validation every 30 minutes to keep session alive
-    const sessionCheckInterval = setInterval(async () => {
-      if (!document.hidden && mounted) {
-        console.log('AuthContext: periodic session check (30 min)');
-        await refreshSessionFromStorage();
-      }
-    }, 30 * 60 * 1000); // 30 minutes
+    const sessionCheckInterval = setInterval(
+      async () => {
+        if (!document.hidden && mounted) {
+          console.log('AuthContext: periodic session check (30 min)');
+          await refreshSessionFromStorage();
+        }
+      },
+      30 * 60 * 1000,
+    );
 
     const {
       data: { subscription },
@@ -195,7 +218,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(session?.user ?? null);
       setLoading(false);
 
-      // Only fetch profile if the user ID changed
       if (session?.user && session.user.id !== lastFetchedUserId) {
         console.log('AuthContext: user ID changed, fetching new profile');
         lastFetchedUserId = session.user.id;
@@ -209,7 +231,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           console.warn('Error fetching staff profile:', error);
         }
       } else if (!session?.user) {
-        // User logged out
         lastFetchedUserId = null;
         if (mounted) {
           setStaffProfile(null);
@@ -233,18 +254,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     let signInTimer: ReturnType<typeof setTimeout> | null = null;
     try {
       console.log('Attempting sign in for:', email);
-      
-      // race sign-in with a short timeout to avoid infinite hangs
+
       const signInPromise = supabase.auth.signInWithPassword({
         email,
         password,
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const timeout = new Promise<{ data: any; error: null }>((_, rej: (reason?: Error) => void) => {
-        signInTimer = setTimeout(() => rej(new Error('signIn timeout')), 10000);
-      });
+      const timeout = new Promise<{ data: any; error: null }>(
+        (_, rej: (reason?: Error) => void) => {
+          signInTimer = setTimeout(
+            () => rej(new Error('signIn timeout')),
+            10000,
+          );
+        },
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await Promise.race([signInPromise, timeout]) as { data: any; error: null };
+      const { data, error } = (await Promise.race([
+        signInPromise,
+        timeout,
+      ])) as { data: any; error: null };
 
       if (signInTimer) clearTimeout(signInTimer);
 
@@ -298,6 +326,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     loading,
     signIn,
     signOut,
+    refreshProfile,
     isAdmin: userRole === 'admin',
     isStaff: userRole === 'staff',
   };

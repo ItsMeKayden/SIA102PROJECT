@@ -20,6 +20,7 @@ export type Database = {
           appointment_time: string;
           created_at: string;
           doctor_id: string | null;
+          department?: string | null;
           id: string;
           notes: string | null;
           patient_contact: string;
@@ -32,6 +33,7 @@ export type Database = {
           appointment_time: string;
           created_at?: string;
           doctor_id?: string | null;
+          department?: string | null;
           id?: string;
           notes?: string | null;
           patient_contact: string;
@@ -44,6 +46,7 @@ export type Database = {
           appointment_time?: string;
           created_at?: string;
           doctor_id?: string | null;
+          department?: string | null;
           id?: string;
           notes?: string | null;
           patient_contact?: string;
@@ -107,7 +110,6 @@ export type Database = {
         Row: {
           serviceID: string;
           serviceName: string;
-          category: string;
           duration: string;
           price: number;
           downpayment: number;
@@ -119,7 +121,6 @@ export type Database = {
         Insert: {
           serviceID?: string;
           serviceName: string;
-          category: string;
           duration: string;
           price: number;
           downpayment: number;
@@ -131,7 +132,6 @@ export type Database = {
         Update: {
           serviceID?: string;
           serviceName?: string;
-          category?: string;
           duration?: string;
           price?: number;
           downpayment?: number;
@@ -234,6 +234,7 @@ export type Database = {
           phone: string | null;
           role: string;
           specialization: string | null;
+          department?: string | null;
           status: string;
           updated_at: string;
           user_id: string | null;
@@ -248,6 +249,7 @@ export type Database = {
           phone?: string | null;
           role: string;
           specialization?: string | null;
+          department?: string | null;
           status?: string;
           updated_at?: string;
           user_id?: string | null;
@@ -262,6 +264,7 @@ export type Database = {
           phone?: string | null;
           role?: string;
           specialization?: string | null;
+          department?: string | null;
           status?: string;
           updated_at?: string;
           user_id?: string | null;
