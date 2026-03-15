@@ -18,25 +18,50 @@ import { CircularProgress, Box } from '@mui/material';
 const theme = createTheme({
   typography: {
     fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
-    h1: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    h2: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    h3: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    h4: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    h5: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    h6: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    body1: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    body2: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
-    button: { fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif" },
+    h1: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    h2: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    h3: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    h4: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    h5: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    h6: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    body1: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    body2: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
+    button: {
+      fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+    },
   },
 });
 
-// Router Component - shows Landing or redirects to auth-required route for dashboard
+// Router Component - shows Landing or Layout based on authentication
 const MainRouter = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -47,8 +72,8 @@ const MainRouter = () => {
     return <Landing />;
   }
 
-  // If authenticated, the dashboard route will match
-  return <Navigate to="/attendance" replace />;
+  // If authenticated, show the dashboard layout with nested routes
+  return <Layout />;
 };
 
 function App() {
@@ -58,17 +83,37 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            {/* Landing page */}
-            <Route path="/" element={<MainRouter />} />
-            
-            {/* Dashboard with Layout for authenticated users */}
-            <Route element={<Layout />}>
-              <Route path="overview" element={<ProtectedRoute requireAdmin><Overview /></ProtectedRoute>} />
+            <Route path="/" element={<MainRouter />}>
+              {/* Admin-only routes */}
+              <Route
+                path="overview"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <Overview />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="staffnservices"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <StaffInformation />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="analytics"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <Analytics />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Shared routes */}
               <Route path="attendance" element={<Attendance />} />
               <Route path="appointments" element={<Appointments />} />
               <Route path="schedule" element={<Schedule />} />
-              <Route path="staffnservices" element={<ProtectedRoute requireAdmin><StaffInformation /></ProtectedRoute>} />
-              <Route path="analytics" element={<ProtectedRoute requireAdmin><Analytics /></ProtectedRoute>} />
             </Route>
 
             {/* Catch all - redirect to home */}

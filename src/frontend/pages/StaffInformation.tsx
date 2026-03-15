@@ -633,7 +633,7 @@ function StaffTab() {
                   size="small"
                   type={type}
                   placeholder={placeholder}
-                  value={(formData as any)[key]}
+                  value={formData[key as keyof StaffFormData]}
                   onChange={(e) =>
                     setFormData({ ...formData, [key]: e.target.value })
                   }
@@ -673,7 +673,7 @@ function StaffTab() {
                 </label>
                 <FormControl fullWidth size="small">
                   <Select
-                    value={(formData as any)[key]}
+                    value={formData[key as keyof StaffFormData]}
                     onChange={(e) =>
                       setFormData({ ...formData, [key]: e.target.value })
                     }
@@ -1670,6 +1670,8 @@ function StaffInformation() {
               minHeight: '40px',
               padding: '8px 16px',
               color: '#6b7280',
+              outline: 'none',
+              '&:focus-visible': { outline: 'none' },
               '&.Mui-selected': { color: '#2563EB' },
             },
           }}
