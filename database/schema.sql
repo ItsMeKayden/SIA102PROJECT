@@ -438,7 +438,9 @@ CREATE TABLE IF NOT EXISTS Subsystem2.schedule_conflicts (
 -- 1. FIX APPOINTMENTS RLS: Allow staff to INSERT appointments
 -- =====================================================
 
-CREATE POLICY IF NOT EXISTS "Staff can insert appointments for fixes" ON Subsystem2.appointments
+DROP POLICY IF EXISTS "Staff can insert appointments for fixes" ON Subsystem2.appointments;
+
+CREATE POLICY "Staff can insert appointments for fixes" ON Subsystem2.appointments
     FOR INSERT WITH CHECK (
         EXISTS (
             SELECT 1 FROM Subsystem2.staff
