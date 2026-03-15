@@ -500,8 +500,8 @@ GRANT EXECUTE ON FUNCTION delete_auth_user(UUID) TO authenticated;
 -- 4. ENABLE REALTIME REPLICATION FOR LIVE DASHBOARD UPDATES
 -- =====================================================
 
-ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS Subsystem2.staff;
-ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS Subsystem2.appointments;
+ALTER PUBLICATION supabase_realtime ADD TABLE Subsystem2.staff;
+ALTER PUBLICATION supabase_realtime ADD TABLE Subsystem2.appointments;
 
 -- =====================================================
 -- CREATE PUBLIC VIEWS FOR BACKWARD COMPATIBILITY
