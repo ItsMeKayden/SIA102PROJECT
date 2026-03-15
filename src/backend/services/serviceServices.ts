@@ -3,7 +3,8 @@ import { supabase } from '../../lib/supabase-client';
 export interface Service {
   serviceID: string;
   serviceName: string;
-  category: string;
+  department: string | null;
+  specialization: string | null;
   duration: string;
   price: number;
   downpayment: number;
@@ -34,7 +35,7 @@ export const getAllServices = async (): Promise<{
       return { data: [], error: error.message };
     }
 
-    return { data: data || [], error: null };
+    return { data: (data || []) as Service[], error: null };
   } catch (err) {
     console.error('Error:', err);
     return { data: [], error: 'Failed to fetch services' };
@@ -46,7 +47,13 @@ export const createService = async (
   data: ServiceFormData,
 ): Promise<{ error: string | null }> => {
   try {
-    const { error } = await supabase.from('services').insert([data]);
+    const { error } = await supabase.from('services').insert([
+      {
+        ...data,
+        department: data.department || null,
+        specialization: data.specialization || null,
+      },
+    ]);
 
     if (error) {
       console.error('Error creating service:', error);
@@ -68,7 +75,11 @@ export const updateService = async (
   try {
     const { error } = await supabase
       .from('services')
-      .update(data)
+      .update({
+        ...data,
+        department: data.department || null,
+        specialization: data.specialization || null,
+      })
       .eq('serviceID', id);
 
     if (error) {
@@ -102,5 +113,55 @@ export const deleteService = async (
   } catch (err) {
     console.error('Error:', err);
     return { error: 'Failed to delete service' };
+  }
+};
+
+// Get all unique departments from the staff table
+export const getAllDepartments = async (): Promise<{
+  data: string[];
+  error: string | null;
+}> => {
+  try {
+    const { data, error } = await supabase
+      .from('staff')
+      .select('department')
+      .not('department', 'is', null);
+
+    if (error) return { data: [], error: error.message };
+
+    const unique = [
+      ...new Set((data || []).map((s) => s.department).filter(Boolean)),
+    ] as string[];
+    unique.sort();
+    return { data: unique, error: null };
+  } catch {
+    return { data: [], error: 'Failed to fetch departments' };
+  }
+};
+
+// Get all unique specializations from the staff table, optionally filtered by department
+export const getSpecializations = async (
+  department?: string,
+): Promise<{ data: string[]; error: string | null }> => {
+  try {
+    let query = supabase
+      .from('staff')
+      .select('specialization')
+      .not('specialization', 'is', null);
+
+    if (department) {
+      query = query.eq('department', department);
+    }
+
+    const { data, error } = await query;
+    if (error) return { data: [], error: error.message };
+
+    const unique = [
+      ...new Set((data || []).map((s) => s.specialization).filter(Boolean)),
+    ] as string[];
+    unique.sort();
+    return { data: unique, error: null };
+  } catch {
+    return { data: [], error: 'Failed to fetch specializations' };
   }
 };

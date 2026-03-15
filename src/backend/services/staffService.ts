@@ -1,22 +1,53 @@
 import { createClient } from '@supabase/supabase-js';
 import { supabase, handleSupabaseError } from '../../lib/supabase-client';
-import type { Staff, StaffInsert, StaffUpdate, StaffFormData } from '../../types';
+import type {
+  Staff,
+  StaffInsert,
+  StaffUpdate,
+  StaffFormData,
+} from '../../types';
 
-// Separate non-persisting client used ONLY for creating new auth users.
-// signUp() on this client won't overwrite the admin's active session.
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ghstchmtdmcssuqpbuwe.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoc3RjaG10ZG1jc3N1cXBidXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MzQxMzcsImV4cCI6MjA4NzUxMDEzN30.L6KQdh4NJbKszr8SUocc9F14tZWizelFT_fIs-BxAPw';
-// storageKey must differ from the main client to prevent interference with the admin session
-// No Database generic here — this client is only used for auth.signUp
+export interface Service {
+  serviceID: string;
+  serviceName: string;
+  category: string;
+  duration: string;
+  price: number;
+  downpayment: number;
+  status: string;
+  description: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ServiceFormData {
+  serviceName: string;
+  category: string;
+  duration: string;
+  price: number;
+  downpayment: number;
+  status: 'Available' | 'Unavailable';
+  description: string;
+}
+
+const supabaseUrl =
+  import.meta.env.VITE_SUPABASE_URL ||
+  'https://ghstchmtdmcssuqpbuwe.supabase.co';
+const supabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoc3RjaG10ZG1jc3N1cXBidXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MzQxMzcsImV4cCI6MjA4NzUxMDEzN30.L6KQdh4NJbKszr8SUocc9F14tZWizelFT_fIs-BxAPw';
 const supabaseSignUp = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: { persistSession: false, autoRefreshToken: false, storageKey: 'sb-signup-temp' },
-}); 
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    storageKey: 'sb-signup-temp',
+  },
+});
 
-// Staff Service
-// Handles all staff-related database operations :)
-
-// Get all staff members
-export const getAllStaff = async (): Promise<{ data: Staff[] | null; error: string | null }> => {
+export const getAllStaff = async (): Promise<{
+  data: Staff[] | null;
+  error: string | null;
+}> => {
   try {
     const { data, error } = await supabase
       .from('staff')
@@ -31,8 +62,9 @@ export const getAllStaff = async (): Promise<{ data: Staff[] | null; error: stri
   }
 };
 
-// Get staff by ID
-export const getStaffById = async (id: string): Promise<{ data: Staff | null; error: string | null }> => {
+export const getStaffById = async (
+  id: string,
+): Promise<{ data: Staff | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
       .from('staff')
@@ -48,8 +80,9 @@ export const getStaffById = async (id: string): Promise<{ data: Staff | null; er
   }
 };
 
-// Get staff by department
-export const getStaffByDepartment = async (department: string): Promise<{ data: Staff[] | null; error: string | null }> => {
+export const getStaffByDepartment = async (
+  department: string,
+): Promise<{ data: Staff[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
       .from('staff')
@@ -65,8 +98,9 @@ export const getStaffByDepartment = async (department: string): Promise<{ data: 
   }
 };
 
-// Get staff by status
-export const getStaffByStatus = async (status: string): Promise<{ data: Staff[] | null; error: string | null }> => {
+export const getStaffByStatus = async (
+  status: string,
+): Promise<{ data: Staff[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
       .from('staff')
@@ -82,34 +116,38 @@ export const getStaffByStatus = async (status: string): Promise<{ data: Staff[] 
   }
 };
 
-// Create new staff member
-export const createStaff = async (staffData: StaffFormData): Promise<{ data: Staff | null; error: string | null }> => {
+export const createStaff = async (
+  staffData: StaffFormData,
+): Promise<{ data: Staff | null; error: string | null }> => {
   try {
-    // Use the non-persisting client so signUp doesn't replace the admin's session
-    const { data: authData, error: authError } = await supabaseSignUp.auth.signUp({
-      email: staffData.email,
-      password: 'clinika123',
-    });
+    const { data: authData, error: authError } =
+      await supabaseSignUp.auth.signUp({
+        email: staffData.email,
+        password: 'clinika123',
+      });
 
     if (authError) {
-      return { data: null, error: `Failed to create user account: ${authError.message}` };
+      return {
+        data: null,
+        error: `Failed to create user account: ${authError.message}`,
+      };
     }
 
     if (!authData.user) {
       return { data: null, error: 'Failed to create user account' };
     }
 
-    // Transform StaffFormData to StaffInsert
     const insertData: StaffInsert = {
       name: staffData.name,
       email: staffData.email,
       role: staffData.role,
       specialization: staffData.specialization || null,
+      department: staffData.department || null, // ← added
       status: staffData.status,
       phone: staffData.phone || null,
-      user_id: authData.user.id, // Link to auth user
-      user_role: 'staff', // Default role is staff
-      duty_status: 'Off Duty', // Default duty status
+      user_id: authData.user.id,
+      user_role: 'staff',
+      duty_status: 'Off Duty',
     };
 
     const { data, error } = await supabase
@@ -119,9 +157,10 @@ export const createStaff = async (staffData: StaffFormData): Promise<{ data: Sta
       .single();
 
     if (error) {
-      // If staff record creation fails, best effort: try to clean up auth user
-      // (requires service role - may silently fail, but staff record won't exist)
-      console.error('Staff record creation failed after auth user was created:', error);
+      console.error(
+        'Staff record creation failed after auth user was created:',
+        error,
+      );
       throw error;
     }
 
@@ -131,18 +170,20 @@ export const createStaff = async (staffData: StaffFormData): Promise<{ data: Sta
   }
 };
 
-// Update staff member
-export const updateStaff = async (id: string, staffData: StaffFormData): Promise<{ data: Staff | null; error: string | null }> => {
+export const updateStaff = async (
+  id: string,
+  staffData: StaffFormData,
+): Promise<{ data: Staff | null; error: string | null }> => {
   try {
-    // Transform StaffFormData to StaffUpdate
     const updateData: StaffUpdate = {
       name: staffData.name,
       email: staffData.email,
       role: staffData.role,
       specialization: staffData.specialization || null,
+      department: staffData.department || null, // ← added
       status: staffData.status,
       phone: staffData.phone || null,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     };
 
     const { data, error } = await supabase
@@ -160,10 +201,10 @@ export const updateStaff = async (id: string, staffData: StaffFormData): Promise
   }
 };
 
-// Delete staff member (also deletes the linked auth user via RPC)
-export const deleteStaff = async (id: string): Promise<{ error: string | null }> => {
+export const deleteStaff = async (
+  id: string,
+): Promise<{ error: string | null }> => {
   try {
-    // Fetch the user_id linked to this staff record first
     const { data: staffRecord, error: fetchError } = await supabase
       .from('staff')
       .select('user_id')
@@ -172,7 +213,6 @@ export const deleteStaff = async (id: string): Promise<{ error: string | null }>
 
     if (fetchError) throw fetchError;
 
-    // Delete the staff record from the table
     const { error: deleteError } = await supabase
       .from('staff')
       .delete()
@@ -180,13 +220,18 @@ export const deleteStaff = async (id: string): Promise<{ error: string | null }>
 
     if (deleteError) throw deleteError;
 
-    // Delete the matching auth user (requires the delete_auth_user RPC in the DB)
     if (staffRecord?.user_id) {
-      const { error: authDeleteError } = await supabase.rpc('delete_auth_user', {
-        target_user_id: staffRecord.user_id,
-      });
+      const { error: authDeleteError } = await supabase.rpc(
+        'delete_auth_user',
+        {
+          target_user_id: staffRecord.user_id,
+        },
+      );
       if (authDeleteError) {
-        console.error('Auth user deletion failed (staff record was already deleted):', authDeleteError);
+        console.error(
+          'Auth user deletion failed (staff record was already deleted):',
+          authDeleteError,
+        );
       }
     }
 
@@ -196,13 +241,16 @@ export const deleteStaff = async (id: string): Promise<{ error: string | null }>
   }
 };
 
-// Search staff
-export const searchStaff = async (query: string): Promise<{ data: Staff[] | null; error: string | null }> => {
+export const searchStaff = async (
+  query: string,
+): Promise<{ data: Staff[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
       .from('staff')
       .select('*')
-      .or(`name.ilike.%${query}%,role.ilike.%${query}%,department.ilike.%${query}%`)
+      .or(
+        `name.ilike.%${query}%,role.ilike.%${query}%,department.ilike.%${query}%`,
+      )
       .order('name');
 
     if (error) throw error;
@@ -213,8 +261,10 @@ export const searchStaff = async (query: string): Promise<{ data: Staff[] | null
   }
 };
 
-// Update duty status for a staff member (e.g. set 'On Duty' when starting an appointment)
-export const updateDutyStatus = async (id: string, dutyStatus: string): Promise<{ data: Staff | null; error: string | null }> => {
+export const updateDutyStatus = async (
+  id: string,
+  dutyStatus: string,
+): Promise<{ data: Staff | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
       .from('staff')
@@ -231,10 +281,14 @@ export const updateDutyStatus = async (id: string, dutyStatus: string): Promise<
   }
 };
 
-// Get staff count by status
-export const getStaffCountByStatus = async (): Promise<{ 
-  data: { total: number; onDuty: number; offDuty: number; onLeave: number } | null; 
-  error: string | null 
+export const getStaffCountByStatus = async (): Promise<{
+  data: {
+    total: number;
+    onDuty: number;
+    offDuty: number;
+    onLeave: number;
+  } | null;
+  error: string | null;
 }> => {
   try {
     const { data: allStaff, error } = await supabase
@@ -245,9 +299,15 @@ export const getStaffCountByStatus = async (): Promise<{
 
     const counts = {
       total: allStaff?.length || 0,
-      onDuty: allStaff?.filter((s: { status: string }) => s.status === 'On Duty').length || 0,
-      offDuty: allStaff?.filter((s: { status: string }) => s.status === 'Off Duty').length || 0,
-      onLeave: allStaff?.filter((s: { status: string }) => s.status === 'On Leave').length || 0,
+      onDuty:
+        allStaff?.filter((s: { status: string }) => s.status === 'On Duty')
+          .length || 0,
+      offDuty:
+        allStaff?.filter((s: { status: string }) => s.status === 'Off Duty')
+          .length || 0,
+      onLeave:
+        allStaff?.filter((s: { status: string }) => s.status === 'On Leave')
+          .length || 0,
     };
 
     return { data: counts, error: null };
