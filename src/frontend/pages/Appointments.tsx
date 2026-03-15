@@ -1,10 +1,6 @@
 ﻿import '../styles/Pages.css';
 import { useState, useEffect } from 'react';
 import {
-  getAllDepartments,
-  getSpecializations,
-} from '../../backend/services/serviceServices';
-import {
   Box,
   Typography,
   Table,
@@ -312,7 +308,7 @@ function Appointments() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-  const [stats, setStats] = useState({
+  const [, setStats] = useState({
     total: 0,
     pending: 0,
     scheduled: 0,

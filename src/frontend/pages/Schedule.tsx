@@ -221,13 +221,15 @@ function Schedule() {
       const appointmentResult = await getAllAppointments();
       const appointments = appointmentResult.data ?? [];
 
-      const workDays = [1, 2, 3, 4, 5];
+      const workDays = [0, 1, 2, 3, 4, 5, 6];
       const appointmentCounts: Record<number, number> = {
+        0: 0,
         1: 0,
         2: 0,
         3: 0,
         4: 0,
         5: 0,
+        6: 0,
       };
 
       const cutoff = new Date();
@@ -245,6 +247,7 @@ function Schedule() {
 
       const maxCount = Math.max(...workDays.map((d) => appointmentCounts[d] || 0));
       const desiredMaxStaffPerDay = Math.min(activeStaff.length, 4);
+      const minStaffPerDay = Math.min(2, activeStaff.length);
 
       const dayTargets: Record<number, number> = {};
       for (const day of workDays) {
@@ -252,10 +255,11 @@ function Schedule() {
         let target = 0;
 
         if (maxCount <= 0) {
-          target = Math.min(2, activeStaff.length);
+          target = minStaffPerDay;
         } else {
+          // Scale staffing by relative appointment volume, but never go below the minimum.
           target = Math.max(
-            1,
+            minStaffPerDay,
             Math.round((count / maxCount) * desiredMaxStaffPerDay),
           );
         }
@@ -470,11 +474,14 @@ function Schedule() {
 
   const operationalAlerts = (() => {
     const alerts: OperationalAlert[] = [];
-    const workDays = [1, 2, 3, 4, 5];
+    const workDays = [0, 1, 2, 3, 4, 5, 6];
     const activeSchedules = schedules.filter((s) => s.is_active);
     const activeStaff = staff.filter((s) => s.status === 'Active');
+    const activeNonAdminStaff = activeStaff.filter(
+      (s) => !s.role?.toLowerCase().includes('admin'),
+    );
     const workDaySchedules = activeSchedules.filter(
-      (s) => s.day_of_week >= 1 && s.day_of_week <= 5,
+      (s) => s.day_of_week >= 0 && s.day_of_week <= 6,
     );
 
     // 1. Short-staffed days (< 2 staff on a working day)
@@ -550,7 +557,7 @@ function Schedule() {
 
     // 5. Active staff with no schedule at all
     const scheduledStaffIds = new Set(activeSchedules.map((s) => s.staff_id));
-    const unscheduled = activeStaff.filter((s) => !scheduledStaffIds.has(s.id));
+    const unscheduled = activeNonAdminStaff.filter((s) => !scheduledStaffIds.has(s.id));
     if (unscheduled.length > 0) {
       alerts.push({
         id: 'unscheduled-staff',
