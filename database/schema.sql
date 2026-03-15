@@ -324,6 +324,49 @@ REVOKE ALL ON FUNCTION delete_auth_user(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION delete_auth_user(UUID) TO authenticated;
 
 -- =====================================================
+-- 18b. CREATE TRIGGER FOR AUTOMATIC STAFF PROFILE CREATION
+-- =====================================================
+
+-- Function to create a staff profile when a user signs up
+CREATE OR REPLACE FUNCTION create_staff_profile_on_signup()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO Subsystem2.staff (
+        id,
+        user_id,
+        name,
+        role,
+        email,
+        user_role,
+        status,
+        duty_status
+    ) VALUES (
+        gen_random_uuid(),
+        NEW.id,
+        COALESCE(NEW.user_metadata->>'name', NEW.email, 'New Staff'),
+        'Staff',
+        NEW.email,
+        'staff',
+        'Active',
+        'Off Duty'
+    )
+    ON CONFLICT (user_id) DO NOTHING;
+    RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+    -- Log the error but don't fail the auth signup
+    RAISE WARNING 'Error creating staff profile: %', SQLERRM;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = Subsystem2;
+
+-- Create trigger on auth.users table
+DROP TRIGGER IF EXISTS on_auth_user_signup ON auth.users;
+CREATE TRIGGER on_auth_user_signup
+    AFTER INSERT ON auth.users
+    FOR EACH ROW
+    EXECUTE FUNCTION create_staff_profile_on_signup();
+
+-- =====================================================
 -- 19. ENABLE REALTIME REPLICATION
 -- =====================================================
 ALTER PUBLICATION supabase_realtime ADD TABLE Subsystem2.staff;
