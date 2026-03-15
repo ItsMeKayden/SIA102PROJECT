@@ -50,7 +50,7 @@ export const getAllStaff = async (): Promise<{
 }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.staff')
+      .from('staff')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -67,7 +67,7 @@ export const getStaffById = async (
 ): Promise<{ data: Staff | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.staff')
+      .from('staff')
       .select('*')
       .eq('id', id)
       .single();
@@ -85,7 +85,7 @@ export const getStaffByDepartment = async (
 ): Promise<{ data: Staff[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.staff')
+      .from('staff')
       .select('*')
       .eq('department', department)
       .order('name');
@@ -103,7 +103,7 @@ export const getStaffByStatus = async (
 ): Promise<{ data: Staff[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.staff')
+      .from('staff')
       .select('*')
       .eq('status', status)
       .order('name');
@@ -151,7 +151,7 @@ export const createStaff = async (
     };
 
     const { data, error } = await supabase
-      .from('Subsystem2.staff')
+      .from('staff')
       .insert(insertData)
       .select()
       .single();
@@ -187,7 +187,7 @@ export const updateStaff = async (
     };
 
     const { data, error } = await supabase
-      .from('Subsystem2.staff')
+      .from('staff')
       .update(updateData)
       .eq('id', id)
       .select()
@@ -206,7 +206,7 @@ export const deleteStaff = async (
 ): Promise<{ error: string | null }> => {
   try {
     const { data: staffRecord, error: fetchError } = await supabase
-      .from('Subsystem2.staff')
+      .from('staff')
       .select('user_id')
       .eq('id', id)
       .single();
@@ -214,7 +214,7 @@ export const deleteStaff = async (
     if (fetchError) throw fetchError;
 
     const { error: deleteError } = await supabase
-      .from('Subsystem2.staff')
+      .from('staff')
       .delete()
       .eq('id', id);
 
@@ -246,7 +246,7 @@ export const searchStaff = async (
 ): Promise<{ data: Staff[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.staff')
+      .from('staff')
       .select('*')
       .or(
         `name.ilike.%${query}%,role.ilike.%${query}%,department.ilike.%${query}%`,
@@ -267,7 +267,7 @@ export const updateDutyStatus = async (
 ): Promise<{ data: Staff | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.staff')
+      .from('staff')
       .update({ duty_status: dutyStatus, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
@@ -292,7 +292,7 @@ export const getStaffCountByStatus = async (): Promise<{
 }> => {
   try {
     const { data: allStaff, error } = await supabase
-      .from('Subsystem2.staff')
+      .from('staff')
       .select('status');
 
     if (error) throw error;
@@ -315,3 +315,4 @@ export const getStaffCountByStatus = async (): Promise<{
     return { data: null, error: handleSupabaseError(error) };
   }
 };
+

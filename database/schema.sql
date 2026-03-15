@@ -373,34 +373,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE Subsystem2.staff;
 ALTER PUBLICATION supabase_realtime ADD TABLE Subsystem2.appointments;
 
 -- =====================================================
--- 20. CREATE PUBLIC VIEWS FOR BACKWARD COMPATIBILITY
--- =====================================================
-DROP VIEW IF EXISTS public.staff CASCADE;
-DROP VIEW IF EXISTS public.attendance CASCADE;
-DROP VIEW IF EXISTS public.appointments CASCADE;
-DROP VIEW IF EXISTS public.schedules CASCADE;
-DROP VIEW IF EXISTS public.notifications CASCADE;
-DROP VIEW IF EXISTS public.services CASCADE;
-
-CREATE OR REPLACE VIEW public.staff AS SELECT * FROM Subsystem2.staff;
-CREATE OR REPLACE VIEW public.attendance AS SELECT * FROM Subsystem2.attendance;
-CREATE OR REPLACE VIEW public.appointments AS SELECT * FROM Subsystem2.appointments;
-CREATE OR REPLACE VIEW public.schedules AS SELECT * FROM Subsystem2.schedules;
-CREATE OR REPLACE VIEW public.notifications AS SELECT * FROM Subsystem2.notifications;
-CREATE OR REPLACE VIEW public.services AS SELECT * FROM Subsystem2.services;
-
--- =====================================================
--- 21. GRANT PERMISSIONS ON VIEWS
--- =====================================================
-GRANT ALL ON public.staff TO authenticated;
-GRANT ALL ON public.attendance TO authenticated;
-GRANT ALL ON public.appointments TO authenticated;
-GRANT ALL ON public.schedules TO authenticated;
-GRANT ALL ON public.notifications TO authenticated;
-GRANT ALL ON public.services TO authenticated;
-
--- =====================================================
--- 22. INSERT DEFAULT ADMIN ACCOUNT (OPTIONAL)
+-- 20. INSERT DEFAULT ADMIN ACCOUNT (OPTIONAL)
 -- =====================================================
 -- Uncomment and modify the following to create a default admin account
 -- Note: Create the auth user first in Supabase Dashboard, then uncomment this

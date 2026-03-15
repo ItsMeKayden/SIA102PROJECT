@@ -12,7 +12,7 @@ export const getAllAppointments = async (): Promise<{
 }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .select('*')
       .order('appointment_date', { ascending: true })
       .order('appointment_time', { ascending: true });
@@ -29,7 +29,7 @@ export const getAppointmentsByDoctorId = async (
 ): Promise<{ data: Appointment[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .select('*')
       .eq('doctor_id', doctorId)
       .order('appointment_date', { ascending: true })
@@ -47,7 +47,7 @@ export const getAppointmentsByDate = async (
 ): Promise<{ data: Appointment[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .select('*')
       .eq('appointment_date', date)
       .order('appointment_time', { ascending: true });
@@ -65,7 +65,7 @@ export const getUpcomingAppointments = async (
   try {
     const today = new Date().toISOString().split('T')[0];
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .select('*')
       .gte('appointment_date', today)
       .in('status', ['Approved', 'Accepted'])
@@ -90,7 +90,7 @@ export const createAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .insert(appointmentData)
       .select()
       .single();
@@ -108,7 +108,7 @@ export const updateAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .update({ ...appointmentData, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
@@ -125,7 +125,7 @@ export const deleteAppointment = async (
   id: string,
 ): Promise<{ error: string | null }> => {
   try {
-    const { error } = await supabase.from('Subsystem2.appointments').delete().eq('id', id);
+    const { error } = await supabase.from('appointments').delete().eq('id', id);
     if (error) throw error;
     return { error: null };
   } catch (error) {
@@ -138,7 +138,7 @@ export const cancelAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .update({ status: 'Cancelled', updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
@@ -156,7 +156,7 @@ export const completeAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .update({ status: 'Completed', updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
@@ -174,7 +174,7 @@ export const approveAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .update({ status: 'Approved', updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
@@ -193,7 +193,7 @@ export const acceptAssignedAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .update({
         status: 'Approved',
         doctor_id: doctorId,
@@ -231,7 +231,7 @@ export const rejectAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .update({ status: 'Rejected', updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
@@ -259,7 +259,7 @@ export const rejectAssignedAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .update({ status: 'Rejected', updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
@@ -285,7 +285,7 @@ export const startAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .update({ status: 'Accepted', updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
@@ -311,7 +311,7 @@ export const noShowAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .update({ status: 'No Show', updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
@@ -339,7 +339,7 @@ export const rescheduleAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .update({
         appointment_date: newDate,
         appointment_time: newTime,
@@ -377,7 +377,7 @@ export const getAppointmentStats = async (): Promise<{
 }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.appointments')
+      .from('appointments')
       .select('status');
     if (error) throw error;
 
@@ -405,3 +405,4 @@ export const getAppointmentStats = async (): Promise<{
     return { data: null, error: handleSupabaseError(error) };
   }
 };
+

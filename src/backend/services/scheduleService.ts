@@ -8,7 +8,7 @@ import type { Schedule, ScheduleInsert, ScheduleUpdate } from '../../types';
 export const getAllSchedules = async (): Promise<{ data: Schedule[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.schedules')
+      .from('schedules')
       .select('*')
       .eq('is_active', true)
       .order('day_of_week', { ascending: true })
@@ -26,7 +26,7 @@ export const getAllSchedules = async (): Promise<{ data: Schedule[] | null; erro
 export const getSchedulesByStaffId = async (staffId: string): Promise<{ data: Schedule[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.schedules')
+      .from('schedules')
       .select('*')
       .eq('staff_id', staffId)
       .eq('is_active', true)
@@ -45,7 +45,7 @@ export const getSchedulesByStaffId = async (staffId: string): Promise<{ data: Sc
 export const getSchedulesByDay = async (dayOfWeek: number): Promise<{ data: Schedule[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.schedules')
+      .from('schedules')
       .select('*')
       .eq('day_of_week', dayOfWeek)
       .eq('is_active', true)
@@ -63,7 +63,7 @@ export const getSchedulesByDay = async (dayOfWeek: number): Promise<{ data: Sche
 export const createSchedule = async (scheduleData: ScheduleInsert): Promise<{ data: Schedule | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.schedules')
+      .from('schedules')
       .insert(scheduleData)
       .select()
       .single();
@@ -80,7 +80,7 @@ export const createSchedule = async (scheduleData: ScheduleInsert): Promise<{ da
 export const updateSchedule = async (id: string, scheduleData: ScheduleUpdate): Promise<{ data: Schedule | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.schedules')
+      .from('schedules')
       .update({ ...scheduleData, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
@@ -98,7 +98,7 @@ export const updateSchedule = async (id: string, scheduleData: ScheduleUpdate): 
 export const deleteSchedule = async (id: string): Promise<{ error: string | null }> => {
   try {
     const { error } = await supabase
-      .from('Subsystem2.schedules')
+      .from('schedules')
       .update({ is_active: false, updated_at: new Date().toISOString() })
       .eq('id', id);
 
@@ -120,7 +120,7 @@ export const checkScheduleConflicts = async (
 ): Promise<{ data: boolean; error: string | null }> => {
   try {
     let query = supabase
-      .from('Subsystem2.schedules')
+      .from('schedules')
       .select('*')
       .eq('staff_id', staffId)
       .eq('day_of_week', dayOfWeek)
@@ -150,7 +150,7 @@ export const getWeeklyScheduleWithStaff = async (): Promise<{
 }> => {
   try {
     const { data, error } = await supabase
-      .from('Subsystem2.schedules')
+      .from('schedules')
       .select(`
         *,
         staff:staff_id (
@@ -175,7 +175,7 @@ export const clearWeeklySchedules = async (staffIds: string[]): Promise<{ error:
   try {
     if (staffIds.length === 0) return { error: null };
     const { error } = await supabase
-      .from('Subsystem2.schedules')
+      .from('schedules')
       .update({ is_active: false, updated_at: new Date().toISOString() })
       .in('staff_id', staffIds)
       .in('day_of_week', [1, 2, 3, 4, 5])
@@ -191,10 +191,11 @@ export const clearWeeklySchedules = async (staffIds: string[]): Promise<{ error:
 export const createScheduleBulk = async (scheduleDataArray: ScheduleInsert[]): Promise<{ error: string | null }> => {
   try {
     if (scheduleDataArray.length === 0) return { error: null };
-    const { error } = await supabase.from('Subsystem2.schedules').insert(scheduleDataArray);
+    const { error } = await supabase.from('schedules').insert(scheduleDataArray);
     if (error) throw error;
     return { error: null };
   } catch (error) {
     return { error: handleSupabaseError(error) };
   }
 };
+
