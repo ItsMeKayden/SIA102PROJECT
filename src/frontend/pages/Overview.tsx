@@ -1,9 +1,9 @@
 import '../styles/Pages.css';
-import './Overview.css';
+import '../styles/Overview.css';
 import { useEffect, useState } from 'react';
-import { CircularProgress, Alert } from '@mui/material';
+import { CircularProgress, Alert, Card, CardContent, Typography, Box } from '@mui/material';
 import { getStaffCountByStatus } from '../../backend/services/staffService';
-import { getUpcomingAppointments, getAppointmentStats } from '../../backend/services/appointmentService';
+import { getUpcomingAppointments, getAppointmentStats, getAppointmentsByDate } from '../../backend/services/appointmentService';
 import { getAllAttendance } from '../../backend/services/attendanceService';
 import type { Appointment } from '../../types';
 
@@ -38,6 +38,9 @@ function Overview() {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
+      // Calculate today's date
+      const today = new Date().toISOString().split('T')[0];
+      
       // Fetch staff count
       const { data: staffCounts, error: staffError } = await getStaffCountByStatus();
       
@@ -47,18 +50,23 @@ function Overview() {
       // Fetch upcoming appointments
       const { data: upcoming, error: upcomingError } = await getUpcomingAppointments(3);
       
+      // Fetch today's appointments
+      const { data: todayAppointments, error: todayAppointmentsError } = await getAppointmentsByDate(today);
+      
       // Fetch attendance data for today
       const { data: attendanceData, error: attendanceError } = await getAllAttendance();
       
-      if (staffError || appointmentError || upcomingError || attendanceError) {
+      if (staffError || appointmentError || upcomingError || attendanceError || todayAppointmentsError) {
         setError('Failed to load dashboard data');
         return;
       }
 
       // Calculate stats
-      const today = new Date().toISOString().split('T')[0];
       const todayAttendance = attendanceData?.filter(a => a.date === today) || [];
       const presentToday = todayAttendance.filter(a => a.status === 'Present' || a.status === 'Late').length;
+      
+      // Get completed appointments for today
+      const completedToday = todayAppointments?.filter(a => a.status === 'Completed').length || 0;
       
       // Calculate attendance rate (last 30 days)
       const thirtyDaysAgo = new Date();
@@ -72,7 +80,7 @@ function Overview() {
         totalStaff: staffCounts?.total || 0,
         presentToday: presentToday,
         appointments: appointmentStats?.total || 0,
-        completedAppointments: appointmentStats?.completed || 0,
+        completedAppointments: completedToday,
       });
 
       setQuickStats({
@@ -162,39 +170,75 @@ function Overview() {
       </div>
 
       {/* Stats Cards */}
-      <div className="stats-grid">
-        <div className="stat-card stat-primary">
-          <div className="stat-icon">👥</div>
-          <div className="stat-content">
-            <h3>{stats.totalStaff}</h3>
-            <p>Total Staff</p>
-          </div>
-        </div>
-
-        <div className="stat-card stat-success">
-          <div className="stat-icon">✓</div>
-          <div className="stat-content">
-            <h3>{stats.presentToday}</h3>
-            <p>Present Today</p>
-          </div>
-        </div>
-
-        <div className="stat-card stat-info">
-          <div className="stat-icon">📅</div>
-          <div className="stat-content">
-            <h3>{stats.appointments}</h3>
-            <p>Total Appointments</p>
-          </div>
-        </div>
-
-        <div className="stat-card stat-warning">
-          <div className="stat-icon">✔️</div>
-          <div className="stat-content">
-            <h3>{stats.completedAppointments}</h3>
-            <p>Completed Today</p>
-          </div>
-        </div>
-      </div>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+          gap: 2,
+          mb: 3,
+        }}
+      >
+        {[
+          {
+            label: 'Total Staff',
+            value: stats.totalStaff,
+            bg: '#fffbeb',
+            border: '#f59e0b',
+            color: '#d97706',
+          },
+          {
+            label: 'Present Today',
+            value: stats.presentToday,
+            bg: '#f0fdf4',
+            border: '#4caf50',
+            color: '#16a34a',
+          },
+          {
+            label: 'Total Appointments',
+            value: stats.appointments,
+            bg: '#eff6ff',
+            border: '#3b82f6',
+            color: '#2563eb',
+          },
+          {
+            label: 'Completed Today',
+            value: stats.completedAppointments,
+            bg: '#f0fdf4',
+            border: '#10b981',
+            color: '#059669',
+          },
+        ].map((card) => (
+          <Card
+            key={card.label}
+            sx={{
+              background: card.bg,
+              border: `1px solid ${card.border}`,
+              borderRadius: '16px',
+              boxShadow: 'none',
+            }}
+          >
+            <CardContent sx={{ py: '8px !important', px: '16px !important' }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: '#374151',
+                  mb: 0.5,
+                  fontWeight: 500,
+                  fontSize: '12px',
+                }}
+              >
+                {card.label}
+              </Typography>
+              <Typography
+                variant="h5"
+                sx={{ color: card.color, fontWeight: 700, fontSize: '28px' }}
+              >
+                {card.value}
+              </Typography>
+            </CardContent>
+          </Card>
+        ))}
+      </Box>
 
       {/* Main Content Grid */}
       <div className="content-grid">

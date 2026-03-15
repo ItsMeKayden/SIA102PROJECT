@@ -48,7 +48,7 @@ const MainRouter = () => {
   }
 
   // If authenticated, the dashboard route will match
-  return <Navigate to="/attendance" replace />;
+  return <Navigate to="/overview" replace />;
 };
 
 function App() {

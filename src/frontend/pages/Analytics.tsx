@@ -312,7 +312,7 @@ function Analytics() {
         <Card
           sx={{
             background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%)',
-            border: '2px solid #22c55e',
+            border: '1px solid #22c55e',
             borderRadius: '12px',
           }}
         >
@@ -336,7 +336,7 @@ function Analytics() {
         <Card
           sx={{
             background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%)',
-            border: '2px solid #3b82f6',
+            border: '1px solid #3b82f6',
             borderRadius: '12px',
           }}
         >
@@ -360,7 +360,7 @@ function Analytics() {
         <Card
           sx={{
             background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%)',
-            border: '2px solid #f59e0b',
+            border: '1px solid #f59e0b',
             borderRadius: '12px',
           }}
         >
@@ -384,7 +384,7 @@ function Analytics() {
         <Card
           sx={{
             background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%)',
-            border: '2px solid #22c55e',
+            border: '1px solid #22c55e',
             borderRadius: '12px',
           }}
         >
