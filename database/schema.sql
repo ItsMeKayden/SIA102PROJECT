@@ -300,7 +300,7 @@ CREATE POLICY "Enable all operations for schedule_conflicts" ON Subsystem2.sched
 -- =====================================================
 -- 18. CREATE FUNCTIONS
 -- =====================================================
-CREATE OR REPLACE FUNCTION delete_auth_user(target_user_id UUID)
+CREATE OR REPLACE FUNCTION Subsystem2.delete_auth_user(target_user_id UUID)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -320,8 +320,8 @@ END;
 $$;
 
 -- Allow authenticated users to call this function
-REVOKE ALL ON FUNCTION delete_auth_user(UUID) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION delete_auth_user(UUID) TO authenticated;
+REVOKE ALL ON FUNCTION Subsystem2.delete_auth_user(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION Subsystem2.delete_auth_user(UUID) TO authenticated;
 
 -- =====================================================
 -- 18b. CREATE TRIGGER FOR AUTOMATIC STAFF PROFILE CREATION
