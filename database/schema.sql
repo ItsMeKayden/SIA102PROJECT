@@ -328,7 +328,7 @@ GRANT EXECUTE ON FUNCTION delete_auth_user(UUID) TO authenticated;
 -- =====================================================
 
 -- Function to create a staff profile when a user signs up
-CREATE OR REPLACE FUNCTION create_staff_profile_on_signup()
+CREATE OR REPLACE FUNCTION Subsystem2.create_staff_profile_on_signup()
 RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO Subsystem2.staff (
@@ -364,7 +364,7 @@ DROP TRIGGER IF EXISTS on_auth_user_signup ON auth.users;
 CREATE TRIGGER on_auth_user_signup
     AFTER INSERT ON auth.users
     FOR EACH ROW
-    EXECUTE FUNCTION create_staff_profile_on_signup();
+    EXECUTE FUNCTION Subsystem2.create_staff_profile_on_signup();
 
 -- =====================================================
 -- 19. ENABLE REALTIME REPLICATION
