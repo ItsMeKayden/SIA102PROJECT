@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogTitle,
@@ -22,6 +23,7 @@ interface LoginModalProps {
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ open, onClose }) => {
+  const navigate = useNavigate();
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,6 +53,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ open, onClose }) => {
         setError(signInError);
       } else {
         handleClose();
+        navigate('/attendance');
       }
     } catch (err) {
       console.error('LoginModal: unexpected error during signIn', err);

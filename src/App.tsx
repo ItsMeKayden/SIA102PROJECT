@@ -3,6 +3,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import './frontend/styles/App.css';
 import Layout from './Layout';
+import Landing from './frontend/pages/Landing';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProtectedRoute } from './frontend/components/auth/ProtectedRoute';
 import Overview from './frontend/pages/Overview';
@@ -11,7 +12,6 @@ import Attendance from './frontend/pages/Attendance';
 import Analytics from './frontend/pages/Analytics';
 import Appointments from './frontend/pages/Appointments';
 import Schedule from './frontend/pages/Schedule';
-import { StaffDashboard } from './frontend/pages/StaffDashboard';
 import { CircularProgress, Box } from '@mui/material';
 
 // Create MUI theme with Poppins font
@@ -30,9 +30,9 @@ const theme = createTheme({
   },
 });
 
-// Dashboard Router - redirects based on role
-const DashboardRouter = () => {
-  const { userRole, loading } = useAuth();
+// Router Component - shows Landing or redirects to auth-required route for dashboard
+const MainRouter = () => {
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -42,13 +42,13 @@ const DashboardRouter = () => {
     );
   }
 
-  if (userRole === 'admin') {
-    return <Overview />;
-  } else if (userRole === 'staff') {
-    return <StaffDashboard />;
+  // Show Landing if not authenticated
+  if (!user) {
+    return <Landing />;
   }
 
-  return <Overview />;
+  // If authenticated, the dashboard route will match
+  return <Navigate to="/attendance" replace />;
 };
 
 function App() {
@@ -58,21 +58,21 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-              <Route index element={<DashboardRouter />} />
-              
-              {/* Admin-only routes */}
-              <Route path="staff" element={<ProtectedRoute requireAdmin><StaffInformation /></ProtectedRoute>} />
-              <Route path="analytics" element={<ProtectedRoute requireAdmin><Analytics /></ProtectedRoute>} />
-              
-              {/* Shared routes */}
+            {/* Landing page */}
+            <Route path="/" element={<MainRouter />} />
+            
+            {/* Dashboard with Layout for authenticated users */}
+            <Route element={<Layout />}>
+              <Route path="overview" element={<ProtectedRoute requireAdmin><Overview /></ProtectedRoute>} />
               <Route path="attendance" element={<Attendance />} />
               <Route path="appointments" element={<Appointments />} />
               <Route path="schedule" element={<Schedule />} />
-
-              {/* Catch all - redirect to home */}
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="staffnservices" element={<ProtectedRoute requireAdmin><StaffInformation /></ProtectedRoute>} />
+              <Route path="analytics" element={<ProtectedRoute requireAdmin><Analytics /></ProtectedRoute>} />
             </Route>
+
+            {/* Catch all - redirect to home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

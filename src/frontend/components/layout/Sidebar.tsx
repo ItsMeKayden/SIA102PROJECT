@@ -19,7 +19,7 @@ type MenuItem = {
 };
 
 const allMenuItems: MenuItem[] = [
-  { label: 'Overview', path: '/', icon: <FiHome /> },
+  { label: 'Overview', path: 'overview', icon: <FiHome />, adminOnly: true },
   {
     label: 'Staff & Services',
     path: 'staffnservices',
@@ -40,11 +40,9 @@ const allMenuItems: MenuItem[] = [
 const Sidebar: React.FC = () => {
   const { isAdmin } = useAuth();
 
-  const menuItems = allMenuItems
-    .filter((item) => !item.adminOnly || isAdmin)
-    .map((item) =>
-      item.path === '/' && !isAdmin ? { ...item, label: 'Dashboard' } : item,
-    );
+  const menuItems = allMenuItems.filter(
+    (item) => !item.adminOnly || isAdmin
+  );
 
   return (
     <aside className="sidebar">
@@ -53,7 +51,6 @@ const Sidebar: React.FC = () => {
           <NavLink
             key={item.path}
             to={item.path}
-            end={item.path === '/'}
             className={({ isActive }) =>
               isActive ? 'menuItem active' : 'menuItem'
             }

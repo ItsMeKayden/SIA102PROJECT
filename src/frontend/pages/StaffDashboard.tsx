@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Card, CardContent, Typography, CircularProgress } from '@mui/material';
 import { FiCalendar, FiClock, FiCheckCircle, FiUsers } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,15 +11,6 @@ export const StaffDashboard: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [dutyStatus, setDutyStatus] = useState<string>(staffProfile?.duty_status || 'Off Duty');
   const [loading, setLoading] = useState(true);
-
-  const fetchData = useCallback(async () => {
-    if (!staffProfile?.id) return;
-    setLoading(true);
-    const { data } = await getAppointmentsByDoctorId(staffProfile.id);
-    if (data) setAppointments(data);
-    setLoading(false);
-  }, [staffProfile?.id]);
-
   // Fetch latest duty_status directly from DB on every mount so we never
   // show a stale value from the AuthContext (which is only fetched at login).
   useEffect(() => {
@@ -34,19 +25,34 @@ export const StaffDashboard: React.FC = () => {
       });
   }, [staffProfile?.id]);
 
-  // Initial fetch
+  // Initial fetch with proper async handling
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    let isMounted = true;
 
-  // Keep dutyStatus in sync when staffProfile changes (e.g. on login)
-  useEffect(() => {
-    if (staffProfile?.duty_status) setDutyStatus(staffProfile.duty_status);
-  }, [staffProfile?.duty_status]);
+    const performFetch = async () => {
+      if (!staffProfile?.id) return;
+      const { data } = await getAppointmentsByDoctorId(staffProfile.id);
+      if (isMounted && data) {
+        setAppointments(data);
+        setLoading(false);
+      }
+    };
+
+    performFetch();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [staffProfile?.id]);
 
   // Realtime: re-fetch appointments when any appointment assigned to this doctor changes
   useEffect(() => {
     if (!staffProfile?.id) return;
+
+    const performFetch = async () => {
+      const { data } = await getAppointmentsByDoctorId(staffProfile.id);
+      if (data) setAppointments(data);
+    };
 
     const appointmentChannel = supabase
       .channel(`dashboard-appointments-${staffProfile.id}`)
@@ -59,7 +65,7 @@ export const StaffDashboard: React.FC = () => {
           filter: `doctor_id=eq.${staffProfile.id}`,
         },
         () => {
-          fetchData();
+          performFetch();
         },
       )
       .subscribe();
@@ -67,7 +73,7 @@ export const StaffDashboard: React.FC = () => {
     return () => {
       supabase.removeChannel(appointmentChannel);
     };
-  }, [staffProfile?.id, fetchData]);
+  }, [staffProfile?.id]);
 
   // Realtime: update duty status instantly when the staff record changes
   useEffect(() => {
