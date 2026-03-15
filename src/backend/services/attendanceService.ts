@@ -141,32 +141,40 @@ export const clockIn = async (staffId: string, shift?: string): Promise<{ data: 
 };
 
 // Clock out
-export const clockOut = async (attendanceId: string): Promise<{ data: Attendance | null; error: string | null }> => {
+export const clockOut = async (staffId: string): Promise<{ data: Attendance | null; error: string | null }> => {
   try {
     const now = new Date();
     const timeStr = now.toTimeString().split(' ')[0];
+    const dateStr = now.toISOString().split('T')[0];
 
-    // Get the attendance record to calculate hours (data not needed right now)
-    const { error: fetchError } = await supabase
+    // Find the most recent attendance record for this staff_id on today's date where time_out is NULL
+    const { data: existingRecord, error: fetchError } = await supabase
       .from('attendance')
-      .select('*')
-      .eq('id', attendanceId)
+      .select('id')
+      .eq('staff_id', staffId)
+      .eq('date', dateStr)
+      .is('time_out', null)
       .single();
 
-    if (fetchError) throw fetchError;
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      // PGRST116 is "no rows returned" error
+      throw fetchError;
+    }
 
-    // Note: Hours calculation can be implemented when needed
-    // Calculate hours worked if needed:
-    // const timeIn = new Date(`2000-01-01T${attendance.time_in}`);
-    // const timeOut = new Date(`2000-01-01T${timeStr}`);
-    // const hoursWorked = (timeOut.getTime() - timeIn.getTime()) / (1000 * 60 * 60);
+    if (!existingRecord) {
+      // No open attendance record found - cannot clock out
+      return { 
+        data: null, 
+        error: 'No clock in record found for today. Please clock in first.' 
+      };
+    }
 
     const { data, error } = await supabase
       .from('attendance')
       .update({
         time_out: timeStr,
       })
-      .eq('id', attendanceId)
+      .eq('id', existingRecord.id)
       .select()
       .single();
 
@@ -175,6 +183,31 @@ export const clockOut = async (attendanceId: string): Promise<{ data: Attendance
     return { data, error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
+  }
+};
+
+// Check if staff is already clocked in today
+export const isStaffClockedIn = async (staffId: string): Promise<{ isClockedIn: boolean; error: string | null }> => {
+  try {
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('id')
+      .eq('staff_id', staffId)
+      .eq('date', dateStr)
+      .is('time_out', null)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 is "no rows returned" error
+      throw error;
+    }
+
+    return { isClockedIn: !!data, error: null };
+  } catch (error) {
+    return { isClockedIn: false, error: handleSupabaseError(error) };
   }
 };
 

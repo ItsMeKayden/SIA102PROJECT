@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   Table,
   TableBody,
@@ -26,7 +27,7 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
-import { FiSearch, FiX, FiTrash2, FiEdit2 } from 'react-icons/fi';
+import { FiSearch, FiX, FiTrash2, FiEdit2, FiCode } from 'react-icons/fi';
 import type { Staff, StaffFormData } from '../../types';
 import {
   getAllStaff,
@@ -79,6 +80,11 @@ function StaffTab() {
     id: string;
     name: string;
   }>({ open: false, id: '', name: '' });
+  const [qrCodeModal, setQrCodeModal] = useState<{
+    open: boolean;
+    staffId: string;
+    staffName: string;
+  }>({ open: false, staffId: '', staffName: '' });
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -239,6 +245,24 @@ function StaffTab() {
       showSnackbar(error, 'error');
       fetchStaff();
     } else showSnackbar('Staff member deleted successfully', 'success');
+  };
+
+  const handleGenerateQRCode = (staffId: string, staffName: string) => {
+    setQrCodeModal({ open: true, staffId, staffName });
+  };
+
+  const handleDownloadQRCode = () => {
+    const qrElement = document.querySelector('#staff-qr-code');
+    if (qrElement) {
+      const canvas = qrElement.querySelector('canvas');
+      if (canvas) {
+        const url = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Staff_QR_Code_${qrCodeModal.staffName}.png`;
+        link.click();
+      }
+    }
   };
 
   if (loading)
@@ -551,22 +575,37 @@ function StaffTab() {
                   </Box>
                 </TableCell>
                 <TableCell sx={{ padding: '10px 8px', textAlign: 'center' }}>
-                  {staff.user_role !== 'admin' ? (
+                  <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
                     <IconButton
                       size="small"
-                      onClick={() => handleDelete(staff.id, staff.name)}
+                      onClick={() =>
+                        handleGenerateQRCode(staff.id, staff.name)
+                      }
                       sx={{
-                        color: '#ef4444',
-                        '&:hover': { backgroundColor: '#fee2e2' },
+                        color: '#3b82f6',
+                        '&:hover': { backgroundColor: '#dbeafe' },
                       }}
+                      title="Generate QR Code"
                     >
-                      <FiTrash2 size={14} />
+                      <FiCode size={14} />
                     </IconButton>
-                  ) : (
-                    <span style={{ color: '#d1d5db', fontSize: '11px' }}>
-                      —
-                    </span>
-                  )}
+                    {staff.user_role !== 'admin' ? (
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDelete(staff.id, staff.name)}
+                        sx={{
+                          color: '#ef4444',
+                          '&:hover': { backgroundColor: '#fee2e2' },
+                        }}
+                      >
+                        <FiTrash2 size={14} />
+                      </IconButton>
+                    ) : (
+                      <span style={{ color: '#d1d5db', fontSize: '11px' }}>
+                        —
+                      </span>
+                    )}
+                  </Box>
                 </TableCell>
               </TableRow>
             ))}
@@ -951,6 +990,100 @@ function StaffTab() {
             }}
           >
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* QR Code Modal */}
+      <Dialog
+        open={qrCodeModal.open}
+        onClose={() => setQrCodeModal({ open: false, staffId: '', staffName: '' })}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '18px',
+            fontWeight: 600,
+            color: '#1f2937',
+            pb: 2,
+          }}
+        >
+          Staff QR Code
+          <IconButton
+            onClick={() =>
+              setQrCodeModal({ open: false, staffId: '', staffName: '' })
+            }
+            size="small"
+          >
+            <FiX />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 3 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              p: 2,
+              backgroundColor: '#f9fafb',
+              borderRadius: '12px',
+            }}
+            id="staff-qr-code"
+          >
+            <QRCodeSVG
+              value={qrCodeModal.staffId}
+              size={256}
+              level="H"
+              includeMargin={true}
+            />
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <p
+              style={{
+                margin: '0 0 4px 0',
+                fontSize: '14px',
+                color: '#1f2937',
+                fontWeight: 500,
+              }}
+            >
+              {qrCodeModal.staffName}
+            </p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: '12px',
+                color: '#6b7280',
+              }}
+            >
+              Staff ID: {qrCodeModal.staffId}
+            </p>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+          <Button
+            onClick={() =>
+              setQrCodeModal({ open: false, staffId: '', staffName: '' })
+            }
+            sx={{ textTransform: 'none', color: '#6b7280' }}
+          >
+            Close
+          </Button>
+          <Button
+            onClick={handleDownloadQRCode}
+            variant="contained"
+            sx={{
+              textTransform: 'none',
+              backgroundColor: '#3b82f6',
+              fontWeight: 600,
+              '&:hover': { backgroundColor: '#2563eb' },
+            }}
+          >
+            Download QR Code
           </Button>
         </DialogActions>
       </Dialog>
