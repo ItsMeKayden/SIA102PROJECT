@@ -1,19 +1,6 @@
--- CLINIKA+ Database Fixes
--- Run this in Supabase SQL Editor after 001-auth-and-roles.sql
-
--- =====================================================
--- 1. FIX APPOINTMENTS RLS: Allow staff to INSERT appointments
--- =====================================================
-
--- Staff currently has no INSERT policy on appointments, which causes the
--- "new row violates row-level security policy" error when staff tries to add one.
-CREATE POLICY "Staff can insert appointments" ON public.appointments
-    FOR INSERT WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM public.staff
-            WHERE user_id = auth.uid()
-        )
-    );
+-- CONSOLIDATED INTO schema.sql
+-- This file has been merged into the main schema.sql
+-- No longer needed - use schema.sql for all schema definitions
 
 -- =====================================================
 -- 2. FIX NOTIFICATIONS RLS: Allow staff to see global notifications

@@ -26,7 +26,7 @@ export const getAllServices = async (): Promise<{
 }> => {
   try {
     const { data, error } = await supabase
-      .from('services')
+      .from('Subsystem2.services')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -47,7 +47,7 @@ export const createService = async (
   data: ServiceFormData,
 ): Promise<{ error: string | null }> => {
   try {
-    const { error } = await supabase.from('services').insert([
+    const { error } = await supabase.from('Subsystem2.services').insert([
       {
         ...data,
         department: data.department || null,
@@ -74,7 +74,7 @@ export const updateService = async (
 ): Promise<{ error: string | null }> => {
   try {
     const { error } = await supabase
-      .from('services')
+      .from('Subsystem2.services')
       .update({
         ...data,
         department: data.department || null,
@@ -100,7 +100,7 @@ export const deleteService = async (
 ): Promise<{ error: string | null }> => {
   try {
     const { error } = await supabase
-      .from('services')
+      .from('Subsystem2.services')
       .delete()
       .eq('serviceID', id);
 
@@ -123,7 +123,7 @@ export const getAllDepartments = async (): Promise<{
 }> => {
   try {
     const { data, error } = await supabase
-      .from('staff')
+      .from('Subsystem2.staff')
       .select('department')
       .not('department', 'is', null);
 
@@ -145,7 +145,7 @@ export const getSpecializations = async (
 ): Promise<{ data: string[]; error: string | null }> => {
   try {
     let query = supabase
-      .from('staff')
+      .from('Subsystem2.staff')
       .select('specialization')
       .not('specialization', 'is', null);
 

@@ -1,14 +1,6 @@
-    -- CLINIKA+ Database Schema Updates
-    -- Authentication, Roles, and Workflow Enhancements
-    -- Run this in Supabase SQL Editor after the initial schema
-
-    -- =====================================================
-    -- 1. ADD NEW FIELDS TO STAFF TABLE
-    -- =====================================================
-
-    -- Add duty_status field (current duty state)
-    ALTER TABLE public.staff 
-    ADD COLUMN IF NOT EXISTS duty_status TEXT DEFAULT 'Off Duty';
+-- CONSOLIDATED INTO schema.sql
+-- This file has been merged into the main schema.sql
+-- No longer needed - use schema.sql for all schema definitions
 
     -- Add check constraint for duty_status (using DO block to avoid errors if exists)
     DO $$ 

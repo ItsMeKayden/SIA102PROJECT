@@ -4,7 +4,7 @@ import type { Staff } from '../../types';
 // Fetch all doctors ordered by ID
 export const fetchDoctors = async (): Promise<Staff[]> => {
   const { data, error } = await supabase
-    .from('staff')
+    .from('Subsystem2.staff')
     .select('*')
     .order('id', { ascending: true });
 

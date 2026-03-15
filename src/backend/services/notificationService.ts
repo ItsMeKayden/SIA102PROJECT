@@ -14,7 +14,7 @@ export const getAllNotifications = async (
 ): Promise<{ data: Notification[] | null; error: string | null }> => {
   try {
     let query = supabase
-      .from('notifications')
+      .from('Subsystem2.notifications')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -38,7 +38,7 @@ export const getUnreadNotifications = async (
 ): Promise<{ data: Notification[] | null; error: string | null }> => {
   try {
     let query = supabase
-      .from('notifications')
+      .from('Subsystem2.notifications')
       .select('*')
       .eq('is_read', false)
       .order('created_at', { ascending: false });
@@ -63,7 +63,7 @@ export const getUnreadNotificationCount = async (
 ): Promise<{ data: number; error: string | null }> => {
   try {
     let query = supabase
-      .from('notifications')
+      .from('Subsystem2.notifications')
       .select('id', { count: 'exact' })
       .eq('is_read', false);
 
@@ -87,7 +87,7 @@ export const createNotification = async (
 ): Promise<{ data: Notification | null; error: string | null }> => {
   try {
     const { data, error } = await withTimeout(
-      supabase.from('notifications').insert(notificationData).select().single(),
+      supabase.from('Subsystem2.notifications').insert(notificationData).select().single(),
       5000,
     );
 
@@ -106,7 +106,7 @@ export const markNotificationAsRead = async (
   try {
     const { data, error } = await withTimeout(
       supabase
-        .from('notifications')
+        .from('Subsystem2.notifications')
         .update({ is_read: true })
         .eq('id', id)
         .select()
@@ -128,7 +128,7 @@ export const markAllNotificationsAsRead = async (
 ): Promise<{ error: string | null }> => {
   try {
     let query = supabase
-      .from('notifications')
+      .from('Subsystem2.notifications')
       .update({ is_read: true })
       .eq('is_read', false);
 
@@ -152,7 +152,7 @@ export const deleteNotification = async (
 ): Promise<{ error: string | null }> => {
   try {
     const { error } = await withTimeout(
-      supabase.from('notifications').delete().eq('id', id),
+      supabase.from('Subsystem2.notifications').delete().eq('id', id),
       5000,
     );
 
@@ -169,7 +169,7 @@ export const deleteReadNotifications = async (
   staffId?: string,
 ): Promise<{ error: string | null }> => {
   try {
-    let query = supabase.from('notifications').delete().eq('is_read', true);
+    let query = supabase.from('Subsystem2.notifications').delete().eq('is_read', true);
 
     if (staffId) {
       query = query.or(`staff_id.eq.${staffId},staff_id.is.null`);

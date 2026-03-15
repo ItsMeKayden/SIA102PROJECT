@@ -8,7 +8,7 @@ import type { Attendance, AttendanceInsert, AttendanceUpdate } from '../../types
 export const getAllAttendance = async (): Promise<{ data: Attendance[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('attendance')
+      .from('Subsystem2.attendance')
       .select('*')
       .order('date', { ascending: false });
 
@@ -24,7 +24,7 @@ export const getAllAttendance = async (): Promise<{ data: Attendance[] | null; e
 export const getAttendanceByStaffId = async (staffId: string): Promise<{ data: Attendance[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('attendance')
+      .from('Subsystem2.attendance')
       .select('*')
       .eq('staff_id', staffId)
       .order('date', { ascending: false });
@@ -45,7 +45,7 @@ export const getAttendanceByDateRange = async (
 ): Promise<{ data: Attendance[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('attendance')
+      .from('Subsystem2.attendance')
       .select('*')
       .eq('staff_id', staffId)
       .gte('date', startDate)
@@ -64,7 +64,7 @@ export const getAttendanceByDateRange = async (
 export const createAttendance = async (attendanceData: AttendanceInsert): Promise<{ data: Attendance | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('attendance')
+      .from('Subsystem2.attendance')
       .insert(attendanceData)
       .select()
       .single();
@@ -81,7 +81,7 @@ export const createAttendance = async (attendanceData: AttendanceInsert): Promis
 export const updateAttendance = async (id: string, attendanceData: AttendanceUpdate): Promise<{ data: Attendance | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('attendance')
+      .from('Subsystem2.attendance')
       .update(attendanceData)
       .eq('id', id)
       .select()
@@ -99,7 +99,7 @@ export const updateAttendance = async (id: string, attendanceData: AttendanceUpd
 export const deleteAttendance = async (id: string): Promise<{ error: string | null }> => {
   try {
     const { error } = await supabase
-      .from('attendance')
+      .from('Subsystem2.attendance')
       .delete()
       .eq('id', id);
 
@@ -127,7 +127,7 @@ export const clockIn = async (staffId: string, shift?: string): Promise<{ data: 
     };
 
     const { data, error } = await supabase
-      .from('attendance')
+      .from('Subsystem2.attendance')
       .insert(attendanceData)
       .select()
       .single();
@@ -148,7 +148,7 @@ export const clockOut = async (attendanceId: string): Promise<{ data: Attendance
 
     // Get the attendance record to calculate hours (data not needed right now)
     const { error: fetchError } = await supabase
-      .from('attendance')
+      .from('Subsystem2.attendance')
       .select('*')
       .eq('id', attendanceId)
       .single();
@@ -162,7 +162,7 @@ export const clockOut = async (attendanceId: string): Promise<{ data: Attendance
     // const hoursWorked = (timeOut.getTime() - timeIn.getTime()) / (1000 * 60 * 60);
 
     const { data, error } = await supabase
-      .from('attendance')
+      .from('Subsystem2.attendance')
       .update({
         time_out: timeStr,
       })
@@ -191,7 +191,7 @@ export const getAttendanceStats = async (staffId: string, startDate: string, end
 }> => {
   try {
     const { data, error } = await supabase
-      .from('attendance')
+      .from('Subsystem2.attendance')
       .select('*')
       .eq('staff_id', staffId)
       .gte('date', startDate)

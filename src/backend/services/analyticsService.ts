@@ -12,7 +12,7 @@ export const getAnalyticsStats = async (monthYear?: string): Promise<{ data: Ana
   try {
     // 1. total consultations = total number of appointments
     const { data: allAppts, error: apptError } = await supabase
-      .from('appointments')
+      .from('Subsystem2.appointments')
       .select('patient_name, status, appointment_date');
 
     if (apptError) throw apptError;
@@ -31,7 +31,7 @@ export const getAnalyticsStats = async (monthYear?: string): Promise<{ data: Ana
 
     // 2. average patients per doctor = total consultations / number of doctors
     const { data: doctorCountRes, error: docError } = await supabase
-      .from('staff')
+      .from('Subsystem2.staff')
       .select('id', { count: 'exact' })
       .eq('role', 'Doctor');
 
@@ -50,7 +50,7 @@ export const getAnalyticsStats = async (monthYear?: string): Promise<{ data: Ana
 
     // 4. attendance rate = present / total
     const { data: attendanceAll, error: attendanceError } = await supabase
-      .from('attendance')
+      .from('Subsystem2.attendance')
       .select('status, date');
 
     if (attendanceError) throw attendanceError;
@@ -95,7 +95,7 @@ export const getMonthlyConsultations = async (): Promise<{ data: { month: string
   try {
     // Group all appointments by month and count
     const { data, error } = await supabase
-      .from('appointments')
+      .from('Subsystem2.appointments')
       .select('appointment_date');
 
     if (error) throw error;
@@ -125,7 +125,7 @@ export const getMonthlyConsultations = async (): Promise<{ data: { month: string
 export const getAllAppointments = async (): Promise<{ data: { patient_name: string }[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
+      .from('Subsystem2.appointments')
       .select('patient_name');
     if (error) throw error;
     return { data, error: null };
@@ -142,13 +142,13 @@ export const getMonthlyPerformance = async (monthYear?: string): Promise<{ data:
   try {
     // Get all appointments for consultations and patient returns by month
     const { data: allAppts, error: apptError } = await supabase
-      .from('appointments')
+      .from('Subsystem2.appointments')
       .select('appointment_date, patient_name');
     if (apptError) throw apptError;
 
     // Get all attendance records by month
     const { data: attendanceAll, error: attendanceError } = await supabase
-      .from('attendance')
+      .from('Subsystem2.attendance')
       .select('date, status');
     if (attendanceError) throw attendanceError;
 
@@ -235,13 +235,13 @@ export const getWeeklyPerformance = async (monthYear: string): Promise<{ data: {
   try {
     // Get all appointments for consultations and patient returns
     const { data: allAppts, error: apptError } = await supabase
-      .from('appointments')
+      .from('Subsystem2.appointments')
       .select('appointment_date, patient_name');
     if (apptError) throw apptError;
 
     // Get all attendance records
     const { data: attendanceAll, error: attendanceError } = await supabase
-      .from('attendance')
+      .from('Subsystem2.attendance')
       .select('date, status');
     if (attendanceError) throw attendanceError;
 
