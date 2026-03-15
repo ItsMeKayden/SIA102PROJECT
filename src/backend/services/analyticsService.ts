@@ -10,7 +10,7 @@ import type { AnalyticsStats } from '../../types';
  */
 export const getAnalyticsStats = async (monthYear?: string): Promise<{ data: AnalyticsStats | null; error: string | null }> => {
   try {
-    // 1. total consultations = total number of appointments
+    // 1. total consultations = total number of completed appointments
     const { data: allAppts, error: apptError } = await supabase
       .from('appointments')
       .select('patient_name, status, appointment_date');
@@ -27,7 +27,8 @@ export const getAnalyticsStats = async (monthYear?: string): Promise<{ data: Ana
       });
     }
 
-    const totalConsultations = filteredAppts.length;
+    // Only count completed appointments
+    const totalConsultations = filteredAppts.filter((appt: { status: string }) => appt.status === 'Completed').length;
 
     // 2. average patients per doctor = total consultations / number of doctors
     const { data: doctorCountRes, error: docError } = await supabase
@@ -39,11 +40,13 @@ export const getAnalyticsStats = async (monthYear?: string): Promise<{ data: Ana
     const doctorCount = doctorCountRes?.length ?? 0;
     const avgPatientsPerDoctor = doctorCount > 0 ? totalConsultations / doctorCount : 0;
 
-    // 3. patient return rate = percentage of returning patients out of all patients
+    // 3. patient return rate = percentage of returning patients out of all patients (only from completed appointments)
     const patientCounts: { [name: string]: number } = {};
-    filteredAppts.forEach((appt: { patient_name: string }) => {
-      patientCounts[appt.patient_name] = (patientCounts[appt.patient_name] || 0) + 1;
-    });
+    filteredAppts
+      .filter((appt: { status: string }) => appt.status === 'Completed')
+      .forEach((appt: { patient_name: string }) => {
+        patientCounts[appt.patient_name] = (patientCounts[appt.patient_name] || 0) + 1;
+      });
     const totalPatients = Object.keys(patientCounts).length;
     const returningPatients = Object.values(patientCounts).filter(count => count > 1).length;
     const patientReturnRate = totalPatients > 0 ? (returningPatients / totalPatients) * 100 : 0;
@@ -93,10 +96,11 @@ export const getAnalyticsStats = async (monthYear?: string): Promise<{ data: Ana
  */
 export const getMonthlyConsultations = async (): Promise<{ data: { month: string, count: number }[] | null; error: string | null }> => {
   try {
-    // Group all appointments by month and count
+    // Group completed appointments by month and count
     const { data, error } = await supabase
       .from('appointments')
-      .select('appointment_date');
+      .select('appointment_date, status')
+      .eq('status', 'Completed');
 
     if (error) throw error;
 
@@ -140,10 +144,11 @@ export const getAllAppointments = async (): Promise<{ data: { patient_name: stri
  */
 export const getMonthlyPerformance = async (monthYear?: string): Promise<{ data: { month: string, value: number }[] | null; error: string | null }> => {
   try {
-    // Get all appointments for consultations and patient returns by month
+    // Get completed appointments for consultations and patient returns by month
     const { data: allAppts, error: apptError } = await supabase
       .from('appointments')
-      .select('appointment_date, patient_name');
+      .select('appointment_date, patient_name, status')
+      .eq('status', 'Completed');
     if (apptError) throw apptError;
 
     // Get all attendance records by month
@@ -155,7 +160,7 @@ export const getMonthlyPerformance = async (monthYear?: string): Promise<{ data:
     // Calculate metrics by month
     const monthlyMetrics: { [month: string]: { consultations: number; returnPatients: number; uniquePatients: number; attended: number; total: number } } = {};
 
-    // Group appointments by month
+    // Group completed appointments by month
     allAppts?.forEach((appt: { appointment_date: string; patient_name: string }) => {
       const date = new Date(appt.appointment_date);
       const month = date.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -233,10 +238,11 @@ export const getMonthlyPerformance = async (monthYear?: string): Promise<{ data:
  */
 export const getWeeklyPerformance = async (monthYear: string): Promise<{ data: { week: string, value: number }[] | null; error: string | null }> => {
   try {
-    // Get all appointments for consultations and patient returns
+    // Get completed appointments for consultations and patient returns
     const { data: allAppts, error: apptError } = await supabase
       .from('appointments')
-      .select('appointment_date, patient_name');
+      .select('appointment_date, patient_name, status')
+      .eq('status', 'Completed');
     if (apptError) throw apptError;
 
     // Get all attendance records
@@ -266,7 +272,7 @@ export const getWeeklyPerformance = async (monthYear: string): Promise<{ data: {
       return { weekNum, isInMonth: true };
     };
 
-    // Group appointments by week
+    // Group completed appointments by week
     allAppts?.forEach((appt: { appointment_date: string; patient_name: string }) => {
       const weekInfo = getWeekInfo(appt.appointment_date);
       if (weekInfo) {
@@ -312,13 +318,30 @@ export const getWeeklyPerformance = async (monthYear: string): Promise<{ data: {
     // Calculate performance index for each week
     const allConsultations = Object.values(weeklyMetrics).reduce((sum, m) => sum + m.consultations, 0);
     const avgConsultations = allConsultations / Object.keys(weeklyMetrics).length || 1;
+    
+    // Calculate average return rate and attendance rate for normalization
+    const totalUniquePatients = Object.values(weeklyMetrics).reduce((sum, m) => sum + m.uniquePatients, 0);
+    const totalReturningPatients = Object.values(weeklyMetrics).reduce((sum, m) => sum + m.returnPatients, 0);
+    const avgReturnRate = totalUniquePatients > 0 ? (totalReturningPatients / totalUniquePatients) * 100 : 0;
+    
+    const totalAttendance = Object.values(weeklyMetrics).reduce((sum, m) => sum + m.total, 0);
+    const totalPresent = Object.values(weeklyMetrics).reduce((sum, m) => sum + m.attended, 0);
+    const avgAttendanceRate = totalAttendance > 0 ? (totalPresent / totalAttendance) * 100 : 0;
 
     const performanceData = Object.entries(weeklyMetrics)
       .map(([week, metrics]) => {
-        const consultationScore = (metrics.consultations / avgConsultations) * 100;
-        const patientReturnScore = metrics.uniquePatients > 0 ? (metrics.returnPatients / metrics.uniquePatients) * 100 : 0;
-        const attendanceScore = metrics.total > 0 ? (metrics.attended / metrics.total) * 100 : 0;
+        // Normalize each metric relative to the average
+        const consultationScore = metrics.consultations > 0 ? (metrics.consultations / avgConsultations) * 100 : 0;
         
+        // Patient return rate for this week
+        const weekReturnRate = metrics.uniquePatients > 0 ? (metrics.returnPatients / metrics.uniquePatients) * 100 : 0;
+        const patientReturnScore = avgReturnRate > 0 ? (weekReturnRate / avgReturnRate) * 100 : 0;
+        
+        // Attendance rate for this week
+        const weekAttendanceRate = metrics.total > 0 ? (metrics.attended / metrics.total) * 100 : 0;
+        const attendanceScore = avgAttendanceRate > 0 ? (weekAttendanceRate / avgAttendanceRate) * 100 : 0;
+        
+        // Combine scores (weight: consultations 40%, return rate 30%, attendance 30%)
         const combinedScore = (consultationScore * 0.4 + patientReturnScore * 0.3 + attendanceScore * 0.3);
         
         return {
