@@ -11,3 +11,4 @@ export const fetchDoctors = async (): Promise<Staff[]> => {
   if (error) throw new Error(error.message);
   return data as Staff[];
 };
+

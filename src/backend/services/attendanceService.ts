@@ -212,3 +212,4 @@ export const getAttendanceStats = async (staffId: string, startDate: string, end
     return { data: null, error: handleSupabaseError(error) };
   }
 };
+

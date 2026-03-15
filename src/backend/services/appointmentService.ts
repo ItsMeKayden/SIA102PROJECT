@@ -405,3 +405,4 @@ export const getAppointmentStats = async (): Promise<{
     return { data: null, error: handleSupabaseError(error) };
   }
 };
+

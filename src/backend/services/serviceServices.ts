@@ -165,3 +165,4 @@ export const getSpecializations = async (
     return { data: [], error: 'Failed to fetch specializations' };
   }
 };
+

@@ -52,25 +52,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           5000,
         );
       });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      interface ProfileError {
+        code?: string;
+        message?: string;
+        details?: string;
+        hint?: string;
+      }
       const { data, error } = (await Promise.race([
         profilePromise,
         timeout,
-      ])) as { data: Staff | null; error: any };
+      ])) as { data: Staff | null; error: ProfileError | null };
 
       if (profileTimer) clearTimeout(profileTimer);
 
       if (error) {
         console.error('Error fetching staff profile:', error);
         console.error('Error details:', {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          code: (error as any).code,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          message: (error as any).message,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          details: (error as any).details,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          hint: (error as any).hint,
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
         });
         return null;
       }
@@ -259,8 +260,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email,
         password,
       });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const timeout = new Promise<{ data: any; error: null }>(
+      const timeout = new Promise<{ data: { user: User }; error: null }>(
         (_, rej: (reason?: Error) => void) => {
           signInTimer = setTimeout(
             () => rej(new Error('signIn timeout')),
@@ -268,11 +268,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           );
         },
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = (await Promise.race([
         signInPromise,
         timeout,
-      ])) as { data: any; error: null };
+      ])) as { data: { user: User }; error: null };
 
       if (signInTimer) clearTimeout(signInTimer);
 

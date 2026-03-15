@@ -86,7 +86,7 @@ function Overview() {
       setQuickStats({
         attendanceRate: Number.parseFloat(attendanceRate.toFixed(1)),
         avgDailyAppointments: appointmentStats?.total ? Math.round(appointmentStats.total / 30) : 0,
-        activeStaff: staffCounts?.active || 0,
+        activeStaff: staffCounts?.onDuty || 0,
         pendingTasks: appointmentStats?.scheduled || 0,
       });
 

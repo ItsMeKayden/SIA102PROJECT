@@ -198,3 +198,4 @@ export const createScheduleBulk = async (scheduleDataArray: ScheduleInsert[]): P
     return { error: handleSupabaseError(error) };
   }
 };
+

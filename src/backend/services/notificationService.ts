@@ -184,3 +184,4 @@ export const deleteReadNotifications = async (
     return { error: handleSupabaseError(error) };
   }
 };
+

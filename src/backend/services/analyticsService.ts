@@ -360,3 +360,4 @@ export const getWeeklyPerformance = async (monthYear: string): Promise<{ data: {
     return { data: null, error: handleSupabaseError(error) };
   }
 };
+
