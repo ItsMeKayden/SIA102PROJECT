@@ -315,4 +315,3 @@ export const getStaffCountByStatus = async (): Promise<{
     return { data: null, error: handleSupabaseError(error) };
   }
 };
-
