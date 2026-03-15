@@ -233,7 +233,7 @@ export const updateDutyStatus = async (id: string, dutyStatus: string): Promise<
 
 // Get staff count by status
 export const getStaffCountByStatus = async (): Promise<{ 
-  data: { total: number; onDuty: number; offDuty: number; onLeave: number } | null; 
+  data: { total: number; active: number; inactive: number } | null; 
   error: string | null 
 }> => {
   try {
@@ -245,9 +245,8 @@ export const getStaffCountByStatus = async (): Promise<{
 
     const counts = {
       total: allStaff?.length || 0,
-      onDuty: allStaff?.filter((s: { status: string }) => s.status === 'On Duty').length || 0,
-      offDuty: allStaff?.filter((s: { status: string }) => s.status === 'Off Duty').length || 0,
-      onLeave: allStaff?.filter((s: { status: string }) => s.status === 'On Leave').length || 0,
+      active: allStaff?.filter((s: { status: string }) => s.status === 'Active').length || 0,
+      inactive: allStaff?.filter((s: { status: string }) => s.status === 'Inactive').length || 0,
     };
 
     return { data: counts, error: null };

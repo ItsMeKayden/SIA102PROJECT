@@ -86,7 +86,7 @@ function Overview() {
       setQuickStats({
         attendanceRate: Number.parseFloat(attendanceRate.toFixed(1)),
         avgDailyAppointments: appointmentStats?.total ? Math.round(appointmentStats.total / 30) : 0,
-        activeStaff: staffCounts?.onDuty || 0,
+        activeStaff: staffCounts?.active || 0,
         pendingTasks: appointmentStats?.scheduled || 0,
       });
 
@@ -327,7 +327,7 @@ function Overview() {
             </div>
             <div className="status-item">
               <div className="status-indicator status-warning"></div>
-              <span>Next Maintenance: Feb 20, 2026</span>
+              <span>Next Maintenance: Mar 20, 2026</span>
             </div>
           </div>
         </div>
