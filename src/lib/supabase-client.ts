@@ -12,7 +12,7 @@ const supabaseAnonKey =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3Y2J1amZ3enhjbXl6emt3ZGF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1Njg0MTgsImV4cCI6MjA4OTE0NDQxOH0.hNJA299svpfxUu7iFo05W7Mj7tnyebKzt3bvU4_b2JM';
 
 // Create Supabase client with proper typing
-const supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
