@@ -398,3 +398,54 @@ GRANT ALL ON public.appointments TO authenticated;
 GRANT ALL ON public.schedules TO authenticated;
 GRANT ALL ON public.notifications TO authenticated;
 GRANT ALL ON public.services TO authenticated;
+
+-- =====================================================
+-- 22. INSERT DEFAULT ADMIN ACCOUNT (OPTIONAL)
+-- =====================================================
+-- Uncomment and modify the following to create a default admin account
+-- Note: Create the auth user first in Supabase Dashboard, then uncomment this
+
+-- INSERT INTO Subsystem2.staff (
+--     id,
+--     user_id,
+--     name,
+--     role,
+--     email,
+--     user_role,
+--     status,
+--     duty_status,
+--     created_at,
+--     updated_at
+-- ) VALUES (
+--     gen_random_uuid(),
+--     (SELECT id FROM auth.users WHERE email = 'admin@acowis.com' LIMIT 1),
+--     'Admin User',
+--     'Admin',
+--     'admin@acowis.com',
+--     'admin',
+--     'Active',
+--     'Off Duty',
+--     NOW(),
+--     NOW()
+-- )
+-- ON CONFLICT (email) DO NOTHING;
+
+-- Alternative: Insert without linking to auth user yet (can be linked later)
+-- INSERT INTO Subsystem2.staff (
+--     id,
+--     name,
+--     role,
+--     email,
+--     user_role,
+--     status,
+--     duty_status
+-- ) VALUES (
+--     gen_random_uuid(),
+--     'Admin User',
+--     'Admin',
+--     'admin@acowis.com',
+--     'admin',
+--     'Active',
+--     'Off Duty'
+-- )
+-- ON CONFLICT (email) DO NOTHING;
