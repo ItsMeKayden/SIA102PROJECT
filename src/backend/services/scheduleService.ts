@@ -206,7 +206,8 @@ export const getWeeklyScheduleWithStaff = async (): Promise<{
   }
 };
 
-// Soft-delete all Mon–Fri active schedules for the given staff IDs (used before re-balancing)
+// Soft-delete all active schedules for the given staff IDs (used before re-balancing)
+// This includes weekends since the auto-scheduler now covers all 7 days (Sun–Sat).
 export const clearWeeklySchedules = async (staffIds: string[]): Promise<{ error: string | null }> => {
   try {
     if (staffIds.length === 0) return { error: null };
@@ -214,7 +215,7 @@ export const clearWeeklySchedules = async (staffIds: string[]): Promise<{ error:
       .from('schedules')
       .update({ is_active: false, updated_at: new Date().toISOString() })
       .in('staff_id', staffIds)
-      .in('day_of_week', [1, 2, 3, 4, 5])
+      .in('day_of_week', [0, 1, 2, 3, 4, 5, 6])
       .eq('is_active', true);
     if (error) throw error;
     return { error: null };
