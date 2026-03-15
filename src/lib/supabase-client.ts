@@ -20,7 +20,6 @@ const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
     storage: window.localStorage,
   },
   db: {
-    // Supabase schema names are case-sensitive in search_path; our schema is created as lowercase.
     schema: 'subsystem2',
   },
 });
@@ -35,9 +34,12 @@ export const handleSupabaseError = (error: unknown): string => {
   }
   if (typeof error === 'object' && error !== null) {
     // Supabase usually returns a PostgrestError-like object
-    const err = error as PostgrestError | { message?: string; error_description?: string; hint?: string };
+    const err = error as
+      | PostgrestError
+      | { message?: string; error_description?: string; hint?: string };
     if (err.message) return err.message;
-    if ('error_description' in err && err.error_description) return err.error_description;
+    if ('error_description' in err && err.error_description)
+      return err.error_description;
     if (err.hint) return `${err.message || 'Database error'} - ${err.hint}`;
   }
   return 'An unknown error occurred';
