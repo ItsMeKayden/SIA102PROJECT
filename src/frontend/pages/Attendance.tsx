@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { FiClock, FiX } from 'react-icons/fi';
 import { QRScanner } from '../components/QRScanner';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   getAllAttendance,
   clockIn,
@@ -33,6 +34,7 @@ import type { Attendance as AttendanceType, AttendanceWithStaff } from '../../ty
 
 // Main Component
 function Attendance() {
+  const { userRole } = useAuth();
   const [attendanceData, setAttendanceData] = useState<AttendanceWithStaff[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +49,6 @@ function Attendance() {
   const [stats, setStats] = useState({
     present: 0,
     late: 0,
-    overtime: 0,
     compliance: 'Loading...',
   });
 
@@ -90,25 +91,15 @@ function Attendance() {
           (a: AttendanceType) => a.status === 'Late',
         ).length;
 
-        const overtime = records.filter((a: AttendanceType) => {
-          if (!a.time_in || !a.time_out) return false;
-          const start = new Date(`2000-01-01T${a.time_in}`);
-          const end = new Date(`2000-01-01T${a.time_out}`);
-          const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-          return hours > 8;
-        }).length;
-
         setStats({
           present,
           late,
-          overtime,
           compliance: late === 0 ? 'Compliant' : 'Needs Review',
         });
       } else {
         setStats({
           present: 0,
           late: 0,
-          overtime: 0,
           compliance: 'No Data',
         });
       }
@@ -330,16 +321,6 @@ function Attendance() {
               <Typography
                 sx={{
                   fontSize: '13px',
-                  color: '#3b82f6',
-                  fontWeight: 500,
-                }}
-              >
-                {stats.overtime} overtime
-              </Typography>
-              <Typography sx={{ color: '#d1d5db' }}>·</Typography>
-              <Typography
-                sx={{
-                  fontSize: '13px',
                   color: '#6366f1',
                   fontWeight: 500,
                 }}
@@ -349,43 +330,47 @@ function Attendance() {
             </Box>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              variant="contained"
-              startIcon={<FiClock size={16} />}
-              onClick={() => setQrScannerOpen(true)}
-              sx={{
-                textTransform: 'none',
-                borderRadius: '10px',
-                fontWeight: 600,
-                fontSize: '13px',
-                backgroundColor: '#10b981',
-                '&:hover': {
-                  backgroundColor: '#059669',
-                },
-                '&:active': {
-                  backgroundColor: '#10b981',
-                },
-              }}
-            >
-              Scan QR Code
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => setManualEntryOpen(true)}
-              sx={{
-                textTransform: 'none',
-                borderRadius: '10px',
-                fontWeight: 600,
-                fontSize: '13px',
-                borderColor: '#3b82f6',
-                color: '#3b82f6',
-                '&:hover': {
-                  backgroundColor: '#eff6ff',
-                },
-              }}
-            >
-              Manual Entry
-            </Button>
+            {userRole !== 'admin' && (
+              <>
+                <Button
+                  variant="contained"
+                  startIcon={<FiClock size={16} />}
+                  onClick={() => setQrScannerOpen(true)}
+                  sx={{
+                    textTransform: 'none',
+                    borderRadius: '10px',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    backgroundColor: '#10b981',
+                    '&:hover': {
+                      backgroundColor: '#059669',
+                    },
+                    '&:active': {
+                      backgroundColor: '#10b981',
+                    },
+                  }}
+                >
+                  Scan QR Code
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => setManualEntryOpen(true)}
+                  sx={{
+                    textTransform: 'none',
+                    borderRadius: '10px',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    borderColor: '#3b82f6',
+                    color: '#3b82f6',
+                    '&:hover': {
+                      backgroundColor: '#eff6ff',
+                    },
+                  }}
+                >
+                  Manual Entry
+                </Button>
+              </>
+            )}
           </Box>
         </Box>
       </Box>

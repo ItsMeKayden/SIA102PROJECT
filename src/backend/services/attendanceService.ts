@@ -4,6 +4,55 @@ import type { Attendance, AttendanceInsert, AttendanceUpdate } from '../../types
 // Attendance Backend Service
 // Handles all attendance-related database operations :)
 
+// Helper function to get day of week (0 = Sunday, 1 = Monday, etc.)
+const getDayOfWeek = (dateStr: string): number => {
+  const date = new Date(dateStr + 'T00:00:00');
+  return date.getDay();
+};
+
+// Helper function to get staff schedule for a given date
+const getStaffScheduleForDate = async (
+  staffId: string,
+  dateStr: string
+): Promise<{ start_time: string; end_time: string } | null> => {
+  try {
+    const dayOfWeek = getDayOfWeek(dateStr);
+    
+    const { data, error } = await supabase
+      .from('schedules')
+      .select('start_time, end_time')
+      .eq('staff_id', staffId)
+      .eq('day_of_week', dayOfWeek)
+      .eq('is_active', true)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 is "no rows returned" error
+      throw error;
+    }
+
+    return data || null;
+  } catch (error) {
+    console.error('Error fetching staff schedule:', error);
+    return null;
+  }
+};
+
+// Helper function to check if staff is late based on clock in time
+const isStaffLate = (clockInTime: string, scheduledStartTime: string): boolean => {
+  try {
+    const clockIn = new Date(`2000-01-01T${clockInTime}`);
+    const scheduled = new Date(`2000-01-01T${scheduledStartTime}`);
+    
+    // If clock in time is more than 1 minute after scheduled start time, it's late
+    const diffMinutes = (clockIn.getTime() - scheduled.getTime()) / (1000 * 60);
+    return diffMinutes > 1;
+  } catch (error) {
+    console.error('Error checking if late:', error);
+    return false;
+  }
+};
+
 // Get all attendance records with staff information
 export const getAllAttendance = async (): Promise<{ data: (Attendance & { staff_name?: string })[] | null; error: string | null }> => {
   try {
@@ -124,12 +173,32 @@ export const clockIn = async (staffId: string, shift?: string): Promise<{ data: 
     const dateStr = now.toISOString().split('T')[0];
     const timeStr = now.toTimeString().split(' ')[0];
 
+    // Check if staff has a schedule for today
+    const schedule = await getStaffScheduleForDate(staffId, dateStr);
+
+    // Block clock in if no schedule exists
+    if (!schedule) {
+      return {
+        data: null,
+        error: 'You are not scheduled for today. Please contact your administrator.',
+      };
+    }
+
+    // Determine status: Late or Present
+    let status = 'Present';
+    let notes = shift ? `Shift: ${shift}` : null;
+
+    if (isStaffLate(timeStr, schedule.start_time)) {
+      status = 'Late';
+      notes = shift ? `Shift: ${shift} (Late)` : 'Late';
+    }
+
     const attendanceData: AttendanceInsert = {
       staff_id: staffId,
       date: dateStr,
       time_in: timeStr,
-      status: 'Present',
-      notes: shift ? `Shift: ${shift}` : null,
+      status,
+      notes,
     };
 
     const { data, error } = await supabase
