@@ -1,8 +1,8 @@
 import { supabase } from '../../lib/supabase-client';
 
 export interface Service {
-  serviceID: string;
-  serviceName: string;
+  id: string;
+  name: string;
   department: string | null;
   specialization: string | null;
   duration: string;
@@ -14,10 +14,27 @@ export interface Service {
   updated_at?: string;
 }
 
-export type ServiceFormData = Omit<
-  Service,
-  'serviceID' | 'created_at' | 'updated_at'
->;
+export type ServiceFormData = Omit<Service, 'id' | 'created_at' | 'updated_at'>;
+
+export interface Department {
+  id: string;
+  name: string;
+  created_at?: string;
+}
+
+export interface SpecializationRecord {
+  id: string;
+  name: string;
+  department_id: string;
+  department: string;
+  created_at?: string;
+}
+
+export interface SpecializationFormData {
+  name: string;
+  department_id: string;
+  department_name: string;
+}
 
 // Get all services
 export const getAllServices = async (): Promise<{
@@ -80,7 +97,7 @@ export const updateService = async (
         department: data.department || null,
         specialization: data.specialization || null,
       })
-      .eq('serviceID', id);
+      .eq('id', id);
 
     if (error) {
       console.error('Error updating service:', error);
@@ -99,10 +116,7 @@ export const deleteService = async (
   id: string,
 ): Promise<{ error: string | null }> => {
   try {
-    const { error } = await supabase
-      .from('services')
-      .delete()
-      .eq('serviceID', id);
+    const { error } = await supabase.from('services').delete().eq('id', id);
 
     if (error) {
       console.error('Error deleting service:', error);
@@ -117,52 +131,258 @@ export const deleteService = async (
 };
 
 // Get all unique departments from the staff table
+export const getAllDepartmentsWithIds = async (): Promise<{
+  data: Department[] | null;
+  error: string | null;
+}> => {
+  try {
+    const { data, error } = await supabase
+      .from('departments')
+      .select('departmentID, departmentName, created_at')
+      .order('departmentName', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching departments:', error);
+      return { data: null, error: error.message };
+    }
+
+    const mapped: Department[] = (data || []).map((d) => ({
+      id: d.departmentID,
+      name: d.departmentName,
+      created_at: d.created_at,
+    }));
+
+    return { data: mapped, error: null };
+  } catch (err) {
+    console.error('Error:', err);
+    return { data: null, error: 'Failed to fetch departments' };
+  }
+};
+
 export const getAllDepartments = async (): Promise<{
   data: string[];
   error: string | null;
 }> => {
   try {
     const { data, error } = await supabase
-      .from('staff')
-      .select('department')
-      .not('department', 'is', null);
+      .from('departments')
+      .select('departmentName')
+      .order('departmentName', { ascending: true });
 
-    if (error) return { data: [], error: error.message };
+    if (error) {
+      console.error('Error fetching departments:', error);
+      return { data: [], error: error.message };
+    }
 
-    const unique = [
-      ...new Set((data || []).map((s) => s.department).filter(Boolean)),
-    ] as string[];
-    unique.sort();
-    return { data: unique, error: null };
-  } catch {
+    return { data: (data || []).map((d) => d.departmentName), error: null };
+  } catch (err) {
+    console.error('Error:', err);
     return { data: [], error: 'Failed to fetch departments' };
+  }
+};
+
+export const createDepartment = async (
+  name: string,
+): Promise<{ error: string | null }> => {
+  try {
+    const { error } = await supabase
+      .from('departments')
+      .insert({ departmentName: name });
+
+    if (error) {
+      console.error('Error creating department:', error);
+      return { error: error.message };
+    }
+
+    return { error: null };
+  } catch (err) {
+    console.error('Error:', err);
+    return { error: 'Failed to create department' };
+  }
+};
+
+export const updateDepartment = async (
+  id: string,
+  name: string,
+): Promise<{ error: string | null }> => {
+  try {
+    const { error } = await supabase
+      .from('departments')
+      .update({ departmentName: name })
+      .eq('departmentID', id);
+
+    if (error) {
+      console.error('Error updating department:', error);
+      return { error: error.message };
+    }
+
+    return { error: null };
+  } catch (err) {
+    console.error('Error:', err);
+    return { error: 'Failed to update department' };
+  }
+};
+
+export const deleteDepartment = async (
+  id: string,
+): Promise<{ error: string | null }> => {
+  try {
+    const { error } = await supabase
+      .from('departments')
+      .delete()
+      .eq('departmentID', id);
+
+    if (error) {
+      console.error('Error deleting department:', error);
+      return { error: error.message };
+    }
+
+    return { error: null };
+  } catch (err) {
+    console.error('Error:', err);
+    return { error: 'Failed to delete department' };
+  }
+};
+
+export const getAllSpecializationsWithIds = async (): Promise<{
+  data: SpecializationRecord[] | null;
+  error: string | null;
+}> => {
+  try {
+    const { data, error } = await supabase
+      .from('specializations')
+      .select(
+        'specializationID, specializationName, departmentID, departmentName, created_at',
+      )
+      .order('specializationName', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching specializations:', error);
+      return { data: null, error: error.message };
+    }
+
+    const mapped: SpecializationRecord[] = (data || []).map((s) => ({
+      id: s.specializationID,
+      name: s.specializationName,
+      department_id: s.departmentID,
+      department: s.departmentName ?? '',
+      created_at: s.created_at,
+    }));
+
+    return { data: mapped, error: null };
+  } catch (err) {
+    console.error('Error:', err);
+    return { data: null, error: 'Failed to fetch specializations' };
   }
 };
 
 // Get all unique specializations from the staff table, optionally filtered by department
 export const getSpecializations = async (
-  department?: string,
+  departmentName?: string,
 ): Promise<{ data: string[]; error: string | null }> => {
   try {
-    let query = supabase
-      .from('staff')
-      .select('specialization')
-      .not('specialization', 'is', null);
+    let specQuery = supabase
+      .from('specializations')
+      .select('specializationName, departmentID')
+      .order('specializationName', { ascending: true });
 
-    if (department) {
-      query = query.eq('department', department);
+    if (departmentName) {
+      const { data: deptData, error: deptError } = await supabase
+        .from('departments')
+        .select('departmentID')
+        .eq('departmentName', departmentName)
+        .single();
+
+      if (deptError || !deptData) {
+        return { data: [], error: null };
+      }
+
+      specQuery = specQuery.eq('departmentID', deptData.departmentID);
     }
 
-    const { data, error } = await query;
-    if (error) return { data: [], error: error.message };
+    const { data, error } = await specQuery;
+
+    if (error) {
+      console.error('Error fetching specializations:', error);
+      return { data: [], error: error.message };
+    }
 
     const unique = [
-      ...new Set((data || []).map((s) => s.specialization).filter(Boolean)),
+      ...new Set((data || []).map((s) => s.specializationName).filter(Boolean)),
     ] as string[];
-    unique.sort();
+
     return { data: unique, error: null };
-  } catch {
+  } catch (err) {
+    console.error('Error:', err);
     return { data: [], error: 'Failed to fetch specializations' };
   }
 };
 
+export const createSpecialization = async (
+  formData: SpecializationFormData,
+): Promise<{ error: string | null }> => {
+  try {
+    const { error } = await supabase.from('specializations').insert({
+      specializationName: formData.name,
+      departmentID: formData.department_id,
+      departmentName: formData.department_name,
+    });
+
+    if (error) {
+      console.error('Error creating specialization:', error);
+      return { error: error.message };
+    }
+
+    return { error: null };
+  } catch (err) {
+    console.error('Error:', err);
+    return { error: 'Failed to create specialization' };
+  }
+};
+
+export const updateSpecialization = async (
+  id: string,
+  formData: SpecializationFormData,
+): Promise<{ error: string | null }> => {
+  try {
+    const { error } = await supabase
+      .from('specializations')
+      .update({
+        specializationName: formData.name,
+        departmentID: formData.department_id,
+        departmentName: formData.department_name,
+      })
+      .eq('specializationID', id);
+
+    if (error) {
+      console.error('Error updating specialization:', error);
+      return { error: error.message };
+    }
+
+    return { error: null };
+  } catch (err) {
+    console.error('Error:', err);
+    return { error: 'Failed to update specialization' };
+  }
+};
+
+export const deleteSpecialization = async (
+  id: string,
+): Promise<{ error: string | null }> => {
+  try {
+    const { error } = await supabase
+      .from('specializations')
+      .delete()
+      .eq('specializationID', id);
+
+    if (error) {
+      console.error('Error deleting specialization:', error);
+      return { error: error.message };
+    }
+
+    return { error: null };
+  } catch (err) {
+    console.error('Error:', err);
+    return { error: 'Failed to delete specialization' };
+  }
+};

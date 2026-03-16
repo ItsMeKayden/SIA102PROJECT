@@ -1,8 +1,39 @@
 import { supabase, handleSupabaseError } from '../../lib/supabase-client';
+import { createNotification } from './notificationService';
 import type { Schedule, ScheduleInsert, ScheduleUpdate } from '../../types';
 
 // Schedule Service
 // Handles all schedule-related database operations :)
+
+const weekDaysFull = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const notifyDoctorNewSchedule = async (
+  staffId: string,
+  dayOfWeek: number,
+  startTime: string,
+  endTime: string,
+) => {
+  try {
+    const { data: staff, error } = await supabase
+      .from('staff')
+      .select('name, role')
+      .eq('id', staffId)
+      .single();
+
+    if (error || !staff) return;
+    const role = staff.role ?? '';
+    if (!/doctor|physician/i.test(role)) return;
+
+    await createNotification({
+      staff_id: staffId,
+      title: 'New schedule assigned',
+      message: `A new schedule has been added for ${weekDaysFull[dayOfWeek]} ${startTime}–${endTime}.`,
+      type: 'info',
+    });
+  } catch {
+    // Non-critical; ignore notification failures
+  }
+};
 
 // Get all schedules
 export const getAllSchedules = async (): Promise<{ data: Schedule[] | null; error: string | null }> => {
@@ -69,6 +100,11 @@ export const createSchedule = async (scheduleData: ScheduleInsert): Promise<{ da
       .single();
 
     if (error) throw error;
+
+    if (data) {
+      // Notify the staff (doctors) that a new schedule was added to their account
+      void notifyDoctorNewSchedule(data.staff_id, data.day_of_week, data.start_time, data.end_time);
+    }
 
     return { data, error: null };
   } catch (error) {
@@ -170,7 +206,8 @@ export const getWeeklyScheduleWithStaff = async (): Promise<{
   }
 };
 
-// Soft-delete all Mon–Fri active schedules for the given staff IDs (used before re-balancing)
+// Soft-delete all active schedules for the given staff IDs (used before re-balancing)
+// This includes weekends since the auto-scheduler now covers all 7 days (Sun–Sat).
 export const clearWeeklySchedules = async (staffIds: string[]): Promise<{ error: string | null }> => {
   try {
     if (staffIds.length === 0) return { error: null };
@@ -178,7 +215,7 @@ export const clearWeeklySchedules = async (staffIds: string[]): Promise<{ error:
       .from('schedules')
       .update({ is_active: false, updated_at: new Date().toISOString() })
       .in('staff_id', staffIds)
-      .in('day_of_week', [1, 2, 3, 4, 5])
+      .in('day_of_week', [0, 1, 2, 3, 4, 5, 6])
       .eq('is_active', true);
     if (error) throw error;
     return { error: null };
@@ -191,8 +228,42 @@ export const clearWeeklySchedules = async (staffIds: string[]): Promise<{ error:
 export const createScheduleBulk = async (scheduleDataArray: ScheduleInsert[]): Promise<{ error: string | null }> => {
   try {
     if (scheduleDataArray.length === 0) return { error: null };
-    const { error } = await supabase.from('schedules').insert(scheduleDataArray);
+
+    // Insert rows and return inserted records to allow follow-up notifications
+    const { data, error } = await supabase.from('schedules').insert(scheduleDataArray).select();
     if (error) throw error;
+
+    // Notify doctors about their new schedules
+    const inserted = data as Schedule[];
+    const doctorIds = Array.from(
+      new Set(
+        inserted.map((s) => s.staff_id).filter(Boolean) as string[],
+      ),
+    );
+    if (doctorIds.length > 0) {
+      const { data: staffRows } = await supabase
+        .from('staff')
+        .select('id, role')
+        .in('id', doctorIds);
+
+      const doctorIdSet = new Set(
+        (staffRows || [])
+          .filter((s) => /doctor|physician/i.test(s.role || ''))
+          .map((s) => s.id),
+      );
+
+      for (const schedule of inserted) {
+        if (doctorIdSet.has(schedule.staff_id)) {
+          void notifyDoctorNewSchedule(
+            schedule.staff_id,
+            schedule.day_of_week,
+            schedule.start_time,
+            schedule.end_time,
+          );
+        }
+      }
+    }
+
     return { error: null };
   } catch (error) {
     return { error: handleSupabaseError(error) };

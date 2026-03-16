@@ -41,14 +41,25 @@ import {
   updateService,
   deleteService,
   getAllDepartments,
+  getAllDepartmentsWithIds,
+  createDepartment,
+  updateDepartment,
+  deleteDepartment,
+  getAllSpecializationsWithIds,
+  createSpecialization,
+  updateSpecialization,
+  deleteSpecialization,
   getSpecializations,
   type Service,
   type ServiceFormData,
+  type Department,
+  type SpecializationRecord,
+  type SpecializationFormData,
 } from '../../backend/services/serviceServices';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 const EMPTY_SERVICE_FORM: ServiceFormData = {
-  serviceName: '',
+  name: '',
   department: '',
   specialization: '',
   duration: '',
@@ -57,6 +68,21 @@ const EMPTY_SERVICE_FORM: ServiceFormData = {
   status: 'Available',
   description: '',
 };
+
+const fieldLabel = (text: string, required = false) => (
+  <label
+    style={{
+      display: 'block',
+      marginBottom: '6px',
+      fontSize: '13px',
+      fontWeight: 500,
+      color: '#374151',
+    }}
+  >
+    {text}
+    {required && ' *'}
+  </label>
+);
 
 // ─── Staff Tab ────────────────────────────────────────────────────────────────
 function StaffTab() {
@@ -130,7 +156,6 @@ function StaffTab() {
     fetchStaff();
   }, [fetchStaff]);
 
-  // Filter specializations when department changes in form
   useEffect(() => {
     if (formData.department) {
       getSpecializations(formData.department).then(({ data }) => {
@@ -647,17 +672,7 @@ function StaffTab() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             {modalMode === 'edit' && (
               <Box>
-                <label
-                  style={{
-                    display: 'block',
-                    marginBottom: '6px',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: '#374151',
-                  }}
-                >
-                  Select Staff to Edit
-                </label>
+                {fieldLabel('Select Staff to Edit')}
                 <FormControl fullWidth size="small">
                   <Select
                     value={selectedStaffId}
@@ -699,17 +714,7 @@ function StaffTab() {
               },
             ].map(({ label, key, type, placeholder, disableOnEdit }) => (
               <Box key={key}>
-                <label
-                  style={{
-                    display: 'block',
-                    marginBottom: '6px',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: '#374151',
-                  }}
-                >
-                  {label}
-                </label>
+                {fieldLabel(label)}
                 <TextField
                   fullWidth
                   size="small"
@@ -727,20 +732,8 @@ function StaffTab() {
                 />
               </Box>
             ))}
-
-            {/* Role */}
             <Box>
-              <label
-                style={{
-                  display: 'block',
-                  marginBottom: '6px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: '#374151',
-                }}
-              >
-                Role
-              </label>
+              {fieldLabel('Role')}
               <FormControl fullWidth size="small">
                 <Select
                   value={formData.role}
@@ -760,20 +753,8 @@ function StaffTab() {
                 </Select>
               </FormControl>
             </Box>
-
-            {/* Department — dynamic from staff table */}
             <Box>
-              <label
-                style={{
-                  display: 'block',
-                  marginBottom: '6px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: '#374151',
-                }}
-              >
-                Department
-              </label>
+              {fieldLabel('Department')}
               <FormControl fullWidth size="small">
                 <Select
                   value={formData.department}
@@ -797,20 +778,8 @@ function StaffTab() {
                 </Select>
               </FormControl>
             </Box>
-
-            {/* Specialization — filtered by selected department */}
             <Box>
-              <label
-                style={{
-                  display: 'block',
-                  marginBottom: '6px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: '#374151',
-                }}
-              >
-                Specialization
-              </label>
+              {fieldLabel('Specialization')}
               <FormControl fullWidth size="small">
                 <Select
                   value={formData.specialization}
@@ -833,20 +802,8 @@ function StaffTab() {
                 </Select>
               </FormControl>
             </Box>
-
-            {/* Status */}
             <Box>
-              <label
-                style={{
-                  display: 'block',
-                  marginBottom: '6px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: '#374151',
-                }}
-              >
-                Status
-              </label>
+              {fieldLabel('Status')}
               <FormControl fullWidth size="small">
                 <Select
                   value={formData.status}
@@ -893,94 +850,13 @@ function StaffTab() {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation */}
-      <Dialog
+      <DeleteConfirmDialog
         open={deleteConfirm.open}
+        name={deleteConfirm.name}
+        title="Delete Staff Member"
         onClose={() => setDeleteConfirm({ open: false, id: '', name: '' })}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}
-      >
-        <DialogTitle
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '18px',
-            fontWeight: 600,
-            color: '#1f2937',
-            pb: 1,
-          }}
-        >
-          Delete Staff Member
-          <IconButton
-            onClick={() => setDeleteConfirm({ open: false, id: '', name: '' })}
-            size="small"
-          >
-            <FiX />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: -2 }}>
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                backgroundColor: '#fee2e2',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <FiTrash2 size={18} color="#ef4444" />
-            </Box>
-            <Box>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: '14px',
-                  color: '#1f2937',
-                  fontWeight: 500,
-                }}
-              >
-                Are you sure you want to delete{' '}
-                <strong>{deleteConfirm.name}</strong>?
-              </p>
-              <p
-                style={{
-                  margin: '4px 0 0',
-                  fontSize: '13px',
-                  color: '#6b7280',
-                }}
-              >
-                This action cannot be undone.
-              </p>
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
-          <Button
-            onClick={() => setDeleteConfirm({ open: false, id: '', name: '' })}
-            sx={{ textTransform: 'none', color: '#6b7280' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleConfirmDelete}
-            variant="contained"
-            sx={{
-              textTransform: 'none',
-              backgroundColor: '#ef4444',
-              fontWeight: 600,
-              '&:hover': { backgroundColor: '#dc2626' },
-            }}
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleConfirmDelete}
+      />
 
       {/* QR Code Modal */}
       <Dialog
@@ -1069,16 +945,7 @@ function StaffTab() {
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      />
     </>
   );
 }
@@ -1142,12 +1009,11 @@ function ServicesTab() {
     fetchServices();
   }, [fetchServices]);
 
-  // Filter specializations when department changes in modal form
   useEffect(() => {
     if (formData.department) {
-      getSpecializations(formData.department).then(({ data }) => {
-        setFilteredSpecializations(data || []);
-      });
+      getSpecializations(formData.department).then(({ data }) =>
+        setFilteredSpecializations(data || []),
+      );
     } else {
       setFilteredSpecializations([]);
     }
@@ -1159,7 +1025,6 @@ function ServicesTab() {
         You don't have permission to view this section.
       </Box>
     );
-
   if (loading)
     return (
       <Box
@@ -1176,7 +1041,7 @@ function ServicesTab() {
 
   const filtered = services.filter((s) => {
     const matchesSearch =
-      s.serviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (s.department ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (s.specialization ?? '')
         .toLowerCase()
@@ -1196,12 +1061,11 @@ function ServicesTab() {
     setEditingService(null);
     setOpenModal(true);
   };
-
   const openEditModal = (service: Service) => {
     setModalMode('edit');
     setEditingService(service);
     setFormData({
-      serviceName: service.serviceName,
+      name: service.name,
       department: service.department || '',
       specialization: service.specialization || '',
       duration: service.duration,
@@ -1214,7 +1078,7 @@ function ServicesTab() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.serviceName || !formData.duration) {
+    if (!formData.name || !formData.duration) {
       showSnackbar('Please fill in all required fields', 'error');
       return;
     }
@@ -1231,7 +1095,7 @@ function ServicesTab() {
         setOpenModal(false);
       }
     } else if (editingService) {
-      const { error } = await updateService(editingService.serviceID, formData);
+      const { error } = await updateService(editingService.id, formData);
       if (error) showSnackbar(error, 'error');
       else {
         showSnackbar('Service updated successfully', 'success');
@@ -1244,7 +1108,7 @@ function ServicesTab() {
   const handleConfirmDelete = async () => {
     const { id } = deleteConfirm;
     setDeleteConfirm({ open: false, id: '', name: '' });
-    setServices((prev) => prev.filter((s) => s.serviceID !== id));
+    setServices((prev) => prev.filter((s) => s.id !== id));
     const { error } = await deleteService(id);
     if (error) {
       showSnackbar(error, 'error');
@@ -1287,7 +1151,6 @@ function ServicesTab() {
             ),
           }}
         />
-        {/* Department filter — dynamic */}
         <FormControl
           size="small"
           sx={{
@@ -1312,7 +1175,6 @@ function ServicesTab() {
             ))}
           </Select>
         </FormControl>
-        {/* Specialization filter — dynamic */}
         <FormControl
           size="small"
           sx={{
@@ -1419,7 +1281,7 @@ function ServicesTab() {
           <TableBody>
             {filtered.map((service) => (
               <TableRow
-                key={service.serviceID}
+                key={service.id}
                 sx={{
                   '&:hover': { backgroundColor: '#f9fafb' },
                   borderBottom: '1px solid #f3f4f6',
@@ -1436,7 +1298,7 @@ function ServicesTab() {
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  {service.serviceName}
+                  {service.name}
                 </TableCell>
                 <TableCell sx={{ padding: '10px 8px' }}>
                   {service.department ? (
@@ -1572,8 +1434,8 @@ function ServicesTab() {
                       onClick={() =>
                         setDeleteConfirm({
                           open: true,
-                          id: service.serviceID,
-                          name: service.serviceName,
+                          id: service.id,
+                          name: service.name,
                         })
                       }
                       sx={{
@@ -1636,43 +1498,21 @@ function ServicesTab() {
         <DialogContent dividers sx={{ py: 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <Box>
-              <label
-                style={{
-                  display: 'block',
-                  marginBottom: '6px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: '#374151',
-                }}
-              >
-                Service Name *
-              </label>
+              {fieldLabel('Service Name', true)}
               <TextField
                 fullWidth
                 size="small"
                 placeholder="e.g. General Consultation"
-                value={formData.serviceName}
+                value={formData.name}
                 onChange={(e) =>
-                  setFormData({ ...formData, serviceName: e.target.value })
+                  setFormData({ ...formData, name: e.target.value })
                 }
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
               />
             </Box>
-
-            {/* Department + Specialization — both dynamic */}
             <Box sx={{ display: 'flex', gap: 2 }}>
               <Box sx={{ flex: 1 }}>
-                <label
-                  style={{
-                    display: 'block',
-                    marginBottom: '6px',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: '#374151',
-                  }}
-                >
-                  Department
-                </label>
+                {fieldLabel('Department')}
                 <FormControl fullWidth size="small">
                   <Select
                     value={formData.department ?? ''}
@@ -1696,17 +1536,7 @@ function ServicesTab() {
                 </FormControl>
               </Box>
               <Box sx={{ flex: 1 }}>
-                <label
-                  style={{
-                    display: 'block',
-                    marginBottom: '6px',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: '#374151',
-                  }}
-                >
-                  Specialization
-                </label>
+                {fieldLabel('Specialization')}
                 <FormControl
                   fullWidth
                   size="small"
@@ -1733,20 +1563,9 @@ function ServicesTab() {
                 </FormControl>
               </Box>
             </Box>
-
             <Box sx={{ display: 'flex', gap: 2 }}>
               <Box sx={{ flex: 1 }}>
-                <label
-                  style={{
-                    display: 'block',
-                    marginBottom: '6px',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: '#374151',
-                  }}
-                >
-                  Duration *
-                </label>
+                {fieldLabel('Duration', true)}
                 <TextField
                   fullWidth
                   size="small"
@@ -1759,17 +1578,7 @@ function ServicesTab() {
                 />
               </Box>
               <Box sx={{ flex: 1 }}>
-                <label
-                  style={{
-                    display: 'block',
-                    marginBottom: '6px',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: '#374151',
-                  }}
-                >
-                  Price (₱) *
-                </label>
+                {fieldLabel('Price (₱)', true)}
                 <TextField
                   fullWidth
                   size="small"
@@ -1786,17 +1595,7 @@ function ServicesTab() {
                 />
               </Box>
               <Box sx={{ flex: 1 }}>
-                <label
-                  style={{
-                    display: 'block',
-                    marginBottom: '6px',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: '#374151',
-                  }}
-                >
-                  Downpayment (₱) *
-                </label>
+                {fieldLabel('Downpayment (₱)', true)}
                 <TextField
                   fullWidth
                   size="small"
@@ -1813,19 +1612,8 @@ function ServicesTab() {
                 />
               </Box>
             </Box>
-
             <Box>
-              <label
-                style={{
-                  display: 'block',
-                  marginBottom: '6px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: '#374151',
-                }}
-              >
-                Status
-              </label>
+              {fieldLabel('Status')}
               <FormControl fullWidth size="small">
                 <Select
                   value={formData.status}
@@ -1842,19 +1630,8 @@ function ServicesTab() {
                 </Select>
               </FormControl>
             </Box>
-
             <Box>
-              <label
-                style={{
-                  display: 'block',
-                  marginBottom: '6px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: '#374151',
-                }}
-              >
-                Description (Optional)
-              </label>
+              {fieldLabel('Description (Optional)')}
               <TextField
                 fullWidth
                 size="small"
@@ -1892,114 +1669,1011 @@ function ServicesTab() {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation */}
-      <Dialog
+      <DeleteConfirmDialog
         open={deleteConfirm.open}
+        name={deleteConfirm.name}
+        title="Delete Service"
         onClose={() => setDeleteConfirm({ open: false, id: '', name: '' })}
+        onConfirm={handleConfirmDelete}
+      />
+
+      <AppSnackbar
+        snackbar={snackbar}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      />
+    </>
+  );
+}
+
+// ─── Departments Tab ──────────────────────────────────────────────────────────
+function DepartmentsTab() {
+  const { isAdmin } = useAuth();
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [openModal, setOpenModal] = useState(false);
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
+  const [deptName, setDeptName] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    open: boolean;
+    id: string;
+    name: string;
+  }>({ open: false, id: '', name: '' });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error',
+  });
+
+  const showSnackbar = (message: string, severity: 'success' | 'error') =>
+    setSnackbar({ open: true, message, severity });
+
+  const fetchDepartments = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await getAllDepartmentsWithIds();
+      if (error) showSnackbar(error, 'error');
+      else setDepartments(data || []);
+    } catch {
+      showSnackbar('Failed to load departments', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDepartments();
+  }, [fetchDepartments]);
+
+  if (!isAdmin)
+    return (
+      <Box sx={{ textAlign: 'center', py: 6, color: '#9ca3af' }}>
+        You don't have permission to view this section.
+      </Box>
+    );
+  if (loading)
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '400px',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+
+  const filtered = departments.filter((d) =>
+    d.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const openAddModal = () => {
+    setModalMode('add');
+    setDeptName('');
+    setEditingDept(null);
+    setOpenModal(true);
+  };
+  const openEditModal = (dept: Department) => {
+    setModalMode('edit');
+    setEditingDept(dept);
+    setDeptName(dept.name);
+    setOpenModal(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!deptName.trim()) {
+      showSnackbar('Department name is required', 'error');
+      return;
+    }
+    if (modalMode === 'add') {
+      const { error } = await createDepartment(deptName.trim());
+      if (error) showSnackbar(error, 'error');
+      else {
+        showSnackbar('Department added successfully', 'success');
+        fetchDepartments();
+        setOpenModal(false);
+      }
+    } else if (editingDept) {
+      const { error } = await updateDepartment(editingDept.id, deptName.trim());
+      if (error) showSnackbar(error, 'error');
+      else {
+        showSnackbar('Department updated successfully', 'success');
+        fetchDepartments();
+        setOpenModal(false);
+      }
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    const { id } = deleteConfirm;
+    setDeleteConfirm({ open: false, id: '', name: '' });
+    setDepartments((prev) => prev.filter((d) => d.id !== id));
+    const { error } = await deleteDepartment(id);
+    if (error) {
+      showSnackbar(error, 'error');
+      fetchDepartments();
+    } else showSnackbar('Department deleted successfully', 'success');
+  };
+
+  return (
+    <>
+      <Box
+        sx={{
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          mb: 2,
+        }}
+      >
+        <TextField
+          placeholder="Search departments..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          size="small"
+          sx={{
+            flex: '1 1 180px',
+            minWidth: '150px',
+            maxWidth: '280px',
+            backgroundColor: 'white',
+            borderRadius: '6px',
+            '& .MuiOutlinedInput-root': { borderRadius: '6px' },
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <FiSearch style={{ color: '#6b7280', fontSize: '16px' }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <Button
+          onClick={openAddModal}
+          variant="contained"
+          sx={{
+            textTransform: 'none',
+            backgroundColor: '#2563EB',
+            fontWeight: 600,
+            fontSize: '14px',
+            ml: 'auto',
+            '&:hover': { backgroundColor: '#1d4ed8' },
+          }}
+        >
+          + Add Department
+        </Button>
+      </Box>
+
+      <TableContainer
+        component={Paper}
+        sx={{
+          borderRadius: '8px',
+          boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+          border: '1px solid #e5e7eb',
+          overflowX: 'auto',
+          maxHeight: '460px',
+          overflow: 'auto',
+        }}
+      >
+        <Table stickyHeader sx={{ tableLayout: 'fixed', width: '100%' }}>
+          <TableHead>
+            <TableRow>
+              {[
+                { label: '#', w: '6%' },
+                { label: 'Department Name', w: '80%' },
+                { label: 'Actions', w: '14%', center: true },
+              ].map(({ label, w, center }) => (
+                <TableCell
+                  key={label}
+                  sx={{
+                    fontWeight: 600,
+                    color: '#374151',
+                    fontSize: '12px',
+                    padding: '10px 8px',
+                    width: w,
+                    textAlign: center ? 'center' : 'left',
+                  }}
+                >
+                  {label}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filtered.map((dept, index) => (
+              <TableRow
+                key={dept.id}
+                sx={{
+                  '&:hover': { backgroundColor: '#f9fafb' },
+                  borderBottom: '1px solid #f3f4f6',
+                }}
+              >
+                <TableCell
+                  sx={{
+                    color: '#9ca3af',
+                    fontSize: '12px',
+                    padding: '10px 8px',
+                  }}
+                >
+                  {index + 1}
+                </TableCell>
+                <TableCell
+                  sx={{
+                    color: '#1f2937',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    padding: '10px 8px',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      backgroundColor: '#eff6ff',
+                      color: '#2563eb',
+                      borderRadius: '4px',
+                      px: '8px',
+                      py: '3px',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {dept.name}
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ padding: '10px 8px', textAlign: 'center' }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <IconButton
+                      size="small"
+                      onClick={() => openEditModal(dept)}
+                      sx={{
+                        color: '#2563eb',
+                        '&:hover': { backgroundColor: '#eff6ff' },
+                      }}
+                    >
+                      <FiEdit2 size={13} />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() =>
+                        setDeleteConfirm({
+                          open: true,
+                          id: dept.id,
+                          name: dept.name,
+                        })
+                      }
+                      sx={{
+                        color: '#ef4444',
+                        '&:hover': { backgroundColor: '#fee2e2' },
+                      }}
+                    >
+                      <FiTrash2 size={13} />
+                    </IconButton>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ))}
+            {filtered.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={3}
+                  align="center"
+                  sx={{ py: 4, color: '#9ca3af' }}
+                >
+                  No departments found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Add / Edit Department Modal */}
+      <Dialog
+        open={openModal}
+        onClose={() => setOpenModal(false)}
         maxWidth="xs"
         fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            margin: '16px',
+            width: 'calc(100% - 32px)',
+            maxWidth: '400px',
+          },
+        }}
       >
         <DialogTitle
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            pb: 2,
             fontSize: '18px',
             fontWeight: 600,
             color: '#1f2937',
-            pb: 1,
           }}
         >
-          Delete Service
-          <IconButton
-            onClick={() => setDeleteConfirm({ open: false, id: '', name: '' })}
-            size="small"
-          >
+          {modalMode === 'add' ? 'Add Department' : 'Edit Department'}
+          <IconButton onClick={() => setOpenModal(false)} size="small">
             <FiX />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: -2 }}>
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                backgroundColor: '#fee2e2',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
+        <DialogContent dividers sx={{ py: 3 }}>
+          <Box>
+            {fieldLabel('Department Name', true)}
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="e.g. Cardiology"
+              value={deptName}
+              onChange={(e) => setDeptName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSubmit();
               }}
-            >
-              <FiTrash2 size={18} color="#ef4444" />
-            </Box>
-            <Box>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: '14px',
-                  color: '#1f2937',
-                  fontWeight: 500,
-                }}
-              >
-                Are you sure you want to delete{' '}
-                <strong>{deleteConfirm.name}</strong>?
-              </p>
-              <p
-                style={{
-                  margin: '4px 0 0',
-                  fontSize: '13px',
-                  color: '#6b7280',
-                }}
-              >
-                This action cannot be undone.
-              </p>
-            </Box>
+              autoFocus
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+            />
           </Box>
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+        <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
-            onClick={() => setDeleteConfirm({ open: false, id: '', name: '' })}
+            onClick={() => setOpenModal(false)}
             sx={{ textTransform: 'none', color: '#6b7280' }}
           >
             Cancel
           </Button>
           <Button
-            onClick={handleConfirmDelete}
+            onClick={handleSubmit}
             variant="contained"
             sx={{
               textTransform: 'none',
-              backgroundColor: '#ef4444',
+              backgroundColor: '#2563EB',
               fontWeight: 600,
-              '&:hover': { backgroundColor: '#dc2626' },
+              '&:hover': { backgroundColor: '#1d4ed8' },
             }}
           >
-            Delete
+            {modalMode === 'add' ? 'Add Department' : 'Save Changes'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
+      <DeleteConfirmDialog
+        open={deleteConfirm.open}
+        name={deleteConfirm.name}
+        title="Delete Department"
+        onClose={() => setDeleteConfirm({ open: false, id: '', name: '' })}
+        onConfirm={handleConfirmDelete}
+      />
+
+      <AppSnackbar
+        snackbar={snackbar}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      />
     </>
   );
 }
 
+// ─── Specializations Tab ──────────────────────────────────────────────────────
+function SpecializationsTab() {
+  const { isAdmin } = useAuth();
+  const [specializations, setSpecializations] = useState<
+    SpecializationRecord[]
+  >([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [openModal, setOpenModal] = useState(false);
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [editingSpec, setEditingSpec] = useState<SpecializationRecord | null>(
+    null,
+  );
+  const [formData, setFormData] = useState<SpecializationFormData>({
+    name: '',
+    department_id: '',
+    department_name: '',
+  });
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    open: boolean;
+    id: string;
+    name: string;
+  }>({ open: false, id: '', name: '' });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error',
+  });
+
+  const showSnackbar = (message: string, severity: 'success' | 'error') =>
+    setSnackbar({ open: true, message, severity });
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [{ data: specRes, error: specErr }, { data: deptRes }] =
+        await Promise.all([
+          getAllSpecializationsWithIds(),
+          getAllDepartmentsWithIds(),
+        ]);
+      if (specErr) showSnackbar(specErr, 'error');
+      else setSpecializations(specRes || []);
+      setDepartments(deptRes || []);
+    } catch {
+      showSnackbar('Failed to load specializations', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  if (!isAdmin)
+    return (
+      <Box sx={{ textAlign: 'center', py: 6, color: '#9ca3af' }}>
+        You don't have permission to view this section.
+      </Box>
+    );
+  if (loading)
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '400px',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+
+  const filtered = specializations.filter((s) => {
+    const matchesSearch =
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.department.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesDept =
+      departmentFilter === 'all' || s.department_id === departmentFilter;
+    return matchesSearch && matchesDept;
+  });
+
+  const openAddModal = () => {
+    setModalMode('add');
+    setFormData({ name: '', department_id: '', department_name: '' });
+    setEditingSpec(null);
+    setOpenModal(true);
+  };
+  const openEditModal = (spec: SpecializationRecord) => {
+    setModalMode('edit');
+    setEditingSpec(spec);
+    setFormData({
+      name: spec.name,
+      department_id: spec.department_id,
+      department_name: spec.department,
+    });
+    setOpenModal(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.name.trim()) {
+      showSnackbar('Specialization name is required', 'error');
+      return;
+    }
+    if (!formData.department_id) {
+      showSnackbar('Please select a department', 'error');
+      return;
+    }
+    if (modalMode === 'add') {
+      const { error } = await createSpecialization(formData);
+      if (error) showSnackbar(error, 'error');
+      else {
+        showSnackbar('Specialization added successfully', 'success');
+        fetchData();
+        setOpenModal(false);
+      }
+    } else if (editingSpec) {
+      const { error } = await updateSpecialization(editingSpec.id, formData);
+      if (error) showSnackbar(error, 'error');
+      else {
+        showSnackbar('Specialization updated successfully', 'success');
+        fetchData();
+        setOpenModal(false);
+      }
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    const { id } = deleteConfirm;
+    setDeleteConfirm({ open: false, id: '', name: '' });
+    setSpecializations((prev) => prev.filter((s) => s.id !== id));
+    const { error } = await deleteSpecialization(id);
+    if (error) {
+      showSnackbar(error, 'error');
+      fetchData();
+    } else showSnackbar('Specialization deleted successfully', 'success');
+  };
+
+  return (
+    <>
+      <Box
+        sx={{
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          mb: 2,
+        }}
+      >
+        <TextField
+          placeholder="Search specializations..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          size="small"
+          sx={{
+            flex: '1 1 180px',
+            minWidth: '150px',
+            maxWidth: '280px',
+            backgroundColor: 'white',
+            borderRadius: '6px',
+            '& .MuiOutlinedInput-root': { borderRadius: '6px' },
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <FiSearch style={{ color: '#6b7280', fontSize: '16px' }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <FormControl
+          size="small"
+          sx={{
+            minWidth: 120,
+            maxWidth: 160,
+            flex: '0 1 auto',
+            backgroundColor: 'white',
+            borderRadius: '6px',
+            mr: '12px',
+          }}
+        >
+          <Select
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            displayEmpty
+            sx={{ borderRadius: '6px', fontSize: '14px' }}
+          >
+            <MenuItem value="all">All Departments</MenuItem>
+            {departments.map((d) => (
+              <MenuItem key={d.id} value={d.id}>
+                {d.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Button
+          onClick={openAddModal}
+          variant="contained"
+          sx={{
+            textTransform: 'none',
+            backgroundColor: '#2563EB',
+            fontWeight: 600,
+            fontSize: '14px',
+            ml: 'auto',
+            '&:hover': { backgroundColor: '#1d4ed8' },
+          }}
+        >
+          + Add Specialization
+        </Button>
+      </Box>
+
+      <TableContainer
+        component={Paper}
+        sx={{
+          borderRadius: '8px',
+          boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+          border: '1px solid #e5e7eb',
+          overflowX: 'auto',
+          maxHeight: '460px',
+          overflow: 'auto',
+        }}
+      >
+        <Table stickyHeader sx={{ tableLayout: 'fixed', width: '100%' }}>
+          <TableHead>
+            <TableRow>
+              {[
+                { label: '#', w: '6%' },
+                { label: 'Specialization Name', w: '45%' },
+                { label: 'Department', w: '35%' },
+                { label: 'Actions', w: '14%', center: true },
+              ].map(({ label, w, center }) => (
+                <TableCell
+                  key={label}
+                  sx={{
+                    fontWeight: 600,
+                    color: '#374151',
+                    fontSize: '12px',
+                    padding: '10px 8px',
+                    width: w,
+                    textAlign: center ? 'center' : 'left',
+                  }}
+                >
+                  {label}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filtered.map((spec, index) => (
+              <TableRow
+                key={spec.id}
+                sx={{
+                  '&:hover': { backgroundColor: '#f9fafb' },
+                  borderBottom: '1px solid #f3f4f6',
+                }}
+              >
+                <TableCell
+                  sx={{
+                    color: '#9ca3af',
+                    fontSize: '12px',
+                    padding: '10px 8px',
+                  }}
+                >
+                  {index + 1}
+                </TableCell>
+                <TableCell
+                  sx={{
+                    color: '#1f2937',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    padding: '10px 8px',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      backgroundColor: '#f0fdf4',
+                      color: '#16a34a',
+                      borderRadius: '4px',
+                      px: '8px',
+                      py: '3px',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {spec.name}
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ padding: '10px 8px' }}>
+                  <Box
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      backgroundColor: '#eff6ff',
+                      color: '#2563eb',
+                      borderRadius: '4px',
+                      px: '8px',
+                      py: '3px',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                    }}
+                  >
+                    {spec.department}
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ padding: '10px 8px', textAlign: 'center' }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <IconButton
+                      size="small"
+                      onClick={() => openEditModal(spec)}
+                      sx={{
+                        color: '#2563eb',
+                        '&:hover': { backgroundColor: '#eff6ff' },
+                      }}
+                    >
+                      <FiEdit2 size={13} />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() =>
+                        setDeleteConfirm({
+                          open: true,
+                          id: spec.id,
+                          name: spec.name,
+                        })
+                      }
+                      sx={{
+                        color: '#ef4444',
+                        '&:hover': { backgroundColor: '#fee2e2' },
+                      }}
+                    >
+                      <FiTrash2 size={13} />
+                    </IconButton>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ))}
+            {filtered.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={4}
+                  align="center"
+                  sx={{ py: 4, color: '#9ca3af' }}
+                >
+                  No specializations found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Add / Edit Specialization Modal */}
+      <Dialog
+        open={openModal}
+        onClose={() => setOpenModal(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            margin: '16px',
+            width: 'calc(100% - 32px)',
+            maxWidth: '400px',
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            pb: 2,
+            fontSize: '18px',
+            fontWeight: 600,
+            color: '#1f2937',
+          }}
+        >
+          {modalMode === 'add' ? 'Add Specialization' : 'Edit Specialization'}
+          <IconButton onClick={() => setOpenModal(false)} size="small">
+            <FiX />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ py: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Box>
+              {fieldLabel('Specialization Name', true)}
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="e.g. Interventional Cardiology"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                autoFocus
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+              />
+            </Box>
+            <Box>
+              {fieldLabel('Department', true)}
+              <FormControl fullWidth size="small">
+                <Select
+                  value={formData.department_id}
+                  onChange={(e) => {
+                    const selected = departments.find(
+                      (d) => d.id === e.target.value,
+                    );
+                    setFormData({
+                      ...formData,
+                      department_id: e.target.value,
+                      department_name: selected?.name ?? '',
+                    });
+                  }}
+                  displayEmpty
+                  sx={{ borderRadius: '6px' }}
+                >
+                  <MenuItem value="">Select department</MenuItem>
+                  {departments.map((d) => (
+                    <MenuItem key={d.id} value={d.id}>
+                      {d.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button
+            onClick={() => setOpenModal(false)}
+            sx={{ textTransform: 'none', color: '#6b7280' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            sx={{
+              textTransform: 'none',
+              backgroundColor: '#2563EB',
+              fontWeight: 600,
+              '&:hover': { backgroundColor: '#1d4ed8' },
+            }}
+          >
+            {modalMode === 'add' ? 'Add Specialization' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <DeleteConfirmDialog
+        open={deleteConfirm.open}
+        name={deleteConfirm.name}
+        title="Delete Specialization"
+        onClose={() => setDeleteConfirm({ open: false, id: '', name: '' })}
+        onConfirm={handleConfirmDelete}
+      />
+
+      <AppSnackbar
+        snackbar={snackbar}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      />
+    </>
+  );
+}
+
+// ─── Shared sub-components ────────────────────────────────────────────────────
+function DeleteConfirmDialog({
+  open,
+  name,
+  title,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  name: string;
+  title: string;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: '12px' } }}
+    >
+      <DialogTitle
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: '18px',
+          fontWeight: 600,
+          color: '#1f2937',
+          pb: 1,
+        }}
+      >
+        {title}
+        <IconButton onClick={onClose} size="small">
+          <FiX />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent sx={{ pt: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: -2 }}>
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: '50%',
+              backgroundColor: '#fee2e2',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <FiTrash2 size={18} color="#ef4444" />
+          </Box>
+          <Box>
+            <p
+              style={{
+                margin: 0,
+                fontSize: '14px',
+                color: '#1f2937',
+                fontWeight: 500,
+              }}
+            >
+              Are you sure you want to delete <strong>{name}</strong>?
+            </p>
+            <p
+              style={{ margin: '4px 0 0', fontSize: '13px', color: '#6b7280' }}
+            >
+              This action cannot be undone.
+            </p>
+          </Box>
+        </Box>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+        <Button
+          onClick={onClose}
+          sx={{ textTransform: 'none', color: '#6b7280' }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={onConfirm}
+          variant="contained"
+          sx={{
+            textTransform: 'none',
+            backgroundColor: '#ef4444',
+            fontWeight: 600,
+            '&:hover': { backgroundColor: '#dc2626' },
+          }}
+        >
+          Delete
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function AppSnackbar({
+  snackbar,
+  onClose,
+}: {
+  snackbar: { open: boolean; message: string; severity: 'success' | 'error' };
+  onClose: () => void;
+}) {
+  return (
+    <Snackbar
+      open={snackbar.open}
+      autoHideDuration={4000}
+      onClose={onClose}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+    >
+      <Alert
+        onClose={onClose}
+        severity={snackbar.severity}
+        sx={{ width: '100%' }}
+      >
+        {snackbar.message}
+      </Alert>
+    </Snackbar>
+  );
+}
+
 // ─── Root Component ───────────────────────────────────────────────────────────
+const TAB_LABELS = [
+  'Staff Information',
+  'Services',
+  'Departments',
+  'Specializations',
+];
+const TAB_TITLES = [
+  'Staff Profile',
+  'Services',
+  'Departments',
+  'Specializations',
+];
+
 function StaffInformation() {
   const [activeTab, setActiveTab] = useState(0);
 
@@ -2028,7 +2702,7 @@ function StaffInformation() {
             color: '#1f2937',
           }}
         >
-          {activeTab === 0 ? 'Staff Profile' : 'Services'}
+          {TAB_TITLES[activeTab]}
         </h2>
         <Tabs
           value={activeTab}
@@ -2054,11 +2728,14 @@ function StaffInformation() {
             },
           }}
         >
-          <Tab label="Staff Information" />
-          <Tab label="Services" />
+          {TAB_LABELS.map((label) => (
+            <Tab key={label} label={label} />
+          ))}
         </Tabs>
         {activeTab === 0 && <StaffTab />}
         {activeTab === 1 && <ServicesTab />}
+        {activeTab === 2 && <DepartmentsTab />}
+        {activeTab === 3 && <SpecializationsTab />}
       </Box>
     </div>
   );

@@ -1,10 +1,6 @@
 ﻿import '../styles/Pages.css';
 import { useState, useEffect } from 'react';
 import {
-  getAllDepartments,
-  getSpecializations,
-} from '../../backend/services/serviceServices';
-import {
   Box,
   Typography,
   Table,
@@ -312,7 +308,7 @@ function Appointments() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-  const [stats, setStats] = useState({
+  const [, setStats] = useState({
     total: 0,
     pending: 0,
     scheduled: 0,
@@ -349,7 +345,6 @@ function Appointments() {
     ...new Set(doctors.map((d) => d.department).filter(Boolean)),
   ] as string[];
 
-  // Specializations derived from doctors in the selected department (for admin dropdown)
   const availableSpecializations = [
     ...new Set(
       doctors
@@ -359,20 +354,16 @@ function Appointments() {
     ),
   ] as string[];
 
-  // Services filtered by both department AND specialization
   const availableServices = services.filter((s) => {
     if (s.status !== 'Available') return false;
-    if (!formData.department) return false; // block ALL users, not just admin
-
+    if (!formData.department) return false;
     const deptMatch =
-      !s.department || // null = available to all departments
+      !s.department ||
       s.department.toLowerCase() === formData.department.toLowerCase();
-
     const specMatch =
       !s.specialization ||
       !formData.specialization ||
       s.specialization.toLowerCase() === formData.specialization.toLowerCase();
-
     return deptMatch && specMatch;
   });
 
@@ -384,12 +375,12 @@ function Appointments() {
     'services:',
     services.map(
       (s) =>
-        `${s.serviceName} | dept:${s.department} | spec:${s.specialization} | status:${s.status}`,
+        `${s.name} | dept:${s.department} | spec:${s.specialization} | status:${s.status}`,
     ),
   );
   console.log(
     'availableServices:',
-    availableServices.map((s) => s.serviceName),
+    availableServices.map((s) => s.name),
   );
 
   useEffect(() => {
@@ -405,6 +396,7 @@ function Appointments() {
       }));
     }
   }, [staffProfile?.department, staffProfile?.specialization, isAdmin]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -490,9 +482,7 @@ function Appointments() {
       }
     }
 
-    const selectedService = services.find(
-      (s) => s.serviceID === formData.service_id,
-    );
+    const selectedService = services.find((s) => s.id === formData.service_id);
     const status = isAdmin ? 'Assigned' : 'Pending';
 
     const { error } = await createAppointment({
@@ -502,7 +492,7 @@ function Appointments() {
       department: formData.department,
       specialization: formData.specialization || formData.department,
       service_id: formData.service_id || null,
-      service_name: selectedService?.serviceName || null,
+      service_name: selectedService?.name || null,
       appointment_date: formData.appointment_date,
       appointment_time: formData.appointment_time,
       notes: formData.notes || null,
@@ -515,7 +505,6 @@ function Appointments() {
     }
 
     if (isAdmin) {
-      // Only notify doctors matching both department AND specialization
       const matchingDoctors = doctors.filter(
         (d) =>
           d.department === formData.department &&
@@ -571,7 +560,6 @@ function Appointments() {
       return;
     }
     if (appt?.department) {
-      // Only notify doctors matching both department AND specialization
       const matchingDoctors = doctors.filter(
         (d) =>
           d.department === appt.department &&
@@ -1061,7 +1049,7 @@ function Appointments() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <Box sx={{ height: '21px' }} />
 
-            {/* Row 1: Patient name + contact */}
+            {/* Row 1 */}
             <Box
               sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}
             >
@@ -1114,7 +1102,7 @@ function Appointments() {
               </Box>
             </Box>
 
-            {/* Row 2: Department + Specialization */}
+            {/* Row 2 */}
             <Box
               sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}
             >
@@ -1131,7 +1119,7 @@ function Appointments() {
                       setFormData({
                         ...formData,
                         department: e.target.value,
-                        specialization: '', // reset spec when dept changes
+                        specialization: '',
                         service_id: '',
                       })
                     }
@@ -1178,7 +1166,6 @@ function Appointments() {
                   required={isAdmin}
                 />
                 {isAdmin ? (
-                  // Admin: dropdown populated from doctors in selected department
                   <FormControl
                     fullWidth
                     size="small"
@@ -1231,7 +1218,6 @@ function Appointments() {
                     </Select>
                   </FormControl>
                 ) : (
-                  // Doctor: read-only, pre-filled from their profile
                   <TextField
                     size="small"
                     fullWidth
@@ -1250,7 +1236,7 @@ function Appointments() {
               </Box>
             </Box>
 
-            {/* Row 3: Service + Time slot */}
+            {/* Row 3 */}
             <Box
               sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}
             >
@@ -1274,10 +1260,8 @@ function Appointments() {
                             Select a service…
                           </span>
                         );
-                      const svc = services.find(
-                        (s) => s.serviceID === selected,
-                      );
-                      return svc ? svc.serviceName : selected;
+                      const svc = services.find((s) => s.id === selected);
+                      return svc ? svc.name : selected;
                     }}
                     sx={selectSx}
                   >
@@ -1290,15 +1274,15 @@ function Appointments() {
                     {availableServices.length > 0 ? (
                       availableServices.map((svc) => (
                         <MenuItem
-                          key={svc.serviceID}
-                          value={svc.serviceID}
+                          key={svc.id}
+                          value={svc.id}
                           sx={{ fontSize: '14px' }}
                         >
                           <Box>
                             <Typography
                               sx={{ fontSize: '13px', fontWeight: 500 }}
                             >
-                              {svc.serviceName}
+                              {svc.name}
                             </Typography>
                             <Typography
                               sx={{ fontSize: '11px', color: '#6b7280' }}
@@ -1464,9 +1448,8 @@ function Appointments() {
               gap: 1,
             }}
           >
-            <FiAlertCircle />
-            Pending Request that needs your Approval ({adminPendingQueue.length}
-            )
+            <FiAlertCircle /> Pending Request that needs your Approval (
+            {adminPendingQueue.length})
           </Typography>
           <TableContainer
             component={Paper}
@@ -1509,7 +1492,7 @@ function Appointments() {
                   const requestedBy =
                     doctors.find((d) => d.id === appt.doctor_id) ?? null;
                   const svc = services.find(
-                    (s) => s.serviceID === (appt as any).service_id,
+                    (s) => s.id === (appt as any).service_id,
                   );
                   return (
                     <TableRow
@@ -1581,7 +1564,7 @@ function Appointments() {
                             <Typography
                               sx={{ fontSize: '12px', fontWeight: 500 }}
                             >
-                              {svc.serviceName}
+                              {svc.name}
                             </Typography>
                             <Typography
                               sx={{ fontSize: '11px', color: '#6b7280' }}
@@ -1689,7 +1672,7 @@ function Appointments() {
               <TableBody>
                 {doctorAssignedQueue.map((appt) => {
                   const svc = services.find(
-                    (s) => s.serviceID === (appt as any).service_id,
+                    (s) => s.id === (appt as any).service_id,
                   );
                   return (
                     <TableRow
@@ -1727,7 +1710,7 @@ function Appointments() {
                             <Typography
                               sx={{ fontSize: '12px', fontWeight: 500 }}
                             >
-                              {svc.serviceName}
+                              {svc.name}
                             </Typography>
                             <Typography
                               sx={{ fontSize: '11px', color: '#6b7280' }}
@@ -2124,7 +2107,7 @@ function Appointments() {
                   doctors.find((d) => d.id === appt.doctor_id) ??
                   (appt.doctor_id === staffProfile?.id ? staffProfile : null);
                 const svc = services.find(
-                  (s) => s.serviceID === (appt as any).service_id,
+                  (s) => s.id === (appt as any).service_id,
                 );
                 return (
                   <TableRow
@@ -2160,7 +2143,7 @@ function Appointments() {
                           <Typography
                             sx={{ fontSize: '12px', fontWeight: 500 }}
                           >
-                            {svc.serviceName}
+                            {svc.name}
                           </Typography>
                           <Typography
                             sx={{ fontSize: '11px', color: '#6b7280' }}

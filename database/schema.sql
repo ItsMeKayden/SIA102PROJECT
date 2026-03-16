@@ -240,6 +240,26 @@ CREATE POLICY "Staff can insert appointments" ON Subsystem2.appointments FOR INS
     );
 
 -- =====================================================
+-- 14. GRANT ACCESS RIGHTS TO AUTHENTICATED/ANON ROLES
+-- =====================================================
+-- This ensures the Supabase client can query tables in the subsystem2 schema.
+GRANT USAGE ON SCHEMA subsystem2 TO authenticated;
+GRANT USAGE ON SCHEMA subsystem2 TO anon;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+  ON ALL TABLES IN SCHEMA subsystem2
+  TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE
+  ON ALL TABLES IN SCHEMA subsystem2
+  TO anon;
+
+-- Ensure future tables in the schema also get the same privileges
+ALTER DEFAULT PRIVILEGES IN SCHEMA subsystem2
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA subsystem2
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO anon;
+
+-- =====================================================
 -- 14. CREATE RLS POLICIES FOR SCHEDULES
 -- =====================================================
 CREATE POLICY "Enable all operations for schedules" ON Subsystem2.schedules FOR ALL USING (true);
