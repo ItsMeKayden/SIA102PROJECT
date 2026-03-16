@@ -52,21 +52,24 @@ export function QRScanner({ open, onClose, onScan }: QRScannerProps) {
           verbose: false,
         });
 
-        // Start camera
+        // Start camera with optimized settings
         await scanner.start(
           { facingMode: 'environment' },
           {
-            fps: 10,
-            qrbox: { width: 300, height: 300 },
+            fps: 30,
+            qrbox: { width: 400, height: 400 },
+            aspectRatio: 1.0,
+            disableFlip: false,
           },
           (decodedText) => {
-            console.log('QR Code scanned:', decodedText);
+            console.log('QR Code scanned successfully:', decodedText);
             onScan(decodedText.trim());
             handleClose();
           },
           (errorMessage) => {
-            if (!errorMessage.includes('No QR code found')) {
-              console.debug('QR Scanner:', errorMessage);
+            // Only log actual errors, not the repeated "No QR found" messages
+            if (errorMessage && !errorMessage.toLowerCase().includes('no qr code found')) {
+              console.debug('QR Scanner debug:', errorMessage);
             }
           }
         );
@@ -210,20 +213,61 @@ export function QRScanner({ open, onClose, onScan }: QRScannerProps) {
         </Box>
       )}
 
-      {/* Instructions */}
+      {/* Focus indicator and instructions */}
       {!loading && !error && (
-        <Typography
-          sx={{
-            position: 'absolute',
-            bottom: 40,
-            color: '#fff',
-            fontSize: '14px',
-            textAlign: 'center',
-            maxWidth: '80%',
-          }}
-        >
-          Point your camera at a QR code to scan
-        </Typography>
+        <>
+          {/* Scanning indicator */}
+          <Box
+            sx={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '420px',
+              height: '420px',
+              border: '3px solid #4ade80',
+              borderRadius: '12px',
+              boxShadow: '0 0 0 4px rgba(74, 222, 128, 0.1)',
+              pointerEvents: 'none',
+              animation: 'pulse 2s infinite',
+              '@keyframes pulse': {
+                '0%, 100%': {
+                  boxShadow: '0 0 0 4px rgba(74, 222, 128, 0.1)',
+                },
+                '50%': {
+                  boxShadow: '0 0 0 8px rgba(74, 222, 128, 0.2)',
+                },
+              },
+            }}
+          />
+
+          {/* Instructions */}
+          <Typography
+            sx={{
+              position: 'absolute',
+              bottom: 80,
+              color: '#fff',
+              fontSize: '16px',
+              textAlign: 'center',
+              maxWidth: '80%',
+              fontWeight: 500,
+            }}
+          >
+            Point your camera at a QR code
+          </Typography>
+          <Typography
+            sx={{
+              position: 'absolute',
+              bottom: 40,
+              color: '#9ca3af',
+              fontSize: '12px',
+              textAlign: 'center',
+              maxWidth: '80%',
+            }}
+          >
+            Position the QR code within the green box
+          </Typography>
+        </>
       )}
     </Box>
   );

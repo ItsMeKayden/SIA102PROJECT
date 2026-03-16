@@ -30,6 +30,7 @@ import {
   clockOut,
   isStaffClockedIn,
 } from '../../backend/services/attendanceService';
+import { recordQRCodeScan, validateQRCode } from '../../backend/services/qrCodeService';
 import type { Attendance as AttendanceType, AttendanceWithStaff } from '../../types';
 
 // Main Component
@@ -234,9 +235,70 @@ function Attendance() {
   };
 
   const handleQRScan = (code: string) => {
-    console.log('QR Code scanned:', code);
-    setManualStaffId(code.trim());
-    handleClockInOut(code.trim());
+    console.log('QR Code scanned - Raw value:', code);
+    console.log('QR Code length:', code.length);
+    console.log('QR Code character analysis:', code.split('').map((c, i) => `${i}: ${c} (${c.charCodeAt(0)})`).join(', '));
+    
+    const trimmedCode = code.trim();
+    console.log('QR Code after trim:', trimmedCode);
+    
+    // Extract staff ID from QR value
+    // The QR code contains the full UUID at the beginning, followed by date and token
+    // Format: staffId-date-token or staffId_date_token
+    
+    let staffId: string | null = null;
+    
+    // Try to extract UUID pattern (8-4-4-4-12 hex digit groups)
+    // This is a UUID in standard format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    const uuidMatch = trimmedCode.match(/^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/i);
+    
+    console.log('UUID Regex Match Result:', uuidMatch);
+    
+    if (uuidMatch && uuidMatch[1]) {
+      staffId = uuidMatch[1];
+      console.log('✓ Successfully extracted staff ID from QR code:', staffId);
+    } else {
+      console.error('✗ Could not extract UUID from QR code');
+      console.error('  Full QR value:', trimmedCode);
+      console.error('  First 50 chars:', trimmedCode.substring(0, 50));
+      setSnackbar({
+        open: true,
+        message: 'Invalid QR code format. Could not extract staff ID.',
+        severity: 'error',
+      });
+      return;
+    }
+
+    // Validate QR code before recording
+    validateQRCode(trimmedCode).then((validation) => {
+      if (!validation.isValid) {
+        console.error('QR code validation failed:', validation.message);
+        setSnackbar({
+          open: true,
+          message: validation.message,
+          severity: 'error',
+        });
+        return;
+      }
+
+      // Record the QR code scan
+      recordQRCodeScan(trimmedCode).then((result) => {
+        if (result.error) {
+          console.error('QR code scan recording failed:', result.error);
+          setSnackbar({
+            open: true,
+            message: result.error,
+            severity: 'error',
+          });
+          return;
+        }
+
+        // Proceed with clock in/out using the extracted full staff ID
+        console.log('✓ QR code scan successful, proceeding with clock in/out for staff:', staffId);
+        setManualStaffId(staffId!);
+        handleClockInOut(staffId!);
+      });
+    });
   };
 
   if (loading) {
