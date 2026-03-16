@@ -22,7 +22,7 @@ import {
   Snackbar,
 } from '@mui/material';
 import { FiClock, FiX } from 'react-icons/fi';
-import { QRScanner } from '../components/QRScanner';
+import { QRScanner } from '../components/scanner/QRScanner';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   getAllAttendance,

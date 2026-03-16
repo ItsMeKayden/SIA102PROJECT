@@ -6,7 +6,7 @@ import Layout from './Layout';
 import Landing from './frontend/pages/Landing';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProtectedRoute } from './frontend/components/auth/ProtectedRoute';
-import { ErrorBoundary } from './frontend/components/ErrorBoundary';
+import { ErrorBoundary } from './frontend/components/scanner/ErrorBoundary';
 import Overview from './frontend/pages/Overview';
 import StaffInformation from './frontend/pages/StaffInformation';
 import Attendance from './frontend/pages/Attendance';

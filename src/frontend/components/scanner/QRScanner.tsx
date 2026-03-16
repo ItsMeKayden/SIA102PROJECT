@@ -49,9 +49,7 @@ export function QRScanner({ open, onClose, onScan }: QRScannerProps) {
 
         // Create new scanner
         const scanner = new Html5Qrcode('qr-scanner-container', {
-          formatsToSupport: ['QR_CODE'],
           verbose: false,
-          disableFlip: false,
         });
 
         // Start camera
