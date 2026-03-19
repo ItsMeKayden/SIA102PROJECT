@@ -35,6 +35,7 @@ import {
   FiLogOut,
   FiLogIn,
   FiKey,
+  FiMenu,
 } from 'react-icons/fi';
 import {
   getAllNotifications,
@@ -58,6 +59,7 @@ const Layout = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Navigation menu state
   const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(
@@ -248,7 +250,7 @@ const Layout = () => {
           position: 'relative',
         }}
       >
-        {/* Left Section - Logo & Company Name */}
+        {/* Left Section - Logo & Hamburger Menu */}
         <div
           style={{
             display: 'flex',
@@ -257,6 +259,20 @@ const Layout = () => {
             flexShrink: 0,
           }}
         >
+          {/* Hamburger Menu - Mobile Only */}
+          {isMobile && (
+            <IconButton
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              size="small"
+              sx={{
+                color: '#374151',
+                '&:hover': { backgroundColor: '#f3f4f6' },
+              }}
+            >
+              <FiMenu size={20} />
+            </IconButton>
+          )}
+
           <img
             src={logo}
             alt="Logo"
@@ -264,7 +280,7 @@ const Layout = () => {
           />
         </div>
 
-        {/* Right Section - Notification Bell & Burger Menu */}
+        {/* Right Section - Notification Bell & User Menu */}
         <div
           style={{
             display: 'flex',
@@ -436,8 +452,42 @@ const Layout = () => {
       />
 
       {/* Main Content with Sidebar */}
-      <div style={{ display: 'flex', flex: 1, height: '100%' }}>
-        <Sidebar />
+      <div style={{ display: 'flex', flex: 1, height: '100%', position: 'relative' }}>
+        {/* Mobile Backdrop */}
+        {isMobile && sidebarOpen && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 999,
+            }}
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Sidebar */}
+        <div
+          style={{
+            position: isMobile ? 'fixed' : 'relative',
+            left: 0,
+            top: isMobile ? '56px' : 0,
+            height: isMobile ? 'calc(100vh - 56px)' : '100%',
+            width: '250px',
+            zIndex: isMobile ? 1000 : 'auto',
+            transform: isMobile && !sidebarOpen ? 'translateX(-100%)' : 'translateX(0)',
+            transition: 'transform 0.3s ease-in-out',
+            backgroundColor: '#fff',
+            borderRight: '1px solid #e5e7eb',
+            overflow: 'hidden',
+          }}
+        >
+          <Sidebar isMobile={isMobile} onClose={() => setSidebarOpen(false)} />
+        </div>
+
         <main
           style={{
             flex: 1,

@@ -37,12 +37,21 @@ const allMenuItems: MenuItem[] = [
   { label: 'Schedule', path: 'schedule', icon: <FiCalendar /> },
 ];
 
-const Sidebar: React.FC = () => {
+const Sidebar: React.FC<{ isMobile?: boolean; onClose?: () => void }> = ({
+  isMobile = false,
+  onClose,
+}) => {
   const { isAdmin } = useAuth();
 
   const menuItems = allMenuItems.filter(
     (item) => !item.adminOnly || isAdmin
   );
+
+  const handleMenuItemClick = () => {
+    if (isMobile && onClose) {
+      onClose();
+    }
+  };
 
   return (
     <aside className="sidebar">
@@ -54,6 +63,7 @@ const Sidebar: React.FC = () => {
             className={({ isActive }) =>
               isActive ? 'menuItem active' : 'menuItem'
             }
+            onClick={handleMenuItemClick}
           >
             <span className="icon">{item.icon}</span>
             {item.label}

@@ -602,30 +602,33 @@ function Attendance() {
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: '1400px', mx: 'auto', width: '100%' }}>
+    <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: '1400px', mx: 'auto', width: '100%' }}>
       {/* Header Section */}
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ mb: 3, sm: { mb: 4 } }}>
         <Box
           sx={{
             display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
             justifyContent: 'space-between',
             alignItems: 'flex-start',
+            gap: { xs: 3, md: 0 },
           }}
         >
-          <Box>
+          <Box sx={{ width: { xs: '100%', md: 'auto' } }}>
             <Box
               sx={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 2,
                 mb: 1,
+                flexDirection: { xs: 'column', sm: 'row' },
               }}
             >
               <Typography
                 variant="h5"
                 sx={{
                   fontWeight: 700,
-                  fontSize: '20px',
+                  fontSize: { xs: '18px', sm: '20px' },
                   color: '#1a202c',
                 }}
               >
@@ -635,8 +638,8 @@ function Attendance() {
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: 2,
+                gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' },
+                gap: { xs: 1.5, sm: 2 },
                 mt: 2,
                 width: '100%',
               }}
@@ -680,21 +683,21 @@ function Attendance() {
                     boxShadow: 'none',
                   }}
                 >
-                  <CardContent sx={{ py: '8px !important', px: '16px !important' }}>
+                  <CardContent sx={{ py: '8px !important', px: '12px !important' }}>
                     <Typography
                       variant="body2"
                       sx={{
                         color: '#374151',
                         mb: 0.5,
                         fontWeight: 500,
-                        fontSize: '12px',
+                        fontSize: { xs: '10px', sm: '12px' },
                       }}
                     >
                       {card.label}
                     </Typography>
                     <Typography
                       variant="h5"
-                      sx={{ color: card.color, fontWeight: 700, fontSize: '28px' }}
+                      sx={{ color: card.color, fontWeight: 700, fontSize: { xs: '20px', sm: '28px' } }}
                     >
                       {card.value}
                     </Typography>
@@ -703,7 +706,7 @@ function Attendance() {
               ))}
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' }, width: { xs: '100%', md: 'auto' } }}>
             {userRole !== 'admin' && (
               <>
                 <Button
@@ -714,8 +717,9 @@ function Attendance() {
                     textTransform: 'none',
                     borderRadius: '10px',
                     fontWeight: 600,
-                    fontSize: '13px',
+                    fontSize: { xs: '12px', sm: '13px' },
                     backgroundColor: '#10b981',
+                    width: { xs: '100%', sm: 'auto' },
                     '&:hover': {
                       backgroundColor: '#059669',
                     },
@@ -733,9 +737,10 @@ function Attendance() {
                     textTransform: 'none',
                     borderRadius: '10px',
                     fontWeight: 600,
-                    fontSize: '13px',
+                    fontSize: { xs: '12px', sm: '13px' },
                     borderColor: '#3b82f6',
                     color: '#3b82f6',
+                    width: { xs: '100%', sm: 'auto' },
                     '&:hover': {
                       backgroundColor: '#eff6ff',
                     },
@@ -746,7 +751,7 @@ function Attendance() {
               </>
             )}
             {userRole === 'admin' && (
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' }, width: { xs: '100%', sm: 'auto' } }}>
                 <TextField
                   label="Select Date"
                   type="date"
@@ -754,7 +759,7 @@ function Attendance() {
                   onChange={(e) => setSelectedDate(e.target.value)}
                   InputLabelProps={{ shrink: true }}
                   sx={{
-                    width: '200px',
+                    width: { xs: '100%', sm: '200px' },
                   }}
                 />
                 <Button
@@ -764,7 +769,8 @@ function Attendance() {
                     textTransform: 'none',
                     backgroundColor: '#3b82f6',
                     fontWeight: 600,
-                    fontSize: '13px',
+                    fontSize: { xs: '12px', sm: '13px' },
+                    width: { xs: '100%', sm: 'auto' },
                     '&:hover': { backgroundColor: '#2563eb' },
                   }}
                 >
@@ -777,14 +783,14 @@ function Attendance() {
       </Box>
 
       {/* Attendance Table */}
-      <Box sx={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        <Box sx={{ p: 3, borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <Box sx={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'auto' }}>
+        <Box sx={{ p: { xs: 2, sm: 3 }, borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 2, sm: 0 } }}>
           <Box>
             <Typography
               variant="h6"
               sx={{
                 fontWeight: 700,
-                fontSize: '18px',
+                fontSize: { xs: '16px', sm: '18px' },
                 color: '#1f2937',
               }}
             >
@@ -802,18 +808,20 @@ function Attendance() {
           </Box>
         </Box>
 
-        <TableContainer>
-          <Table>
+        <TableContainer sx={{ overflowX: 'auto', overflowY: 'hidden' }}>
+          <Table sx={{ minWidth: { xs: '600px', sm: '900px', md: '100%' } }}>
             <TableHead>
               <TableRow sx={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
                 <TableCell
                   sx={{
                     fontWeight: 700,
-                    fontSize: '12px',
+                    fontSize: { xs: '10px', sm: '12px' },
                     color: '#374151',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
-                    py: 2,
+                    py: 1,
+                    px: { xs: 1, sm: 2 },
+                    display: { xs: 'none', sm: 'table-cell' },
                   }}
                 >
                   Date
@@ -821,11 +829,12 @@ function Attendance() {
                 <TableCell
                   sx={{
                     fontWeight: 700,
-                    fontSize: '12px',
+                    fontSize: { xs: '10px', sm: '12px' },
                     color: '#374151',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
-                    py: 2,
+                    py: 1,
+                    px: { xs: 0.5, sm: 2 },
                   }}
                 >
                   Staff Name
@@ -834,11 +843,13 @@ function Attendance() {
                   align="center"
                   sx={{
                     fontWeight: 700,
-                    fontSize: '12px',
+                    fontSize: { xs: '10px', sm: '12px' },
                     color: '#374151',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
-                    py: 2,
+                    py: 1,
+                    px: { xs: 0.5, sm: 2 },
+                    display: { xs: 'none', sm: 'table-cell' },
                   }}
                 >
                   Time In
@@ -847,11 +858,13 @@ function Attendance() {
                   align="center"
                   sx={{
                     fontWeight: 700,
-                    fontSize: '12px',
+                    fontSize: { xs: '10px', sm: '12px' },
                     color: '#374151',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
-                    py: 2,
+                    py: 1,
+                    px: { xs: 0.5, sm: 2 },
+                    display: { xs: 'none', md: 'table-cell' },
                   }}
                 >
                   Time Out
@@ -860,11 +873,13 @@ function Attendance() {
                   align="center"
                   sx={{
                     fontWeight: 700,
-                    fontSize: '12px',
+                    fontSize: { xs: '10px', sm: '12px' },
                     color: '#374151',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
-                    py: 2,
+                    py: 1,
+                    px: { xs: 0.5, sm: 2 },
+                    display: { xs: 'none', md: 'table-cell' },
                   }}
                 >
                   Hours Worked
@@ -873,11 +888,12 @@ function Attendance() {
                   align="center"
                   sx={{
                     fontWeight: 700,
-                    fontSize: '12px',
+                    fontSize: { xs: '10px', sm: '12px' },
                     color: '#374151',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
-                    py: 2,
+                    py: 1,
+                    px: { xs: 0.5, sm: 2 },
                   }}
                 >
                   Status
@@ -886,11 +902,13 @@ function Attendance() {
                   align="center"
                   sx={{
                     fontWeight: 700,
-                    fontSize: '12px',
+                    fontSize: { xs: '10px', sm: '12px' },
                     color: '#374151',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
-                    py: 2,
+                    py: 1,
+                    px: { xs: 0.5, sm: 2 },
+                    display: { xs: 'none', lg: 'table-cell' },
                   }}
                 >
                   Location Status
@@ -923,38 +941,38 @@ function Attendance() {
                       },
                     }}
                   >
-                    <TableCell sx={{ py: 2 }}>
-                      <Typography sx={{ fontSize: '13px', color: '#374151', fontWeight: 500 }}>
+                    <TableCell sx={{ py: 1, px: { xs: 1, sm: 2 }, display: { xs: 'none', sm: 'table-cell' } }}>
+                      <Typography sx={{ fontSize: { xs: '11px', sm: '13px' }, color: '#374151', fontWeight: 500 }}>
                         {formatDate(row.date)}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ py: 2 }}>
-                      <Typography sx={{ fontSize: '13px', color: '#374151', fontWeight: 500 }}>
+                    <TableCell sx={{ py: 1, px: { xs: 0.5, sm: 2 } }}>
+                      <Typography sx={{ fontSize: { xs: '11px', sm: '13px' }, color: '#374151', fontWeight: 500 }}>
                         {row.staff_name || 'Unknown'}
                       </Typography>
                     </TableCell>
-                    <TableCell align="center" sx={{ py: 2 }}>
-                      <Typography sx={{ fontSize: '13px', color: '#374151' }}>
+                    <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 }, display: { xs: 'none', sm: 'table-cell' } }}>
+                      <Typography sx={{ fontSize: { xs: '11px', sm: '13px' }, color: '#374151' }}>
                         {formatTime(row.time_in)}
                       </Typography>
                     </TableCell>
-                    <TableCell align="center" sx={{ py: 2 }}>
-                      <Typography sx={{ fontSize: '13px', color: '#374151' }}>
+                    <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 }, display: { xs: 'none', md: 'table-cell' } }}>
+                      <Typography sx={{ fontSize: { xs: '11px', sm: '13px' }, color: '#374151' }}>
                         {formatTime(row.time_out)}
                       </Typography>
                     </TableCell>
-                    <TableCell align="center" sx={{ py: 2 }}>
-                      <Typography sx={{ fontSize: '13px', color: '#374151', fontWeight: 500 }}>
+                    <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 }, display: { xs: 'none', md: 'table-cell' } }}>
+                      <Typography sx={{ fontSize: { xs: '11px', sm: '13px' }, color: '#374151', fontWeight: 500 }}>
                         {calculateHours(row.time_in, row.time_out)}
                       </Typography>
                     </TableCell>
-                    <TableCell align="center" sx={{ py: 2 }}>
+                    <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 } }}>
                       <Chip
                         label={row.status}
                         size="small"
                         sx={{
                           fontWeight: 600,
-                          fontSize: '11px',
+                          fontSize: { xs: '9px', sm: '11px' },
                           backgroundColor:
                             row.status === 'Present'
                               ? '#d1fae5'
@@ -978,34 +996,36 @@ function Attendance() {
                         }}
                       />
                     </TableCell>
-                    <TableCell align="center" sx={{ py: 2 }}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center' }}>
+                    <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 }, display: { xs: 'none', lg: 'table-cell' } }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'center' }}>
                         {row.clock_in_within_premises !== null && (
                           <Chip
-                            label={row.clock_in_within_premises ? '✓ In (Clock In)' : '✗ Out (Clock In)'}
+                            label={row.clock_in_within_premises ? '✓ In' : '✗ Out'}
                             size="small"
                             sx={{
                               fontWeight: 600,
-                              fontSize: '10px',
+                              fontSize: { xs: '8px', sm: '10px' },
                               backgroundColor: row.clock_in_within_premises ? '#d1fae5' : '#fee2e2',
                               color: row.clock_in_within_premises ? '#065f46' : '#991b1b',
+                              padding: { xs: '2px 4px', sm: '4px 8px' },
                             }}
                           />
                         )}
                         {row.clock_out_within_premises !== null && (
                           <Chip
-                            label={row.clock_out_within_premises ? '✓ In (Clock Out)' : '✗ Out (Clock Out)'}
+                            label={row.clock_out_within_premises ? '✓ In' : '✗ Out'}
                             size="small"
                             sx={{
                               fontWeight: 600,
-                              fontSize: '10px',
+                              fontSize: { xs: '8px', sm: '10px' },
                               backgroundColor: row.clock_out_within_premises ? '#d1fae5' : '#fee2e2',
                               color: row.clock_out_within_premises ? '#065f46' : '#991b1b',
+                              padding: { xs: '2px 4px', sm: '4px 8px' },
                             }}
                           />
                         )}
                         {row.clock_in_within_premises === null && row.clock_out_within_premises === null && (
-                          <Typography sx={{ fontSize: '12px', color: '#9ca3af' }}>—</Typography>
+                          <Typography sx={{ fontSize: { xs: '10px', sm: '12px' }, color: '#9ca3af' }}>—</Typography>
                         )}
                       </Box>
                     </TableCell>
@@ -1042,7 +1062,7 @@ function Attendance() {
             justifyContent: 'space-between',
             alignItems: 'center',
             pb: 2,
-            fontSize: '18px',
+            fontSize: { xs: '16px', sm: '18px' },
             fontWeight: 600,
             color: '#1f2937',
           }}
@@ -1151,7 +1171,7 @@ function Attendance() {
             justifyContent: 'space-between',
             alignItems: 'center',
             pb: 2,
-            fontSize: '18px',
+            fontSize: { xs: '16px', sm: '18px' },
             fontWeight: 600,
             color: '#1f2937',
           }}
