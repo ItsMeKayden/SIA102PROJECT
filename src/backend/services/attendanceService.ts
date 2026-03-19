@@ -1,5 +1,6 @@
 import { supabase, handleSupabaseError } from '../../lib/supabase-client';
-import type { Attendance, AttendanceInsert, AttendanceUpdate } from '../../types';
+import type { Attendance, AttendanceInsert, AttendanceUpdate, NotificationInsert } from '../../types';
+import { createNotification } from './notificationService';
 
 // Attendance Backend Service
 // Handles all attendance-related database operations :)
@@ -8,6 +9,99 @@ import type { Attendance, AttendanceInsert, AttendanceUpdate } from '../../types
 const getDayOfWeek = (dateStr: string): number => {
   const date = new Date(dateStr + 'T00:00:00');
   return date.getDay();
+};
+
+// Helper function to get all admin users
+const getAllAdmins = async (): Promise<string[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('staff')
+      .select('id')
+      .eq('user_role', 'admin');
+
+    if (error) {
+      console.error('Error fetching admins:', error);
+      return [];
+    }
+
+    return (data || []).map((admin: { id: string }) => admin.id);
+  } catch (error) {
+    console.error('Error fetching admins:', error);
+    return [];
+  }
+};
+
+// Helper function to get staff name by ID
+const getStaffName = async (staffId: string): Promise<string | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('staff')
+      .select('name')
+      .eq('id', staffId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching staff name:', error);
+      return null;
+    }
+
+    return data?.name || null;
+  } catch (error) {
+    console.error('Error fetching staff name:', error);
+    return null;
+  }
+};
+
+// Helper function to send clock in notification
+const sendClockInNotification = async (staffId: string, staffName: string): Promise<void> => {
+  try {
+    // Send notification to the staff member
+    await createNotification({
+      title: 'Clock In Successful',
+      message: `You have successfully clocked in at ${new Date().toLocaleTimeString()}`,
+      staff_id: staffId,
+      type: 'clock_in',
+    });
+
+    // Get all admins and send them notifications
+    const admins = await getAllAdmins();
+    for (const adminId of admins) {
+      await createNotification({
+        title: `${staffName} Clocked In`,
+        message: `${staffName} has clocked in at ${new Date().toLocaleTimeString()}`,
+        staff_id: adminId,
+        type: 'clock_in_admin',
+      });
+    }
+  } catch (error) {
+    console.error('Error sending clock in notification:', error);
+  }
+};
+
+// Helper function to send clock out notification
+const sendClockOutNotification = async (staffId: string, staffName: string): Promise<void> => {
+  try {
+    // Send notification to the staff member
+    await createNotification({
+      title: 'Clock Out Successful',
+      message: `You have successfully clocked out at ${new Date().toLocaleTimeString()}`,
+      staff_id: staffId,
+      type: 'clock_out',
+    });
+
+    // Get all admins and send them notifications
+    const admins = await getAllAdmins();
+    for (const adminId of admins) {
+      await createNotification({
+        title: `${staffName} Clocked Out`,
+        message: `${staffName} has clocked out at ${new Date().toLocaleTimeString()}`,
+        staff_id: adminId,
+        type: 'clock_out_admin',
+      });
+    }
+  } catch (error) {
+    console.error('Error sending clock out notification:', error);
+  }
 };
 
 // Helper function to get staff schedule for a given date
@@ -225,6 +319,12 @@ export const clockIn = async (staffId: string, shift?: string, currentUserId?: s
 
     if (error) throw error;
 
+    // Send notifications on successful clock in
+    const staffName = await getStaffName(staffId);
+    if (staffName) {
+      await sendClockInNotification(staffId, staffName);
+    }
+
     return { data, error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
@@ -287,6 +387,12 @@ export const clockOut = async (staffId: string, currentUserId?: string): Promise
       .single();
 
     if (error) throw error;
+
+    // Send notifications on successful clock out
+    const staffName = await getStaffName(staffId);
+    if (staffName) {
+      await sendClockOutNotification(staffId, staffName);
+    }
 
     return { data, error: null };
   } catch (error) {

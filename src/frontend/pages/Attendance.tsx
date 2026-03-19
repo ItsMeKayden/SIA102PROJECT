@@ -67,6 +67,7 @@ function Attendance() {
     status: 'active' | 'invalid';
   } | null>(null);
   const [qrCodeLoading, setQrCodeLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // Fetch attendance data
   const fetchAttendanceData = useCallback(async () => {
@@ -288,6 +289,42 @@ function Attendance() {
   useEffect(() => {
     fetchAttendanceData();
   }, [fetchAttendanceData]);
+
+  // Update stats when selected date changes (for admin users)
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const displayDate = userRole === 'admin' ? selectedDate : today;
+    const displayRecords = attendanceData.filter((a: AttendanceType) => a.date === displayDate);
+    
+    if (displayRecords.length > 0) {
+      const present = displayRecords.filter(
+        (a: AttendanceType) => a.status === 'Present',
+      ).length;
+      const late = displayRecords.filter(
+        (a: AttendanceType) => a.status === 'Late',
+      ).length;
+      const absent = displayRecords.filter(
+        (a: AttendanceType) => a.status === 'Absent',
+      ).length;
+      const onCall = displayRecords.filter(
+        (a: AttendanceType) => a.status === 'On-Call',
+      ).length;
+
+      setStats({
+        present,
+        late,
+        absent,
+        onCall,
+      });
+    } else {
+      setStats({
+        present: 0,
+        late: 0,
+        absent: 0,
+        onCall: 0,
+      });
+    }
+  }, [selectedDate, attendanceData, userRole]);
 
   // Update status to Absent for staff past their scheduled end time without clocking in
   useEffect(() => {
@@ -572,21 +609,6 @@ function Attendance() {
               >
                 Attendance Tracking
               </Typography>
-              {userRole === 'admin' && (
-                <Button
-                  variant="contained"
-                  onClick={() => setGenerateQRModalOpen(true)}
-                  sx={{
-                    textTransform: 'none',
-                    backgroundColor: '#3b82f6',
-                    fontWeight: 600,
-                    fontSize: '13px',
-                    '&:hover': { backgroundColor: '#2563eb' },
-                  }}
-                >
-                  Generate QR Code
-                </Button>
-              )}
             </Box>
             <Box
               sx={{
@@ -700,6 +722,33 @@ function Attendance() {
                   Manual Entry
                 </Button>
               </>
+            )}
+            {userRole === 'admin' && (
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <TextField
+                  label="Select Date"
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    width: '200px',
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  onClick={() => setGenerateQRModalOpen(true)}
+                  sx={{
+                    textTransform: 'none',
+                    backgroundColor: '#3b82f6',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    '&:hover': { backgroundColor: '#2563eb' },
+                  }}
+                >
+                  Generate QR Code
+                </Button>
+              </Box>
             )}
           </Box>
         </Box>
@@ -816,19 +865,20 @@ function Attendance() {
             <TableBody>
               {(() => {
                 const today = new Date().toISOString().split('T')[0];
-                const todayRecords = attendanceData.filter((record) => record.date === today);
-                if (todayRecords.length === 0) {
+                const displayDate = userRole === 'admin' ? selectedDate : today;
+                const displayRecords = attendanceData.filter((record) => record.date === displayDate);
+                if (displayRecords.length === 0) {
                   return (
                     <TableRow>
                       <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                         <Typography color="textSecondary" sx={{ fontSize: '14px' }}>
-                          No attendance records found for today
+                          No attendance records found for this date
                         </Typography>
                       </TableCell>
                     </TableRow>
                   );
                 }
-                return todayRecords.map((row) => (
+                return displayRecords.map((row) => (
                   <TableRow
                     key={row.id}
                     sx={{
