@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { QRCodeSVG } from 'qrcode.react';
 import {
   Table,
   TableBody,
@@ -26,10 +25,8 @@ import {
   Alert,
   Tabs,
   Tab,
-  Chip,
-  Typography,
 } from '@mui/material';
-import { FiSearch, FiX, FiTrash2, FiEdit2, FiCode } from 'react-icons/fi';
+import { FiSearch, FiX, FiTrash2, FiEdit2 } from 'react-icons/fi';
 import type { Staff, StaffFormData } from '../../types';
 import {
   getAllStaff,
@@ -37,7 +34,6 @@ import {
   updateStaff,
   deleteStaff,
 } from '../../backend/services/staffService';
-import { getDailyQRCode } from '../../backend/services/qrCodeService';
 import {
   getAllServices,
   createService,
@@ -109,15 +105,6 @@ function StaffTab() {
     id: string;
     name: string;
   }>({ open: false, id: '', name: '' });
-  const [qrCodeModal, setQrCodeModal] = useState<{
-    open: boolean;
-    staffId: string;
-    staffName: string;
-    qrValue: string;
-    scanCount: number;
-    status: 'active' | 'invalid';
-    loading: boolean;
-  }>({ open: false, staffId: '', staffName: '', qrValue: '', scanCount: 0, status: 'active', loading: false });
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -279,40 +266,6 @@ function StaffTab() {
     } else showSnackbar('Staff member deleted successfully', 'success');
   };
 
-  const handleGenerateQRCode = async (staffId: string, staffName: string) => {
-    console.log('Generating QR code for staff:', staffId, staffName);
-    setQrCodeModal(prev => ({ ...prev, open: true, staffId, staffName, loading: true }));
-    try {
-      const { data, error } = await getDailyQRCode(staffId);
-      console.log('getDailyQRCode result:', { data, error });
-      
-      if (error) {
-        console.error('QR code error:', error);
-        showSnackbar(`Error: ${error}`, 'error');
-        setQrCodeModal(prev => ({ ...prev, loading: false }));
-        return;
-      }
-      
-      if (data && data.qr_value) {
-        console.log('Setting QR code data:', data);
-        setQrCodeModal(prev => ({
-          ...prev,
-          qrValue: data.qr_value,
-          scanCount: data.scan_count,
-          status: data.status,
-          loading: false,
-        }));
-      } else {
-        console.warn('No data or missing qr_value:', data);
-        showSnackbar('Failed to generate QR code: Invalid data returned', 'error');
-        setQrCodeModal(prev => ({ ...prev, loading: false }));
-      }
-    } catch (err) {
-      console.error('QR code generation error:', err);
-      showSnackbar(`Failed to generate QR code: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
-      setQrCodeModal(prev => ({ ...prev, loading: false }));
-    }
-  };
 
   if (loading)
     return (
@@ -625,21 +578,6 @@ function StaffTab() {
                 </TableCell>
                 <TableCell sx={{ padding: '10px 8px', textAlign: 'center' }}>
                   <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                    {staff.user_role !== 'admin' && (
-                      <IconButton
-                        size="small"
-                        onClick={() =>
-                          handleGenerateQRCode(staff.id, staff.name)
-                        }
-                        sx={{
-                          color: '#3b82f6',
-                          '&:hover': { backgroundColor: '#dbeafe' },
-                        }}
-                        title="Generate QR Code"
-                      >
-                        <FiCode size={14} />
-                      </IconButton>
-                    )}
                     {staff.user_role !== 'admin' ? (
                       <IconButton
                         size="small"
@@ -897,132 +835,7 @@ function StaffTab() {
       />
 
       {/* QR Code Modal */}
-      <Dialog
-        open={qrCodeModal.open}
-        onClose={() => {
-          if (!qrCodeModal.loading) {
-            setQrCodeModal({ open: false, staffId: '', staffName: '', qrValue: '', scanCount: 0, status: 'active', loading: false });
-          }
-        }}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}
-        disableEscapeKeyDown={qrCodeModal.loading}
-      >
-        <DialogTitle
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '18px',
-            fontWeight: 600,
-            color: '#1f2937',
-            pb: 2,
-          }}
-        >
-          Daily QR Code
-          <IconButton
-            onClick={() => setQrCodeModal({ open: false, staffId: '', staffName: '', qrValue: '', scanCount: 0, status: 'active', loading: false })}
-            size="small"
-          >
-            <FiX />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 3 }}>
-          {qrCodeModal.loading ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <CircularProgress />
-              <Typography sx={{ fontSize: '14px', color: '#6b7280' }}>
-                Generating QR code...
-              </Typography>
-            </Box>
-          ) : qrCodeModal.qrValue ? (
-            <>
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  p: 2,
-                  backgroundColor: '#f9fafb',
-                  borderRadius: '12px',
-                }}
-                id="staff-qr-code"
-              >
-                <QRCodeSVG
-                  value={qrCodeModal.qrValue}
-                  size={256}
-                  level="H"
-                  includeMargin={true}
-                />
-              </Box>
-              <Box sx={{ textAlign: 'center', width: '100%' }}>
-                <p
-                  style={{
-                    margin: '0 0 8px 0',
-                    fontSize: '14px',
-                    color: '#1f2937',
-                    fontWeight: 500,
-                  }}
-                >
-                  {qrCodeModal.staffName}
-                </p>
-                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', mb: 2, flexWrap: 'wrap' }}>
-                  <Chip
-                    label={`Status: ${qrCodeModal.status === 'active' ? 'Active' : 'Invalid'}`}
-                    color={qrCodeModal.status === 'active' ? 'success' : 'error'}
-                    size="small"
-                    variant="outlined"
-                  />
-                  <Chip
-                    label={`Scans: ${qrCodeModal.scanCount}/2`}
-                    color={qrCodeModal.scanCount >= 2 ? 'error' : 'default'}
-                    size="small"
-                    variant="outlined"
-                  />
-                </Box>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: '11px',
-                    color: '#6b7280',
-                    wordBreak: 'break-all',
-                    padding: '8px',
-                    backgroundColor: '#f3f4f6',
-                    borderRadius: '6px',
-                    fontFamily: 'monospace',
-                  }}
-                >
-                  {qrCodeModal.qrValue}
-                </p>
-              </Box>
-            </>
-          ) : (
-            <Box sx={{ textAlign: 'center', py: 2 }}>
-              <Typography sx={{ color: '#ef4444', fontSize: '14px', mb: 2 }}>
-                Failed to load QR code. Please check the error message above and try again.
-              </Typography>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
-          {!qrCodeModal.loading && !qrCodeModal.qrValue && (
-            <Button
-              onClick={() => handleGenerateQRCode(qrCodeModal.staffId, qrCodeModal.staffName)}
-              variant="contained"
-              sx={{ textTransform: 'none', backgroundColor: '#3b82f6', '&:hover': { backgroundColor: '#2563eb' } }}
-            >
-              Retry
-            </Button>
-          )}
-          <Button
-            onClick={() => setQrCodeModal({ open: false, staffId: '', staffName: '', qrValue: '', scanCount: 0, status: 'active', loading: false })}
-            sx={{ textTransform: 'none', color: '#6b7280' }}
-          >
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+
 
       <Snackbar
         open={snackbar.open}

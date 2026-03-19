@@ -22,6 +22,7 @@ import {
   Snackbar,
 } from '@mui/material';
 import { FiClock, FiX } from 'react-icons/fi';
+import { QRCodeSVG } from 'qrcode.react';
 import { QRScanner } from '../components/scanner/QRScanner';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -30,8 +31,9 @@ import {
   clockOut,
   isStaffClockedIn,
 } from '../../backend/services/attendanceService';
-import { recordQRCodeScan, validateQRCode } from '../../backend/services/qrCodeService';
-import type { Attendance as AttendanceType, AttendanceWithStaff } from '../../types';
+import { recordQRCodeScan, validateQRCode, getDailyQRCode } from '../../backend/services/qrCodeService';
+import { getAllStaff } from '../../backend/services/staffService';
+import type { Attendance as AttendanceType, AttendanceWithStaff, Staff } from '../../types';
 
 // Main Component
 function Attendance() {
@@ -52,6 +54,15 @@ function Attendance() {
     late: 0,
     compliance: 'Loading...',
   });
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [generateQRModalOpen, setGenerateQRModalOpen] = useState(false);
+  const [selectedStaffForQR, setSelectedStaffForQR] = useState<Staff | null>(null);
+  const [qrCodeData, setQrCodeData] = useState<{
+    qrValue: string;
+    scanCount: number;
+    status: 'active' | 'invalid';
+  } | null>(null);
+  const [qrCodeLoading, setQrCodeLoading] = useState(false);
 
   // Fetch attendance data
   const fetchAttendanceData = useCallback(async () => {
@@ -201,7 +212,60 @@ function Attendance() {
 
   useEffect(() => {
     fetchAttendanceData();
+    // Fetch staff list for QR code generation (excluding admin users)
+    const fetchStaffList = async () => {
+      try {
+        const { data, error } = await getAllStaff();
+        if (error) {
+          console.error('Error fetching staff:', error);
+        } else {
+          // Filter out admin users
+          const nonAdminStaff = data?.filter(staff => staff.user_role !== 'admin') || [];
+          setStaffList(nonAdminStaff);
+        }
+      } catch (err) {
+        console.error('Error fetching staff list:', err);
+      }
+    };
+    fetchStaffList();
   }, [fetchAttendanceData]);
+
+  const handleGenerateQRCode = async (staff: Staff) => {
+    setQrCodeLoading(true);
+    try {
+      const { data, error } = await getDailyQRCode(staff.id);
+      if (error) {
+        setSnackbar({
+          open: true,
+          message: `Error: ${error}`,
+          severity: 'error',
+        });
+        setQrCodeLoading(false);
+      } else if (data && data.qr_value) {
+        setQrCodeData({
+          qrValue: data.qr_value,
+          scanCount: data.scan_count,
+          status: data.status,
+        });
+        setSelectedStaffForQR(staff);
+        setQrCodeLoading(false);
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Failed to generate QR code',
+          severity: 'error',
+        });
+        setQrCodeLoading(false);
+      }
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        severity: 'error',
+      });
+      setQrCodeLoading(false);
+    }
+  };
 
 
   const formatTime = (time: string | null) => {
@@ -337,17 +401,40 @@ function Attendance() {
           }}
         >
           <Box>
-            <Typography
-              variant="h5"
+            <Box
               sx={{
-                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
                 mb: 1,
-                fontSize: '20px',
-                color: '#1a202c',
               }}
             >
-              Attendance Tracking
-            </Typography>
+              <Typography
+                variant="h5"
+                sx={{
+                  fontWeight: 700,
+                  fontSize: '20px',
+                  color: '#1a202c',
+                }}
+              >
+                Attendance Tracking
+              </Typography>
+              {userRole === 'admin' && (
+                <Button
+                  variant="contained"
+                  onClick={() => setGenerateQRModalOpen(true)}
+                  sx={{
+                    textTransform: 'none',
+                    backgroundColor: '#3b82f6',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    '&:hover': { backgroundColor: '#2563eb' },
+                  }}
+                >
+                  Generate QR Code
+                </Button>
+              )}
+            </Box>
             <Box
               sx={{
                 display: 'flex',
@@ -743,6 +830,205 @@ function Attendance() {
             }}
           >
             Submit
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Generate QR Code Modal */}
+      <Dialog
+        open={generateQRModalOpen}
+        onClose={() => {
+          if (!qrCodeLoading) {
+            setGenerateQRModalOpen(false);
+            setSelectedStaffForQR(null);
+            setQrCodeData(null);
+          }
+        }}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            margin: '16px',
+            width: 'calc(100% - 32px)',
+          },
+        }}
+        disableEscapeKeyDown={qrCodeLoading}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            pb: 2,
+            fontSize: '18px',
+            fontWeight: 600,
+            color: '#1f2937',
+          }}
+        >
+          {selectedStaffForQR ? 'QR Code' : 'Select Staff'}
+          <IconButton
+            onClick={() => {
+              if (!qrCodeLoading) {
+                setGenerateQRModalOpen(false);
+                setSelectedStaffForQR(null);
+                setQrCodeData(null);
+              }
+            }}
+            size="small"
+            disabled={qrCodeLoading}
+          >
+            <FiX />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ py: 3 }}>
+          {!selectedStaffForQR ? (
+            // Staff Selection
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: '400px', overflow: 'auto' }}>
+              {staffList.length === 0 ? (
+                <Typography sx={{ color: '#6b7280', textAlign: 'center', py: 2 }}>
+                  No staff members available
+                </Typography>
+              ) : (
+                staffList.map((staff) => (
+                  <Button
+                    key={staff.id}
+                    onClick={() => handleGenerateQRCode(staff)}
+                    disabled={qrCodeLoading}
+                    fullWidth
+                    sx={{
+                      textAlign: 'left',
+                      p: 2,
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      color: '#1f2937',
+                      backgroundColor: '#f9fafb',
+                      '&:hover': {
+                        backgroundColor: '#f3f4f6',
+                        borderColor: '#d1d5db',
+                      },
+                      '&:disabled': {
+                        backgroundColor: '#f3f4f6',
+                        color: '#6b7280',
+                      },
+                      textTransform: 'none',
+                      fontWeight: 500,
+                      justifyContent: 'flex-start',
+                    }}
+                  >
+                    {qrCodeLoading ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CircularProgress size={20} />
+                        <Typography>Loading...</Typography>
+                      </Box>
+                    ) : (
+                      <Box>
+                        <Typography sx={{ fontWeight: 600, fontSize: '14px' }}>
+                          {staff.name}
+                        </Typography>
+                        <Typography sx={{ fontSize: '12px', color: '#6b7280' }}>
+                          {staff.role} • {staff.department || 'N/A'}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Button>
+                ))
+              )}
+            </Box>
+          ) : (
+            // QR Code Display
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              {qrCodeData ? (
+                <>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      p: 2,
+                      backgroundColor: '#f9fafb',
+                      borderRadius: '12px',
+                    }}
+                  >
+                    <QRCodeSVG
+                      value={qrCodeData.qrValue}
+                      size={256}
+                      level="H"
+                      includeMargin={true}
+                    />
+                  </Box>
+                  <Box sx={{ textAlign: 'center', width: '100%' }}>
+                    <Typography
+                      sx={{
+                        mb: 2,
+                        fontSize: '14px',
+                        color: '#1f2937',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {selectedStaffForQR.name}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', mb: 2, flexWrap: 'wrap' }}>
+                      <Chip
+                        label={`Status: ${qrCodeData.status === 'active' ? 'Active' : 'Invalid'}`}
+                        color={qrCodeData.status === 'active' ? 'success' : 'error'}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <Chip
+                        label={`Scans: ${qrCodeData.scanCount}/2`}
+                        color={qrCodeData.scanCount >= 2 ? 'error' : 'default'}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Box>
+                    <Typography
+                      sx={{
+                        fontSize: '11px',
+                        color: '#6b7280',
+                        wordBreak: 'break-all',
+                        p: 1,
+                        backgroundColor: '#f3f4f6',
+                        borderRadius: '6px',
+                        fontFamily: 'monospace',
+                      }}
+                    >
+                      {qrCodeData.qrValue}
+                    </Typography>
+                  </Box>
+                </>
+              ) : (
+                <CircularProgress />
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+          {selectedStaffForQR && (
+            <Button
+              onClick={() => {
+                setSelectedStaffForQR(null);
+                setQrCodeData(null);
+              }}
+              variant="outlined"
+              sx={{
+                textTransform: 'none',
+                color: '#6b7280',
+                borderColor: '#d1d5db',
+              }}
+            >
+              Select Different Staff
+            </Button>
+          )}
+          <Button
+            onClick={() => {
+              setGenerateQRModalOpen(false);
+              setSelectedStaffForQR(null);
+              setQrCodeData(null);
+            }}
+            sx={{ textTransform: 'none', color: '#6b7280' }}
+          >
+            Close
           </Button>
         </DialogActions>
       </Dialog>
