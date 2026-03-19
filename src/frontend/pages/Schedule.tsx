@@ -434,24 +434,7 @@ function Schedule() {
     },
   ];
 
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const weekDaysFull = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-  // Role → avatar colour palette
-  const roleColor = (role: string): { bg: string; text: string; border: string } => {
-    const r = role.toLowerCase();
-    if (r.includes('doctor') || r.includes('physician'))
-      return { bg: '#dbeafe', text: '#1d4ed8', border: '#93c5fd' };
-    if (r.includes('nurse'))
-      return { bg: '#fce7f3', text: '#be185d', border: '#f9a8d4' };
-    if (r.includes('admin'))
-      return { bg: '#ede9fe', text: '#6d28d9', border: '#c4b5fd' };
-    if (r.includes('receptionist') || r.includes('front'))
-      return { bg: '#fef3c7', text: '#b45309', border: '#fcd34d' };
-    if (r.includes('technician') || r.includes('tech'))
-      return { bg: '#d1fae5', text: '#065f46', border: '#6ee7b7' };
-    return { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' };
-  };
 
   const getInitials = (name: string) =>
     name
@@ -679,14 +662,6 @@ function Schedule() {
   //         s.staff?.role.toLowerCase().includes(searchTerm.toLowerCase()),
   //     )
   //   : schedules;
-
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(':');
-    const hour = Number.parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
 
   if (loading) {
     return (
@@ -1063,314 +1038,45 @@ function Schedule() {
       </Box>
       )}
 
-      {/* Tab 1: Weekly Schedule (Calendar) */}
-      {currentTab === 1 && (
-      <Box sx={{ marginBottom: '28px' }}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            mb: 2,
-          }}
-        >
-          <FiCalendar style={{ color: '#6b7280', fontSize: 16 }} />
-          <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
-            Weekly Schedule
-          </Typography>
-          <Chip
-            label={`${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
-            size="small"
-            sx={{
-              ml: 1,
-              height: '20px',
-              fontSize: '10px',
-              backgroundColor: '#f3f4f6',
-              color: '#6b7280',
-              fontWeight: 600,
-            }}
-          />
-        </Box>
-
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7, 1fr)',
-            gap: '10px',
-          }}
-        >
-          {weekDays.map((day, idx) => {
-            const daySchedules = groupedSchedules[idx] || [];
-            const isToday = new Date().getDay() === idx;
-            const isSunday = idx === 0;
-            const colors = isToday
-              ? { header: '#2563eb', headerText: '#fff', border: '#2563eb', bg: '#eff6ff' }
-              : { header: isSunday ? '#fee2e2' : '#f9fafb', headerText: isSunday ? '#991b1b' : '#374151', border: isSunday ? '#fecaca' : '#e5e7eb', bg: '#fff' };
-
-            const bgColor = (() => {
-              if (isToday) return 'rgba(255,255,255,0.25)';
-              if (isSunday) return '#fecaca';
-              return '#e5e7eb';
-            })();
-
-            const countColor = (() => {
-              if (isToday) return '#fff';
-              if (isSunday) return '#991b1b';
-              return '#6b7280';
-            })();
-
-            return (
-              <Box
-                key={day}
-                sx={{
-                  border: `1.5px solid ${colors.border}`,
-                  borderRadius: '12px',
-                  overflow: 'hidden',
-                  backgroundColor: colors.bg,
-                  boxShadow: isToday
-                    ? '0 4px 14px rgba(37,99,235,0.15)'
-                    : '0 1px 4px rgba(0,0,0,0.05)',
-                  transition: 'box-shadow 0.2s',
-                  '&:hover': {
-                    boxShadow: isToday
-                      ? '0 6px 20px rgba(37,99,235,0.22)'
-                      : '0 4px 12px rgba(0,0,0,0.1)',
-                  },
-                }}
-              >
-                {/* Day header */}
-                <Box
-                  sx={{
-                    backgroundColor: colors.header,
-                    px: 1.2,
-                    py: 0.8,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <Box>
-                    <Typography
-                      sx={{
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        color: colors.headerText,
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      {day}
-                    </Typography>
-                    {isToday && (
-                      <Typography sx={{ fontSize: '8px', color: 'rgba(255,255,255,0.8)', fontWeight: 500 }}>
-                        Today
-                      </Typography>
-                    )}
-                  </Box>
-                  <Box
-                    sx={{
-                      backgroundColor: bgColor,
-                      borderRadius: '10px',
-                      minWidth: '20px',
-                      height: '20px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      px: 0.6,
-                    }}
-                  >
-                    <Typography
-                      sx={{
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        color: countColor,
-                      }}
-                    >
-                      {daySchedules.length}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                {/* Staff cards */}
-                <Box
-                  sx={{
-                    p: '6px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '5px',
-                    minHeight: '120px',
-                  }}
-                >
-                  {daySchedules.length === 0 ? (
-                    <Box
-                      sx={{
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        pt: 2,
-                        pb: 1,
-                        gap: 0.5,
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: '50%',
-                          backgroundColor: '#f3f4f6',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <FiCalendar style={{ color: '#d1d5db', fontSize: 13 }} />
-                      </Box>
-                      <Typography sx={{ fontSize: '9px', color: '#d1d5db', textAlign: 'center' }}>
-                        No shifts
-                      </Typography>
-                    </Box>
-                  ) : (
-    daySchedules.map((schedule: ScheduleWithStaff) => {
-                      const name = schedule.staff?.name || 'Unknown';
-                      const role = schedule.staff?.role || 'Staff';
-                      const spec = schedule.staff?.specialization;
-                      const color = roleColor(role);
-                      return (
-                        <Tooltip
-                          key={schedule.id}
-                          arrow
-                          placement="top"
-                          title={
-                            <Box sx={{ p: 0.5 }}>
-                              <Typography sx={{ fontSize: '12px', fontWeight: 700 }}>{name}</Typography>
-                              <Typography sx={{ fontSize: '11px', opacity: 0.85 }}>{role}</Typography>
-                              {spec && (
-                                <Typography sx={{ fontSize: '10px', opacity: 0.75 }}>{spec}</Typography>
-                              )}
-                              <Typography sx={{ fontSize: '10px', mt: 0.5, opacity: 0.9 }}>
-                                {formatTime(schedule.start_time)} – {formatTime(schedule.end_time)}
-                              </Typography>
-                              {schedule.notes && (
-                                <Typography sx={{ fontSize: '10px', opacity: 0.7, fontStyle: 'italic', mt: 0.3 }}>
-                                  {schedule.notes}
-                                </Typography>
-                              )}
-                            </Box>
-                          }
-                        >
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              backgroundColor: '#fff',
-                              border: `1px solid ${color.border}`,
-                              borderRadius: '8px',
-                              p: '5px 7px',
-                              cursor: 'default',
-                              transition: 'all 0.15s',
-                              '&:hover': {
-                                backgroundColor: color.bg,
-                                transform: 'translateY(-1px)',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                              },
-                            }}
-                          >
-                            <Avatar
-                              sx={{
-                                width: 24,
-                                height: 24,
-                                fontSize: '9px',
-                                fontWeight: 700,
-                                backgroundColor: color.bg,
-                                color: color.text,
-                                border: `1.5px solid ${color.border}`,
-                                flexShrink: 0,
-                              }}
-                            >
-                              {getInitials(name)}
-                            </Avatar>
-                            <Box sx={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
-                              <Typography
-                                sx={{
-                                  fontSize: '9px',
-                                  fontWeight: 700,
-                                  color: '#1f2937',
-                                  lineHeight: 1.2,
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                }}
-                              >
-                                {name}
-                              </Typography>
-                              <Typography
-                                sx={{
-                                  fontSize: '8px',
-                                  color: color.text,
-                                  fontWeight: 500,
-                                  lineHeight: 1.2,
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                }}
-                              >
-                                {spec ?? role}
-                              </Typography>
-                              <Typography
-                                sx={{
-                                  fontSize: '7.5px',
-                                  color: '#9ca3af',
-                                  lineHeight: 1.2,
-                                }}
-                              >
-                                {formatTime(schedule.start_time)}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Tooltip>
-                      );
-                    })
-                  )}
-                </Box>
-              </Box>
-            );
-          })}
-        </Box>
-      </Box>
-      )}
-
       {/* Tab 1: 15-Day Calendar View */}
       {currentTab === 1 && (
         <Box sx={{ mb: 3 }}>
-          <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#111827', mb: 2 }}>
-            15-Day Schedule View
-          </Typography>
-
-          {/* 15-Day Calendar Grid */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: '6px', mb: 2 }}>
-            {(() => {
-              const today = new Date();
-              return Array.from({ length: 15 }).map((_, i) => {
-                const currentDate = new Date(today);
-                currentDate.setDate(currentDate.getDate() + i);
-                const dateKey = currentDate.toISOString().split('T')[0];
-                return (
-                  <Box key={dateKey} sx={{ textAlign: 'center', py: 1, fontWeight: 700, fontSize: '11px', color: '#6b7280' }}>
-                    {currentDate.toLocaleString('default', { weekday: 'short' }).substring(0, 3)}
-                    <Box sx={{ fontSize: '9px', fontWeight: 500, mt: 0.5 }}>
-                      {currentDate.getDate()}
-                    </Box>
-                  </Box>
-                );
-              });
-            })()}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <FiCalendar style={{ color: '#6b7280', fontSize: 18 }} />
+              <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>
+                15-Day Schedule
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <TextField
+                type="date"
+                value={fifteenDayStartDate.toISOString().split('T')[0]}
+                onChange={(e) => setFifteenDayStartDate(new Date(e.target.value))}
+                size="small"
+                sx={{
+                  width: '150px',
+                  backgroundColor: 'white',
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '6px',
+                  },
+                }}
+              />
+              <Chip
+                label={`${fifteenDayStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(fifteenDayStartDate.getTime() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                sx={{
+                  backgroundColor: '#eff6ff',
+                  color: '#1e40af',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                }}
+              />
+            </Box>
           </Box>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: '6px' }}>
+          {/* 15-Day Calendar Grid with 5 columns (3 rows) */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
             {(() => {
-              const today = new Date();
               const roleColors: Record<string, { bg: string; text: string; border: string; accent: string }> = {
                 Doctor: { bg: '#eff6ff', text: '#0c4a6e', border: '#0284c7', accent: '#dbeafe' },
                 Nurse: { bg: '#faf5ff', text: '#4c1d95', border: '#7c3aed', accent: '#ddd6fe' },
@@ -1379,29 +1085,118 @@ function Schedule() {
               };
 
               return Array.from({ length: 15 }).map((_, i) => {
-                const currentDate = new Date(today);
+                const currentDate = new Date(fifteenDayStartDate);
                 currentDate.setDate(currentDate.getDate() + i);
                 const dateKey = currentDate.toISOString().split('T')[0];
                 const dayOfWeek = currentDate.getDay();
                 const daySchedules = schedules.filter((s) => s.day_of_week === dayOfWeek && s.is_active);
+                const isToday = new Date().toDateString() === currentDate.toDateString();
+                const isSunday = dayOfWeek === 0;
+                
+                // Compute header styling to reduce nested ternaries
+                let headerBgColor: string;
+                if (isToday) {
+                  headerBgColor = '#2563eb';
+                } else if (isSunday) {
+                  headerBgColor = '#fee2e2';
+                } else {
+                  headerBgColor = '#f9fafb';
+                }
+                
+                let headerTextColor: string;
+                if (isToday) {
+                  headerTextColor = '#fff';
+                } else if (isSunday) {
+                  headerTextColor = '#991b1b';
+                } else {
+                  headerTextColor = '#111827';
+                }
 
                 return (
                   <Box
                     key={dateKey}
                     sx={{
-                      p: '8px',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '6px',
-                      backgroundColor: '#fafafa',
-                      minHeight: '200px',
+                      border: isToday ? '2px solid #2563eb' : '1.5px solid #e5e7eb',
+                      borderRadius: '10px',
+                      backgroundColor: isToday ? '#eff6ff' : '#ffffff',
+                      overflow: 'hidden',
+                      boxShadow: isToday ? '0 4px 12px rgba(37, 99, 235, 0.15)' : '0 1px 3px rgba(0,0,0,0.05)',
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        transform: 'translateY(-2px)',
+                      },
                       display: 'flex',
                       flexDirection: 'column',
-                      overflow: 'hidden',
                     }}
                   >
-                    {daySchedules.length > 0 ? (
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, overflow: 'auto' }}>
-                        {daySchedules.map((schedule) => {
+                    {/* Date Header */}
+                    <Box
+                      sx={{
+                        backgroundColor: headerBgColor,
+                        px: 1.5,
+                        py: 1,
+                        borderBottom: '1px solid #e5e7eb',
+                      }}
+                    >
+                      <Typography sx={{ fontSize: '10px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>
+                        {currentDate.toLocaleString('default', { weekday: 'short' })}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: '16px',
+                          fontWeight: 700,
+                          color: headerTextColor,
+                          mt: 0.3,
+                        }}
+                      >
+                        {currentDate.getDate()}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: '9px',
+                          color: isToday ? 'rgba(255,255,255,0.8)' : '#9ca3af',
+                          mt: 0.2,
+                        }}
+                      >
+                        {currentDate.toLocaleString('default', { month: 'short', year: 'numeric' })}
+                      </Typography>
+                    </Box>
+
+                    {/* Staff List */}
+                    <Box
+                      sx={{
+                        flex: 1,
+                        p: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        minHeight: '200px',
+                        overflowY: 'auto',
+                        '&::-webkit-scrollbar': {
+                          width: '4px',
+                        },
+                        '&::-webkit-scrollbar-track': {
+                          backgroundColor: '#f3f4f6',
+                          borderRadius: '4px',
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                          backgroundColor: '#d1d5db',
+                          borderRadius: '4px',
+                          '&:hover': {
+                            backgroundColor: '#9ca3af',
+                          },
+                        },
+                      }}
+                    >
+                      {daySchedules.length === 0 ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+                          <Typography sx={{ fontSize: '12px', color: '#d1d5db', fontStyle: 'italic', textAlign: 'center' }}>
+                            No shifts
+                          </Typography>
+                        </Box>
+                      ) : (
+                        daySchedules.map((schedule) => {
                           const role = schedule.staff?.role || 'Staff';
                           const name = schedule.staff?.name || 'Unknown';
                           const spec = schedule.staff?.specialization;
@@ -1414,15 +1209,15 @@ function Schedule() {
                             <Tooltip
                               key={schedule.id}
                               title={
-                                <Box sx={{ p: 0.5 }}>
+                                <Box sx={{ p: 0.75 }}>
                                   <Typography sx={{ fontSize: '12px', fontWeight: 700 }}>{name}</Typography>
-                                  <Typography sx={{ fontSize: '11px' }}>{role}</Typography>
-                                  {spec && <Typography sx={{ fontSize: '10px', opacity: 0.9 }}>{spec}</Typography>}
+                                  <Typography sx={{ fontSize: '11px', opacity: 0.85 }}>{role}</Typography>
+                                  {spec && <Typography sx={{ fontSize: '10px', opacity: 0.75 }}>{spec}</Typography>}
                                   <Typography sx={{ fontSize: '10px', mt: 0.5 }}>
                                     {startTime} – {endTime}
                                   </Typography>
                                   {schedule.notes && (
-                                    <Typography sx={{ fontSize: '9px', fontStyle: 'italic', mt: 0.5 }}>
+                                    <Typography sx={{ fontSize: '9px', fontStyle: 'italic', mt: 0.5, opacity: 0.8 }}>
                                       {schedule.notes}
                                     </Typography>
                                   )}
@@ -1433,28 +1228,27 @@ function Schedule() {
                             >
                               <Box
                                 sx={{
-                                  backgroundColor: color.accent,
-                                  border: `1.5px solid ${color.border}`,
-                                  borderRadius: '4px',
-                                  px: '5px',
-                                  py: '3px',
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: '4px',
+                                  gap: '6px',
+                                  backgroundColor: color.accent,
+                                  border: `1.5px solid ${color.border}`,
+                                  borderRadius: '6px',
+                                  px: 0.8,
+                                  py: 0.6,
                                   cursor: 'pointer',
                                   transition: 'all 0.15s',
                                   '&:hover': {
                                     backgroundColor: color.bg,
-                                    boxShadow: `0 2px 6px ${color.border}33`,
-                                    transform: 'translateY(-1px)',
+                                    boxShadow: `0 2px 8px ${color.border}40`,
+                                    transform: 'scale(1.02)',
                                   },
-                                  minWidth: 0,
                                 }}
                               >
                                 <Avatar
                                   sx={{
-                                    width: 18,
-                                    height: 18,
+                                    width: 20,
+                                    height: 20,
                                     fontSize: '7px',
                                     fontWeight: 700,
                                     backgroundColor: color.border,
@@ -1465,25 +1259,50 @@ function Schedule() {
                                   {initials}
                                 </Avatar>
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                                  <Typography sx={{ fontSize: '7.5px', fontWeight: 600, color: color.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  <Typography
+                                    sx={{
+                                      fontSize: '8px',
+                                      fontWeight: 600,
+                                      color: color.text,
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                    }}
+                                  >
                                     {name}
                                   </Typography>
-                                  <Typography sx={{ fontSize: '6px', color: color.text, opacity: 0.8, whiteSpace: 'nowrap' }}>
+                                  <Typography
+                                    sx={{
+                                      fontSize: '6.5px',
+                                      color: color.text,
+                                      opacity: 0.8,
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
                                     {startTime}–{endTime}
                                   </Typography>
                                 </Box>
                               </Box>
                             </Tooltip>
                           );
-                        })}
-                      </Box>
-                    ) : (
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-                        <Typography sx={{ fontSize: '8px', color: '#d1d5db', fontStyle: 'italic' }}>
-                          No shifts
-                        </Typography>
-                      </Box>
-                    )}
+                        })
+                      )}
+                    </Box>
+
+                    {/* Staff Count Footer */}
+                    <Box
+                      sx={{
+                        backgroundColor: '#f9fafb',
+                        px: 1.5,
+                        py: 0.8,
+                        borderTop: '1px solid #e5e7eb',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <Typography sx={{ fontSize: '10px', fontWeight: 600, color: '#6b7280' }}>
+                        {daySchedules.length} staff
+                      </Typography>
+                    </Box>
                   </Box>
                 );
               });
@@ -1491,6 +1310,7 @@ function Schedule() {
           </Box>
         </Box>
       )}
+
 
       {/* Tab 2: Alerts (Admin only) */}
       {currentTab === 2 && isAdmin && (
