@@ -91,18 +91,23 @@ const Layout = () => {
   // Fetch unread notification count
   useEffect(() => {
     const fetchUnreadCount = async () => {
-      const { data } = await getUnreadNotificationCount();
+      // Admins see all unread notifications, staff see only their own
+      const staffIdForQuery = isAdmin ? undefined : staffProfile?.id;
+      const { data } = await getUnreadNotificationCount(staffIdForQuery);
       if (data !== null && data !== undefined) {
         setUnreadCount(data);
       }
     };
 
-    fetchUnreadCount();
+    // Only fetch when we have a staffProfile
+    if (staffProfile?.id) {
+      fetchUnreadCount();
 
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, []);
+      // Refresh every 30 seconds
+      const interval = setInterval(fetchUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [staffProfile?.id, isAdmin]);
 
   // Auto-show login modal if user is not authenticated
   useEffect(() => {
@@ -117,12 +122,30 @@ const Layout = () => {
   // Fetch notifications when modal opens
   const fetchNotifications = async () => {
     setNotificationsLoading(true);
+    // Admins see all notifications, staff see only their own
+    const staffIdForQuery = isAdmin ? undefined : staffProfile?.id;
     const [notifData, countData] = await Promise.all([
-      getAllNotifications(),
-      getUnreadNotificationCount(),
+      getAllNotifications(staffIdForQuery),
+      getUnreadNotificationCount(staffIdForQuery),
     ]);
 
-    if (notifData.data) setNotifications(notifData.data);
+    // Filter notifications based on user role:
+    // - Admins see ONLY 'info' type notifications (staff activity, schedule assignments, etc.)
+    // - Staff see ONLY 'success' type notifications targeted to them (personal confirmations)
+    let filteredNotifications = notifData.data || [];
+    if (isAdmin) {
+      // Admin users: only show 'info' type notifications (exclude 'success' confirmations)
+      filteredNotifications = filteredNotifications.filter(
+        (notif) => notif.type === 'info'
+      );
+    } else if (staffProfile?.id) {
+      // Staff users: only show notifications targeted to them with 'success' type
+      filteredNotifications = filteredNotifications.filter(
+        (notif) => notif.staff_id === staffProfile.id && notif.type === 'success'
+      );
+    }
+
+    if (filteredNotifications.length > 0) setNotifications(filteredNotifications);
     if (typeof countData.data === 'number') setUnreadCount(countData.data);
 
     setNotificationsLoading(false);

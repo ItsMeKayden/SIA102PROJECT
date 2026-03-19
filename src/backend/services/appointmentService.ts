@@ -6,6 +6,18 @@ import type {
 } from '../../types';
 import { createNotification } from './notificationService';
 
+/**
+ * Get today's date in local timezone (not UTC)
+ * Fixes timezone issues where UTC date may be one day behind local date
+ */
+const getTodayDateString = (): string => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const getAllAppointments = async (): Promise<{
   data: Appointment[] | null;
   error: string | null;
@@ -63,7 +75,7 @@ export const getUpcomingAppointments = async (
   limit: number = 10,
 ): Promise<{ data: Appointment[] | null; error: string | null }> => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateString();
     const { data, error } = await supabase
       .from('appointments')
       .select('*')

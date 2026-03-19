@@ -3,6 +3,18 @@ import type { Attendance, AttendanceInsert, AttendanceUpdate, NotificationInsert
 import { createNotification } from './notificationService';
 import { isWithinClinicPremises, calculateDistance, CLINIC_LOCATION } from '../../lib/locationUtils';
 
+/**
+ * Get today's date in local timezone (not UTC)
+ * Fixes timezone issues where UTC date may be one day behind local date
+ */
+const getTodayDateString = (): string => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 // Attendance Backend Service
 // Handles all attendance-related database operations :)
 
@@ -61,7 +73,7 @@ const sendClockInNotification = async (staffId: string, staffName: string): Prom
       title: 'Clock In Successful',
       message: `You have successfully clocked in at ${new Date().toLocaleTimeString()}`,
       staff_id: staffId,
-      type: 'clock_in',
+      type: 'success',
     });
 
     // Get all admins and send them notifications
@@ -71,7 +83,7 @@ const sendClockInNotification = async (staffId: string, staffName: string): Prom
         title: `${staffName} Clocked In`,
         message: `${staffName} has clocked in at ${new Date().toLocaleTimeString()}`,
         staff_id: adminId,
-        type: 'clock_in_admin',
+        type: 'info',
       });
     }
   } catch (error) {
@@ -87,7 +99,7 @@ const sendClockOutNotification = async (staffId: string, staffName: string): Pro
       title: 'Clock Out Successful',
       message: `You have successfully clocked out at ${new Date().toLocaleTimeString()}`,
       staff_id: staffId,
-      type: 'clock_out',
+      type: 'success',
     });
 
     // Get all admins and send them notifications
@@ -97,7 +109,7 @@ const sendClockOutNotification = async (staffId: string, staffName: string): Pro
         title: `${staffName} Clocked Out`,
         message: `${staffName} has clocked out at ${new Date().toLocaleTimeString()}`,
         staff_id: adminId,
-        type: 'clock_out_admin',
+        type: 'info',
       });
     }
   } catch (error) {
@@ -288,7 +300,7 @@ export const clockIn = async (
     }
 
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
+    const dateStr = getTodayDateString();
     const timeStr = now.toTimeString().split(' ')[0];
 
     // Check if staff has a schedule for today
@@ -374,7 +386,7 @@ export const clockOut = async (
 
     const now = new Date();
     const timeStr = now.toTimeString().split(' ')[0];
-    const dateStr = now.toISOString().split('T')[0];
+    const dateStr = getTodayDateString();
 
     // Find the most recent attendance record for this staff_id on today's date where time_out is NULL
     const { data: existingRecord, error: fetchError } = await supabase
@@ -434,7 +446,7 @@ export const clockOut = async (
 export const isStaffClockedIn = async (staffId: string): Promise<{ isClockedIn: boolean; error: string | null }> => {
   try {
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
+    const dateStr = getTodayDateString();
 
     const { data, error } = await supabase
       .from('attendance')

@@ -1,5 +1,5 @@
 import '../styles/Pages.css';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -39,6 +39,15 @@ import { getAllStaff } from '../../backend/services/staffService';
 import { getAllSchedules } from '../../backend/services/scheduleService';
 import type { Attendance as AttendanceType, AttendanceWithStaff, Staff, Schedule } from '../../types';
 
+// Utility function to get today's date in local timezone
+function getTodayDateString(): string {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // Main Component
 function Attendance() {
   const { userRole, staffProfile } = useAuth();
@@ -68,7 +77,10 @@ function Attendance() {
     status: 'active' | 'invalid';
   } | null>(null);
   const [qrCodeLoading, setQrCodeLoading] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    return getTodayDateString();
+  });
+  const lastDateRef = useRef<string>(getTodayDateString());
 
   // Fetch attendance data
   const fetchAttendanceData = useCallback(async () => {
@@ -104,7 +116,12 @@ function Attendance() {
 
       const records = attendanceRecords || [];
       const staffMembers = allStaff?.filter(staff => staff.user_role !== 'admin') || [];
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayDateString();
+
+      console.log('=== FETCH ATTENDANCE DATA DEBUG ===');
+      console.log('Today computed as:', today);
+      console.log('Raw attendance records from DB (first 3):');
+      console.log(records.slice(0, 3).map(r => ({ date: r.date, staff_id: r.staff_id, id: r.id })));
 
       // Create a complete attendance dataset
       // Group records by date
@@ -213,6 +230,7 @@ function Attendance() {
       }
 
       try {
+        console.log('Clock in/out triggered at local time:', getTodayDateString());
         // Get device location
         let latitude: number | undefined;
         let longitude: number | undefined;
@@ -312,9 +330,47 @@ function Attendance() {
     fetchAttendanceData();
   }, [fetchAttendanceData]);
 
+  // Initialize selectedDate to today on component mount and whenever date changes
+  useEffect(() => {
+    const today = getTodayDateString();
+    setSelectedDate(today);
+    lastDateRef.current = today;
+    console.log('Component mounted, set selectedDate to:', today);
+  }, []);
+
+  // Auto-detect day change and update date + fetch data
+  useEffect(() => {
+    const checkDateChange = () => {
+      const currentDate = getTodayDateString();
+      if (currentDate !== lastDateRef.current) {
+        console.log('Day changed from', lastDateRef.current, 'to', currentDate);
+        lastDateRef.current = currentDate;
+        setSelectedDate(currentDate);
+        // Fetch fresh data for the new day
+        fetchAttendanceData();
+      }
+    };
+
+    // Check immediately
+    checkDateChange();
+
+    // Check every minute for day change
+    const intervalId = setInterval(checkDateChange, 60000);
+
+    return () => clearInterval(intervalId);
+  }, [fetchAttendanceData]);
+
+  // Force display date to be today for non-admin users
+  useEffect(() => {
+    if (userRole !== 'admin') {
+      const today = getTodayDateString();
+      setSelectedDate(today);
+    }
+  }, [userRole]);
+
   // Update stats when selected date changes (for admin users)
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateString();
     const displayDate = userRole === 'admin' ? selectedDate : today;
     const displayRecords = attendanceData.filter((a: AttendanceType) => a.date === displayDate);
     
@@ -351,7 +407,7 @@ function Attendance() {
   // Update status to Absent for staff past their scheduled end time without clocking in
   useEffect(() => {
     const updateAbsentStatus = async () => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayDateString();
       const currentTime = new Date().toTimeString().split(' ')[0];
       const dayOfWeek = new Date().getDay();
 
@@ -821,7 +877,6 @@ function Attendance() {
                     letterSpacing: '0.05em',
                     py: 1,
                     px: { xs: 1, sm: 2 },
-                    display: { xs: 'none', sm: 'table-cell' },
                   }}
                 >
                   Date
@@ -849,7 +904,6 @@ function Attendance() {
                     letterSpacing: '0.05em',
                     py: 1,
                     px: { xs: 0.5, sm: 2 },
-                    display: { xs: 'none', sm: 'table-cell' },
                   }}
                 >
                   Time In
@@ -864,7 +918,6 @@ function Attendance() {
                     letterSpacing: '0.05em',
                     py: 1,
                     px: { xs: 0.5, sm: 2 },
-                    display: { xs: 'none', md: 'table-cell' },
                   }}
                 >
                   Time Out
@@ -879,7 +932,6 @@ function Attendance() {
                     letterSpacing: '0.05em',
                     py: 1,
                     px: { xs: 0.5, sm: 2 },
-                    display: { xs: 'none', md: 'table-cell' },
                   }}
                 >
                   Hours Worked
@@ -908,7 +960,6 @@ function Attendance() {
                     letterSpacing: '0.05em',
                     py: 1,
                     px: { xs: 0.5, sm: 2 },
-                    display: { xs: 'none', lg: 'table-cell' },
                   }}
                 >
                   Location Status
@@ -917,9 +968,25 @@ function Attendance() {
             </TableHead>
             <TableBody>
               {(() => {
-                const today = new Date().toISOString().split('T')[0];
+                const today = getTodayDateString();
                 const displayDate = userRole === 'admin' ? selectedDate : today;
+                
+                // Debug logging
+                console.log('=== ATTENDANCE TABLE DEBUG ===');
+                console.log('Current date (today):', today);
+                console.log('Display date (selectedDate):', displayDate);
+                console.log('User role:', userRole);
+                console.log('selectedDate state:', selectedDate);
+                
+                // Get unique dates in attendanceData
+                const uniqueDates = [...new Set(attendanceData.map(record => record.date))].sort();
+                console.log('Unique dates in attendanceData:', uniqueDates);
+                console.log('Total attendance records:', attendanceData.length);
+                
                 const displayRecords = attendanceData.filter((record) => record.date === displayDate);
+                console.log('Filtered records for displayDate:', displayRecords.length);
+                console.log('=== END DEBUG ===');
+                
                 if (displayRecords.length === 0) {
                   return (
                     <TableRow>
@@ -941,7 +1008,7 @@ function Attendance() {
                       },
                     }}
                   >
-                    <TableCell sx={{ py: 1, px: { xs: 1, sm: 2 }, display: { xs: 'none', sm: 'table-cell' } }}>
+                    <TableCell sx={{ py: 1, px: { xs: 1, sm: 2 } }}>
                       <Typography sx={{ fontSize: { xs: '11px', sm: '13px' }, color: '#374151', fontWeight: 500 }}>
                         {formatDate(row.date)}
                       </Typography>
@@ -951,17 +1018,17 @@ function Attendance() {
                         {row.staff_name || 'Unknown'}
                       </Typography>
                     </TableCell>
-                    <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 }, display: { xs: 'none', sm: 'table-cell' } }}>
+                    <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 } }}>
                       <Typography sx={{ fontSize: { xs: '11px', sm: '13px' }, color: '#374151' }}>
                         {formatTime(row.time_in)}
                       </Typography>
                     </TableCell>
-                    <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 }, display: { xs: 'none', md: 'table-cell' } }}>
+                    <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 } }}>
                       <Typography sx={{ fontSize: { xs: '11px', sm: '13px' }, color: '#374151' }}>
                         {formatTime(row.time_out)}
                       </Typography>
                     </TableCell>
-                    <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 }, display: { xs: 'none', md: 'table-cell' } }}>
+                    <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 } }}>
                       <Typography sx={{ fontSize: { xs: '11px', sm: '13px' }, color: '#374151', fontWeight: 500 }}>
                         {calculateHours(row.time_in, row.time_out)}
                       </Typography>
@@ -996,8 +1063,8 @@ function Attendance() {
                         }}
                       />
                     </TableCell>
-                    <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 }, display: { xs: 'none', lg: 'table-cell' } }}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'center' }}>
+                    <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 } }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center', justifyContent: 'center' }}>
                         {row.clock_in_within_premises !== null && (
                           <Chip
                             label={row.clock_in_within_premises ? '✓ In' : '✗ Out'}
