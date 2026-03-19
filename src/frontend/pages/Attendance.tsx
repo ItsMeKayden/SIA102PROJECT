@@ -20,6 +20,8 @@ import {
   IconButton,
   TextField,
   Snackbar,
+  Card,
+  CardContent,
 } from '@mui/material';
 import { FiClock, FiX } from 'react-icons/fi';
 import { QRCodeSVG } from 'qrcode.react';
@@ -52,7 +54,8 @@ function Attendance() {
   const [stats, setStats] = useState({
     present: 0,
     late: 0,
-    compliance: 'Loading...',
+    absent: 0,
+    onCall: 0,
   });
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [generateQRModalOpen, setGenerateQRModalOpen] = useState(false);
@@ -102,17 +105,25 @@ function Attendance() {
         const late = records.filter(
           (a: AttendanceType) => a.status === 'Late',
         ).length;
+        const absent = records.filter(
+          (a: AttendanceType) => a.status === 'Absent',
+        ).length;
+        const onCall = records.filter(
+          (a: AttendanceType) => a.status === 'On Call',
+        ).length;
 
         setStats({
           present,
           late,
-          compliance: late === 0 ? 'Compliant' : 'Needs Review',
+          absent,
+          onCall,
         });
       } else {
         setStats({
           present: 0,
           late: 0,
-          compliance: 'No Data',
+          absent: 0,
+          onCall: 0,
         });
       }
     } catch (error) {
@@ -437,45 +448,73 @@ function Attendance() {
             </Box>
             <Box
               sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.75,
-                flexWrap: 'wrap',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: 2,
+                mt: 2,
+                width: '100%',
               }}
             >
-              <Typography sx={{ fontSize: '13px', color: '#6b7280' }}>
-                {attendanceData.length} records total
-              </Typography>
-              <Typography sx={{ color: '#d1d5db' }}>·</Typography>
-              <Typography
-                sx={{
-                  fontSize: '13px',
-                  color: '#10b981',
-                  fontWeight: 500,
-                }}
-              >
-                {stats.present} present
-              </Typography>
-              <Typography sx={{ color: '#d1d5db' }}>·</Typography>
-              <Typography
-                sx={{
-                  fontSize: '13px',
-                  color: '#f59e0b',
-                  fontWeight: 500,
-                }}
-              >
-                {stats.late} late
-              </Typography>
-              <Typography sx={{ color: '#d1d5db' }}>·</Typography>
-              <Typography
-                sx={{
-                  fontSize: '13px',
-                  color: '#6366f1',
-                  fontWeight: 500,
-                }}
-              >
-                {stats.compliance}
-              </Typography>
+              {[
+                {
+                  label: 'Present',
+                  value: stats.present,
+                  bg: '#d1fae5',
+                  border: '#4caf50',
+                  color: '#16a34a',
+                },
+                {
+                  label: 'Late',
+                  value: stats.late,
+                  bg: '#fffbeb',
+                  border: '#f59e0b',
+                  color: '#d97706',
+                },
+                {
+                  label: 'Absent',
+                  value: stats.absent,
+                  bg: '#fecaca',
+                  border: '#fa0707',
+                  color: '#dc2626',
+                },
+                {
+                  label: 'On-Call',
+                  value: stats.onCall,
+                  bg: '#dbeafe',
+                  border: '#1d7ff8',
+                  color: '#3b82f6',
+                },
+              ].map((card) => (
+                <Card
+                  key={card.label}
+                  sx={{
+                    background: card.bg,
+                    border: `1px solid ${card.border}`,
+                    borderRadius: '16px',
+                    boxShadow: 'none',
+                  }}
+                >
+                  <CardContent sx={{ py: '8px !important', px: '16px !important' }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: '#374151',
+                        mb: 0.5,
+                        fontWeight: 500,
+                        fontSize: '12px',
+                      }}
+                    >
+                      {card.label}
+                    </Typography>
+                    <Typography
+                      variant="h5"
+                      sx={{ color: card.color, fontWeight: 700, fontSize: '28px' }}
+                    >
+                      {card.value}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              ))}
             </Box>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
@@ -576,18 +615,6 @@ function Attendance() {
                     py: 2,
                   }}
                 >
-                  Staff ID
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 700,
-                    fontSize: '12px',
-                    color: '#374151',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                    py: 2,
-                  }}
-                >
                   Staff Name
                 </TableCell>
                 <TableCell
@@ -647,7 +674,7 @@ function Attendance() {
             <TableBody>
               {attendanceData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                     <Typography color="textSecondary" sx={{ fontSize: '14px' }}>
                       No attendance records found
                     </Typography>
@@ -667,11 +694,6 @@ function Attendance() {
                     <TableCell sx={{ py: 2 }}>
                       <Typography sx={{ fontSize: '13px', color: '#374151', fontWeight: 500 }}>
                         {formatDate(row.date)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ py: 2 }}>
-                      <Typography sx={{ fontSize: '13px', color: '#374151', fontWeight: 500 }}>
-                        {row.staff_id}
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ py: 2 }}>
