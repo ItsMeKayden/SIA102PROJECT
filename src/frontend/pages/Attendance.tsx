@@ -79,11 +79,16 @@ function Attendance() {
         setTimeout(() => reject(new Error('Request timed out')), 8000)
       );
 
-      const fetchPromise = getAllAttendance();
-      const { data: attendanceRecords, error: attendanceError } = await Promise.race([
-        fetchPromise,
-        timeoutPromise,
-      ]) as { data: AttendanceType[] | null; error: string | null };
+      const [attendanceRes, staffRes] = await Promise.all([
+        Promise.race([
+          getAllAttendance(),
+          timeoutPromise,
+        ]) as Promise<{ data: AttendanceType[] | null; error: string | null }>,
+        getAllStaff(),
+      ]);
+
+      const { data: attendanceRecords, error: attendanceError } = attendanceRes;
+      const { data: allStaff } = staffRes;
 
       console.log('Attendance records fetched:', attendanceRecords);
 
@@ -95,20 +100,75 @@ function Attendance() {
       }
 
       const records = attendanceRecords || [];
-      setAttendanceData(records);
-      console.log('Set attendance data, count:', records.length);
+      const staffMembers = allStaff?.filter(staff => staff.user_role !== 'admin') || [];
+      const today = new Date().toISOString().split('T')[0];
 
-      if (records.length > 0) {
-        const present = records.filter(
+      // Create a complete attendance dataset
+      // Group records by date
+      const recordsByDate = new Map<string, AttendanceType[]>();
+      records.forEach((record) => {
+        const date = record.date;
+        if (!recordsByDate.has(date)) {
+          recordsByDate.set(date, []);
+        }
+        recordsByDate.get(date)!.push(record);
+      });
+
+      // Ensure today exists in the map
+      if (!recordsByDate.has(today)) {
+        recordsByDate.set(today, []);
+      }
+
+      // For each date, ensure all staff members have a record
+      const completeRecords: AttendanceType[] = [];
+      recordsByDate.forEach((dateRecords, date) => {
+        const recordedStaffIds = new Set(dateRecords.map(r => r.staff_id));
+        
+        // Add existing records
+        completeRecords.push(...dateRecords);
+        
+        // Add placeholder records for staff without attendance
+        staffMembers.forEach((staff) => {
+          if (!recordedStaffIds.has(staff.id)) {
+            completeRecords.push({
+              id: `placeholder-${staff.id}-${date}`,
+              staff_id: staff.id,
+              staff_name: staff.name,
+              date,
+              time_in: null,
+              time_out: null,
+              status: 'Pending',
+              notes: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            } as unknown as AttendanceType);
+          }
+        });
+      });
+
+      // Sort records by date descending (most recent first), then by staff id
+      completeRecords.sort((a, b) => {
+        const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime();
+        if (dateCompare !== 0) return dateCompare;
+        return a.staff_id.localeCompare(b.staff_id);
+      });
+
+      setAttendanceData(completeRecords);
+      console.log('Set attendance data, count:', completeRecords.length);
+
+      // Calculate stats for today only
+      const todayRecords = completeRecords.filter((a: AttendanceType) => a.date === today);
+      if (todayRecords.length > 0) {
+        const present = todayRecords.filter(
           (a: AttendanceType) => a.status === 'Present',
         ).length;
-        const late = records.filter(
+        const late = todayRecords.filter(
           (a: AttendanceType) => a.status === 'Late',
         ).length;
-        const absent = records.filter(
+        const absent = todayRecords.filter(
           (a: AttendanceType) => a.status === 'Absent',
         ).length;
-        const onCall = records.filter(
+        const onCall = todayRecords.filter(
           (a: AttendanceType) => a.status === 'On Call',
         ).length;
 
@@ -126,6 +186,9 @@ function Attendance() {
           onCall: 0,
         });
       }
+
+      // Set staff list with full staff data including department
+      setStaffList(staffMembers);
     } catch (error) {
       console.error('Error fetching attendance:', error);
       setError(error instanceof Error ? error.message : 'Failed to fetch attendance data');
@@ -223,22 +286,6 @@ function Attendance() {
 
   useEffect(() => {
     fetchAttendanceData();
-    // Fetch staff list for QR code generation (excluding admin users)
-    const fetchStaffList = async () => {
-      try {
-        const { data, error } = await getAllStaff();
-        if (error) {
-          console.error('Error fetching staff:', error);
-        } else {
-          // Filter out admin users
-          const nonAdminStaff = data?.filter(staff => staff.user_role !== 'admin') || [];
-          setStaffList(nonAdminStaff);
-        }
-      } catch (err) {
-        console.error('Error fetching staff list:', err);
-      }
-    };
-    fetchStaffList();
   }, [fetchAttendanceData]);
 
   const handleGenerateQRCode = async (staff: Staff) => {
@@ -280,7 +327,7 @@ function Attendance() {
 
 
   const formatTime = (time: string | null) => {
-    if (!time) return 'N/A';
+    if (!time) return '';
     return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -294,7 +341,8 @@ function Attendance() {
   };
 
   const calculateHours = (timeIn: string | null, timeOut: string | null) => {
-    if (!timeIn || !timeOut) return 'N/A';
+    if (!timeIn) return '';
+    if (!timeOut) return 'In Progress';
 
     const start = new Date(`2000-01-01T${timeIn}`);
     const end = new Date(`2000-01-01T${timeOut}`);
@@ -672,16 +720,21 @@ function Attendance() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {attendanceData.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                    <Typography color="textSecondary" sx={{ fontSize: '14px' }}>
-                      No attendance records found
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                attendanceData.slice(0, 15).map((row) => (
+              {(() => {
+                const today = new Date().toISOString().split('T')[0];
+                const todayRecords = attendanceData.filter((record) => record.date === today);
+                if (todayRecords.length === 0) {
+                  return (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                        <Typography color="textSecondary" sx={{ fontSize: '14px' }}>
+                          No attendance records found for today
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+                return todayRecords.map((row) => (
                   <TableRow
                     key={row.id}
                     sx={{
@@ -728,23 +781,24 @@ function Attendance() {
                               ? '#d1fae5'
                               : row.status === 'Late'
                                 ? '#fee2e2'
-                                : row.status === 'Absent'
-                                  ? '#fecaca'
+                                : row.status === 'Pending'
+                                  ? '#f3f4f6'
                                   : '#fef3c7',
                           color:
                             row.status === 'Present'
                               ? '#065f46'
                               : row.status === 'Late'
                                 ? '#991b1b'
-                                : row.status === 'Absent'
-                                  ? '#7f1d1d'
+                                : row.status === 'Pending'
+                                  ? '#6b7280'
                                   : '#92400e',
                         }}
                       />
                     </TableCell>
                   </TableRow>
-                ))
-              )}
+                  ))
+                ;
+              })()}
             </TableBody>
           </Table>
         </TableContainer>
