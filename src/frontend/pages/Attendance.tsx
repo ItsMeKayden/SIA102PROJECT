@@ -35,11 +35,12 @@ import {
 } from '../../backend/services/attendanceService';
 import { recordQRCodeScan, validateQRCode, getDailyQRCode } from '../../backend/services/qrCodeService';
 import { getAllStaff } from '../../backend/services/staffService';
-import type { Attendance as AttendanceType, AttendanceWithStaff, Staff } from '../../types';
+import { getAllSchedules } from '../../backend/services/scheduleService';
+import type { Attendance as AttendanceType, AttendanceWithStaff, Staff, Schedule } from '../../types';
 
 // Main Component
 function Attendance() {
-  const { userRole } = useAuth();
+  const { userRole, staffProfile } = useAuth();
   const [attendanceData, setAttendanceData] = useState<AttendanceWithStaff[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -169,7 +170,7 @@ function Attendance() {
           (a: AttendanceType) => a.status === 'Absent',
         ).length;
         const onCall = todayRecords.filter(
-          (a: AttendanceType) => a.status === 'On Call',
+          (a: AttendanceType) => a.status === 'On-Call',
         ).length;
 
         setStats({
@@ -224,7 +225,7 @@ function Attendance() {
 
         if (isCurrentlyClockedIn) {
           // Clock out
-          const { error } = await clockOut(staffId);
+          const { error } = await clockOut(staffId, staffProfile?.id || '');
           if (error) {
             setSnackbar({
               open: true,
@@ -248,7 +249,7 @@ function Attendance() {
           }
         } else {
           // Clock in
-          const { error } = await clockIn(staffId);
+          const { error } = await clockIn(staffId, undefined, staffProfile?.id || '');
           if (error) {
             setSnackbar({
               open: true,
@@ -281,12 +282,95 @@ function Attendance() {
         });
       }
     },
-    [fetchAttendanceData]
+    [fetchAttendanceData, staffProfile?.id]
   );
 
   useEffect(() => {
     fetchAttendanceData();
   }, [fetchAttendanceData]);
+
+  // Update status to Absent for staff past their scheduled end time without clocking in
+  useEffect(() => {
+    const updateAbsentStatus = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const currentTime = new Date().toTimeString().split(' ')[0];
+      const dayOfWeek = new Date().getDay();
+
+      // Fetch all schedules once
+      const { data: allSchedules } = await getAllSchedules();
+      const scheduleMap = new Map<string, Schedule>();
+      
+      if (allSchedules) {
+        allSchedules.forEach(schedule => {
+          if (schedule.day_of_week === dayOfWeek && schedule.is_active) {
+            scheduleMap.set(schedule.staff_id, schedule);
+          }
+        });
+      }
+
+      const updatedRecords = [...attendanceData];
+      let hasChanges = false;
+
+      // Check today's records with Pending status and no clock-in
+      for (const record of updatedRecords) {
+        if (record.date === today && record.status === 'Pending' && !record.time_in) {
+          const todaySchedule = scheduleMap.get(record.staff_id);
+          
+          if (todaySchedule && todaySchedule.end_time) {
+            // Parse times for comparison
+            const [schedEndHour, schedEndMin] = todaySchedule.end_time.split(':').map(Number);
+            const [currentHour, currentMin] = currentTime.split(':').map(Number);
+            
+            const schedEndMinutes = schedEndHour * 60 + schedEndMin;
+            const currentMinutes = currentHour * 60 + currentMin;
+            
+            // If current time is past scheduled end time, mark as Absent
+            if (currentMinutes >= schedEndMinutes) {
+              const index = updatedRecords.findIndex(r => r.id === record.id);
+              if (index !== -1) {
+                updatedRecords[index] = {
+                  ...record,
+                  status: 'Absent',
+                };
+                hasChanges = true;
+              }
+            }
+          }
+        }
+      }
+
+      if (hasChanges) {
+        setAttendanceData(updatedRecords);
+        
+        // Recalculate stats
+        const todayRecords = updatedRecords.filter((a: AttendanceType) => a.date === today);
+        if (todayRecords.length > 0) {
+          const present = todayRecords.filter(
+            (a: AttendanceType) => a.status === 'Present',
+          ).length;
+          const late = todayRecords.filter(
+            (a: AttendanceType) => a.status === 'Late',
+          ).length;
+          const absent = todayRecords.filter(
+            (a: AttendanceType) => a.status === 'Absent',
+          ).length;
+          const onCall = todayRecords.filter(
+            (a: AttendanceType) => a.status === 'On-Call',
+          ).length;
+
+          setStats({
+            present,
+            late,
+            absent,
+            onCall,
+          });
+        }
+      }
+    };
+
+    // Run the update when attendance data changes
+    updateAbsentStatus();
+  }, [attendanceData]);
 
   const handleGenerateQRCode = async (staff: Staff) => {
     setQrCodeLoading(true);
@@ -404,7 +488,17 @@ function Attendance() {
         return;
       }
 
-      // Record the QR code scan
+      // Check authorization: staff can only clock in/out for themselves, admins can do for anyone
+      if (staffProfile && staffProfile.id !== staffId && userRole !== 'admin') {
+        setSnackbar({
+          open: true,
+          message: 'You can only clock in/out for yourself. Contact an administrator for manual entries.',
+          severity: 'error',
+        });
+        return; // Don't record the scan if unauthorized
+      }
+
+      // Record the QR code scan only after authorization check passes
       recordQRCodeScan(trimmedCode).then((result) => {
         if (result.error) {
           console.error('QR code scan recording failed:', result.error);
@@ -780,18 +874,22 @@ function Attendance() {
                             row.status === 'Present'
                               ? '#d1fae5'
                               : row.status === 'Late'
-                                ? '#fee2e2'
+                                ? '#fef3c7'
                                 : row.status === 'Pending'
                                   ? '#f3f4f6'
-                                  : '#fef3c7',
+                                  : row.status === 'On-Call'
+                                    ? '#dbeafe'
+                                    : '#fee2e2',
                           color:
                             row.status === 'Present'
                               ? '#065f46'
                               : row.status === 'Late'
-                                ? '#991b1b'
+                                ? '#92400e'
                                 : row.status === 'Pending'
                                   ? '#6b7280'
-                                  : '#92400e',
+                                  : row.status === 'On-Call'
+                                    ? '#1e40af'
+                                    : '#991b1b',
                         }}
                       />
                     </TableCell>

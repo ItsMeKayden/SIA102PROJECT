@@ -167,8 +167,25 @@ export const deleteAttendance = async (id: string): Promise<{ error: string | nu
 };
 
 // Clock in
-export const clockIn = async (staffId: string, shift?: string): Promise<{ data: Attendance | null; error: string | null }> => {
+export const clockIn = async (staffId: string, shift?: string, currentUserId?: string): Promise<{ data: Attendance | null; error: string | null }> => {
   try {
+    // Validate that the current user is either the staff member clocking in or is an admin
+    if (currentUserId && currentUserId !== staffId) {
+      // Check if current user is admin
+      const { data: currentUserStaff, error: userCheckError } = await supabase
+        .from('staff')
+        .select('user_role')
+        .eq('id', currentUserId)
+        .single();
+
+      if (userCheckError || !currentUserStaff || currentUserStaff.user_role !== 'admin') {
+        return {
+          data: null,
+          error: 'You can only clock in/out for yourself. Contact an administrator for manual entries.',
+        };
+      }
+    }
+
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
     const timeStr = now.toTimeString().split(' ')[0];
@@ -176,21 +193,20 @@ export const clockIn = async (staffId: string, shift?: string): Promise<{ data: 
     // Check if staff has a schedule for today
     const schedule = await getStaffScheduleForDate(staffId, dateStr);
 
-    // Block clock in if no schedule exists
-    if (!schedule) {
-      return {
-        data: null,
-        error: 'You are not scheduled for today. Please contact your administrator.',
-      };
-    }
-
-    // Determine status: Late or Present
-    let status = 'Present';
+    // Determine status based on schedule
+    let status = 'On-Call'; // Default to On-Call if not scheduled
     let notes = shift ? `Shift: ${shift}` : null;
 
-    if (isStaffLate(timeStr, schedule.start_time)) {
-      status = 'Late';
-      notes = shift ? `Shift: ${shift} (Late)` : 'Late';
+    if (schedule) {
+      // Staff is scheduled - determine if Present or Late
+      status = 'Present';
+      if (isStaffLate(timeStr, schedule.start_time)) {
+        status = 'Late';
+        notes = shift ? `Shift: ${shift} (Late)` : 'Late';
+      }
+    } else {
+      // Staff is not scheduled - set to On-Call
+      notes = shift ? `Shift: ${shift} (On-Call)` : 'On-Call';
     }
 
     const attendanceData: AttendanceInsert = {
@@ -216,8 +232,25 @@ export const clockIn = async (staffId: string, shift?: string): Promise<{ data: 
 };
 
 // Clock out
-export const clockOut = async (staffId: string): Promise<{ data: Attendance | null; error: string | null }> => {
+export const clockOut = async (staffId: string, currentUserId?: string): Promise<{ data: Attendance | null; error: string | null }> => {
   try {
+    // Validate that the current user is either the staff member clocking out or is an admin
+    if (currentUserId && currentUserId !== staffId) {
+      // Check if current user is admin
+      const { data: currentUserStaff, error: userCheckError } = await supabase
+        .from('staff')
+        .select('user_role')
+        .eq('id', currentUserId)
+        .single();
+
+      if (userCheckError || !currentUserStaff || currentUserStaff.user_role !== 'admin') {
+        return {
+          data: null,
+          error: 'You can only clock out for yourself. Contact an administrator for manual entries.',
+        };
+      }
+    }
+
     const now = new Date();
     const timeStr = now.toTimeString().split(' ')[0];
     const dateStr = now.toISOString().split('T')[0];

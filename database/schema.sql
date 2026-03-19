@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS Subsystem2.attendance (
     date DATE NOT NULL,
     time_in TIME,
     time_out TIME,
-    status TEXT NOT NULL DEFAULT 'Present' CHECK (status IN ('Present', 'Absent', 'Late', 'Half Day')),
+    status TEXT NOT NULL DEFAULT 'Present' CHECK (status IN ('Present', 'Absent', 'Late', 'Half Day', 'Pending', 'On-Call')),
     notes TEXT
 );
 
