@@ -74,6 +74,12 @@ export type Database = {
           status: string;
           time_in: string | null;
           time_out: string | null;
+          clock_in_latitude: number | null;
+          clock_in_longitude: number | null;
+          clock_in_within_premises: boolean | null;
+          clock_out_latitude: number | null;
+          clock_out_longitude: number | null;
+          clock_out_within_premises: boolean | null;
         };
         Insert: {
           created_at?: string;
@@ -84,6 +90,12 @@ export type Database = {
           status?: string;
           time_in?: string | null;
           time_out?: string | null;
+          clock_in_latitude?: number | null;
+          clock_in_longitude?: number | null;
+          clock_in_within_premises?: boolean | null;
+          clock_out_latitude?: number | null;
+          clock_out_longitude?: number | null;
+          clock_out_within_premises?: boolean | null;
         };
         Update: {
           created_at?: string;
@@ -94,6 +106,12 @@ export type Database = {
           status?: string;
           time_in?: string | null;
           time_out?: string | null;
+          clock_in_latitude?: number | null;
+          clock_in_longitude?: number | null;
+          clock_in_within_premises?: boolean | null;
+          clock_out_latitude?: number | null;
+          clock_out_longitude?: number | null;
+          clock_out_within_premises?: boolean | null;
         };
         Relationships: [
           {

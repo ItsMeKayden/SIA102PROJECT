@@ -1,6 +1,7 @@
 import { supabase, handleSupabaseError } from '../../lib/supabase-client';
 import type { Attendance, AttendanceInsert, AttendanceUpdate, NotificationInsert } from '../../types';
 import { createNotification } from './notificationService';
+import { isWithinClinicPremises, calculateDistance, CLINIC_LOCATION } from '../../lib/locationUtils';
 
 // Attendance Backend Service
 // Handles all attendance-related database operations :)
@@ -261,7 +262,13 @@ export const deleteAttendance = async (id: string): Promise<{ error: string | nu
 };
 
 // Clock in
-export const clockIn = async (staffId: string, shift?: string, currentUserId?: string): Promise<{ data: Attendance | null; error: string | null }> => {
+export const clockIn = async (
+  staffId: string,
+  shift?: string,
+  currentUserId?: string,
+  latitude?: number,
+  longitude?: number
+): Promise<{ data: Attendance | null; error: string | null }> => {
   try {
     // Validate that the current user is either the staff member clocking in or is an admin
     if (currentUserId && currentUserId !== staffId) {
@@ -303,12 +310,21 @@ export const clockIn = async (staffId: string, shift?: string, currentUserId?: s
       notes = shift ? `Shift: ${shift} (On-Call)` : 'On-Call';
     }
 
-    const attendanceData: AttendanceInsert = {
+    // Determine if clock in is within clinic premises
+    let clockInWithinPremises = null;
+    if (latitude !== undefined && longitude !== undefined) {
+      clockInWithinPremises = isWithinClinicPremises(latitude, longitude);
+    }
+
+    const attendanceData: any = {
       staff_id: staffId,
       date: dateStr,
       time_in: timeStr,
       status,
       notes,
+      clock_in_latitude: latitude ?? null,
+      clock_in_longitude: longitude ?? null,
+      clock_in_within_premises: clockInWithinPremises,
     };
 
     const { data, error } = await supabase
@@ -332,7 +348,12 @@ export const clockIn = async (staffId: string, shift?: string, currentUserId?: s
 };
 
 // Clock out
-export const clockOut = async (staffId: string, currentUserId?: string): Promise<{ data: Attendance | null; error: string | null }> => {
+export const clockOut = async (
+  staffId: string,
+  currentUserId?: string,
+  latitude?: number,
+  longitude?: number
+): Promise<{ data: Attendance | null; error: string | null }> => {
   try {
     // Validate that the current user is either the staff member clocking out or is an admin
     if (currentUserId && currentUserId !== staffId) {
@@ -377,10 +398,19 @@ export const clockOut = async (staffId: string, currentUserId?: string): Promise
       };
     }
 
+    // Determine if clock out is within clinic premises
+    let clockOutWithinPremises = null;
+    if (latitude !== undefined && longitude !== undefined) {
+      clockOutWithinPremises = isWithinClinicPremises(latitude, longitude);
+    }
+
     const { data, error } = await supabase
       .from('attendance')
       .update({
         time_out: timeStr,
+        clock_out_latitude: latitude ?? null,
+        clock_out_longitude: longitude ?? null,
+        clock_out_within_premises: clockOutWithinPremises,
       })
       .eq('id', existingRecord.id)
       .select()

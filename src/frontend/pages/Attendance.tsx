@@ -27,6 +27,7 @@ import { FiClock, FiX } from 'react-icons/fi';
 import { QRCodeSVG } from 'qrcode.react';
 import { QRScanner } from '../components/scanner/QRScanner';
 import { useAuth } from '../../contexts/AuthContext';
+import { getCurrentLocation, getLocationStatusMessage, calculateDistance, CLINIC_LOCATION } from '../../lib/locationUtils';
 import {
   getAllAttendance,
   clockIn,
@@ -212,6 +213,27 @@ function Attendance() {
       }
 
       try {
+        // Get device location
+        let latitude: number | undefined;
+        let longitude: number | undefined;
+        let locationMessage = '';
+
+        try {
+          const location = await getCurrentLocation();
+          latitude = location.latitude;
+          longitude = location.longitude;
+          const distance = calculateDistance(
+            latitude,
+            longitude,
+            CLINIC_LOCATION.latitude,
+            CLINIC_LOCATION.longitude
+          );
+          locationMessage = ` ${getLocationStatusMessage(distance <= 100, distance)}`;
+        } catch (locationError) {
+          console.warn('Location error:', locationError);
+          locationMessage = ' ⚠ Location unavailable';
+        }
+
         // Check if staff is already clocked in
         const { isClockedIn: isCurrentlyClockedIn, error: checkError } = await isStaffClockedIn(staffId);
 
@@ -226,7 +248,7 @@ function Attendance() {
 
         if (isCurrentlyClockedIn) {
           // Clock out
-          const { error } = await clockOut(staffId, staffProfile?.id || '');
+          const { error } = await clockOut(staffId, staffProfile?.id || '', latitude, longitude);
           if (error) {
             setSnackbar({
               open: true,
@@ -240,7 +262,7 @@ function Attendance() {
                 hour: '2-digit',
                 minute: '2-digit',
                 hour12: true,
-              })}`,
+              })}${locationMessage}`,
               severity: 'success',
             });
             setManualStaffId('');
@@ -250,7 +272,7 @@ function Attendance() {
           }
         } else {
           // Clock in
-          const { error } = await clockIn(staffId, undefined, staffProfile?.id || '');
+          const { error } = await clockIn(staffId, undefined, staffProfile?.id || '', latitude, longitude);
           if (error) {
             setSnackbar({
               open: true,
@@ -264,7 +286,7 @@ function Attendance() {
                 hour: '2-digit',
                 minute: '2-digit',
                 hour12: true,
-              })}`,
+              })}${locationMessage}`,
               severity: 'success',
             });
             setManualStaffId('');
@@ -860,6 +882,19 @@ function Attendance() {
                 >
                   Status
                 </TableCell>
+                <TableCell
+                  align="center"
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '12px',
+                    color: '#374151',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    py: 2,
+                  }}
+                >
+                  Location Status
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -870,7 +905,7 @@ function Attendance() {
                 if (displayRecords.length === 0) {
                   return (
                     <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                         <Typography color="textSecondary" sx={{ fontSize: '14px' }}>
                           No attendance records found for this date
                         </Typography>
@@ -942,6 +977,37 @@ function Attendance() {
                                     : '#991b1b',
                         }}
                       />
+                    </TableCell>
+                    <TableCell align="center" sx={{ py: 2 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center' }}>
+                        {row.clock_in_within_premises !== null && (
+                          <Chip
+                            label={row.clock_in_within_premises ? '✓ In (Clock In)' : '✗ Out (Clock In)'}
+                            size="small"
+                            sx={{
+                              fontWeight: 600,
+                              fontSize: '10px',
+                              backgroundColor: row.clock_in_within_premises ? '#d1fae5' : '#fee2e2',
+                              color: row.clock_in_within_premises ? '#065f46' : '#991b1b',
+                            }}
+                          />
+                        )}
+                        {row.clock_out_within_premises !== null && (
+                          <Chip
+                            label={row.clock_out_within_premises ? '✓ In (Clock Out)' : '✗ Out (Clock Out)'}
+                            size="small"
+                            sx={{
+                              fontWeight: 600,
+                              fontSize: '10px',
+                              backgroundColor: row.clock_out_within_premises ? '#d1fae5' : '#fee2e2',
+                              color: row.clock_out_within_premises ? '#065f46' : '#991b1b',
+                            }}
+                          />
+                        )}
+                        {row.clock_in_within_premises === null && row.clock_out_within_premises === null && (
+                          <Typography sx={{ fontSize: '12px', color: '#9ca3af' }}>—</Typography>
+                        )}
+                      </Box>
                     </TableCell>
                   </TableRow>
                   ))

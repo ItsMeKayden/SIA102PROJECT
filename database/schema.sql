@@ -48,7 +48,13 @@ CREATE TABLE IF NOT EXISTS Subsystem2.attendance (
     time_in TIME,
     time_out TIME,
     status TEXT NOT NULL DEFAULT 'Present' CHECK (status IN ('Present', 'Absent', 'Late', 'Half Day', 'Pending', 'On-Call')),
-    notes TEXT
+    notes TEXT,
+    clock_in_latitude NUMERIC(10, 8),
+    clock_in_longitude NUMERIC(11, 8),
+    clock_in_within_premises BOOLEAN,
+    clock_out_latitude NUMERIC(10, 8),
+    clock_out_longitude NUMERIC(11, 8),
+    clock_out_within_premises BOOLEAN
 );
 
 -- =====================================================
