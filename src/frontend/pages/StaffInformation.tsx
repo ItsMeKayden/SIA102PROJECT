@@ -212,22 +212,6 @@ function StaffTab() {
     setOpenModal(true);
   };
 
-  const handleStaffSelection = (staffId: string) => {
-    const staff = staffData.find((s) => s.id === staffId);
-    if (staff) {
-      setSelectedStaffId(staffId);
-      setFormData({
-        name: staff.name,
-        role: staff.role,
-        specialization: staff.specialization || "",
-        department: staff.department || "",
-        status: (staff.status as "Active" | "Inactive") || "Active",
-        email: staff.email || "",
-        phone: staff.phone || "",
-      });
-    }
-  };
-
   const handleSubmit = async () => {
     if (!formData.name || !formData.role || !formData.specialization) {
       showSnackbar("Please fill in all required fields", "error");
@@ -382,20 +366,6 @@ function StaffTab() {
         >
           + Add Staff
         </Button>
-        {/* <Button
-          onClick={() => handleOpenModal('edit')}
-          variant="outlined"
-          sx={{
-            textTransform: 'none',
-            borderColor: '#d1d5db',
-            color: '#4b5563',
-            fontWeight: 600,
-            fontSize: '14px',
-            '&:hover': { borderColor: '#9ca3af', backgroundColor: '#f9fafb' },
-          }}
-        >
-          Edit Staff
-        </Button> */}
       </Box>
 
       <TableContainer
@@ -616,28 +586,6 @@ function StaffTab() {
         </DialogTitle>
         <DialogContent dividers sx={{ py: 3 }}>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-            {modalMode === "edit" && (
-              <Box>
-                {fieldLabel("Select Staff to Edit")}
-                <FormControl fullWidth size="small">
-                  <Select
-                    value={selectedStaffId}
-                    onChange={(e) => handleStaffSelection(e.target.value)}
-                    displayEmpty
-                    sx={{ borderRadius: "6px" }}
-                  >
-                    <MenuItem value="" disabled>
-                      <em>Choose a staff member</em>
-                    </MenuItem>
-                    {staffData.map((s) => (
-                      <MenuItem key={s.id} value={s.id}>
-                        {s.name} - {s.role}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-            )}
             {[
               {
                 label: "Full Name",
@@ -670,10 +618,7 @@ function StaffTab() {
                   onChange={(e) =>
                     setFormData({ ...formData, [key]: e.target.value })
                   }
-                  disabled={
-                    (modalMode === "edit" && !selectedStaffId) ||
-                    (modalMode === "edit" && !!disableOnEdit)
-                  }
+                  disabled={modalMode === "edit" && !!disableOnEdit}
                   sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
                 />
               </Box>
@@ -687,7 +632,6 @@ function StaffTab() {
                     setFormData({ ...formData, role: e.target.value })
                   }
                   displayEmpty
-                  disabled={modalMode === "edit" && !selectedStaffId}
                   sx={{ borderRadius: "6px" }}
                 >
                   <MenuItem value="">Select role</MenuItem>
@@ -712,7 +656,6 @@ function StaffTab() {
                     })
                   }
                   displayEmpty
-                  disabled={modalMode === "edit" && !selectedStaffId}
                   sx={{ borderRadius: "6px" }}
                 >
                   <MenuItem value="">Select department</MenuItem>
@@ -805,11 +748,6 @@ function StaffTab() {
                 zIndex: 1,
               }}
             >
-              {/* <IconButton onClick={() => setViewModal({ open: false, staff: null })} size="small">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 12H5M12 5l-7 7 7 7" />
-                </svg>
-              </IconButton> */}
               <IconButton
                 onClick={() => setViewModal({ open: false, staff: null })}
                 size="small"
@@ -1160,7 +1098,6 @@ function StaffTab() {
               <Button
                 onClick={() => {
                   setViewModal({ open: false, staff: null });
-                  // Pre-select this staff in the edit modal
                   setModalMode("edit");
                   setSelectedStaffId(viewModal.staff!.id);
                   setFormData({
@@ -1215,7 +1152,6 @@ function StaffTab() {
                   const staff = viewModal.staff!;
                   const newStatus =
                     staff.status === "Active" ? "Inactive" : "Active";
-                  // Optimistically update modal and table
                   const updatedStaff = { ...staff, status: newStatus };
                   setViewModal({ open: true, staff: updatedStaff });
                   setStaffData((prev) =>
@@ -1233,7 +1169,6 @@ function StaffTab() {
                     phone: staff.phone || "",
                   });
                   if (error) {
-                    // Revert on failure
                     setViewModal({ open: true, staff });
                     setStaffData((prev) =>
                       prev.map((s) =>
