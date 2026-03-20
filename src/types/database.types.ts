@@ -230,6 +230,8 @@ export type Database = {
           duty_status: string | null;
           email: string;
           id: string;
+          staffid: string;
+          avatar_url?: string | null;
           name: string;
           phone: string | null;
           role: string;

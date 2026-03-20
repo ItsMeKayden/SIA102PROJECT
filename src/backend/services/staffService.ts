@@ -142,7 +142,7 @@ export const createStaff = async (
       email: staffData.email,
       role: staffData.role,
       specialization: staffData.specialization || null,
-      department: staffData.department || null, // ← added
+      department: staffData.department || null,
       status: staffData.status,
       phone: staffData.phone || null,
       user_id: authData.user.id,
@@ -170,9 +170,10 @@ export const createStaff = async (
   }
 };
 
+// avatar_url is optional — only included when explicitly passed
 export const updateStaff = async (
   id: string,
-  staffData: StaffFormData,
+  staffData: StaffFormData & { avatar_url?: string },
 ): Promise<{ data: Staff | null; error: string | null }> => {
   try {
     const updateData: StaffUpdate = {
@@ -180,10 +181,12 @@ export const updateStaff = async (
       email: staffData.email,
       role: staffData.role,
       specialization: staffData.specialization || null,
-      department: staffData.department || null, // ← added
+      department: staffData.department || null,
       status: staffData.status,
       phone: staffData.phone || null,
       updated_at: new Date().toISOString(),
+      // Only include avatar_url in the update if it was explicitly provided
+      ...(staffData.avatar_url !== undefined && { avatar_url: staffData.avatar_url }),
     };
 
     const { data, error } = await supabase
