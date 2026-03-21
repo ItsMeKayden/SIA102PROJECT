@@ -23,6 +23,7 @@ export type Database = {
           department?: string | null;
           id: string;
           notes: string | null;
+          prescription?: string | null;
           patient_contact: string;
           patient_name: string;
           status: string;

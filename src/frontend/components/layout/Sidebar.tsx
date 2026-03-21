@@ -33,7 +33,7 @@ const allMenuItems: MenuItem[] = [
     icon: <FiBarChart2 />,
     adminOnly: true,
   },
-  { label: "Appointments", path: "appointments", icon: <FiClipboard /> },
+  { label: "Walk Ins", path: "appointments", icon: <FiClipboard /> },
   { label: "Schedule", path: "schedule", icon: <FiCalendar /> },
 ];
 
