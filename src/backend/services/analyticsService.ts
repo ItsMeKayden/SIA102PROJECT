@@ -51,7 +51,10 @@ export const getAnalyticsStats = async (monthYear?: string): Promise<{ data: Ana
     const returningPatients = Object.values(patientCounts).filter(count => count > 1).length;
     const patientReturnRate = totalPatients > 0 ? (returningPatients / totalPatients) * 100 : 0;
 
-    // 4. attendance rate = present / total
+    // 4. attendance rate calculation:
+    // - Present = 1.0 (full attendance)
+    // - Late = 0.5 (half attendance)
+    // - Absent, On-Call, Pending = 0 (not counted but included in total)
     const { data: attendanceAll, error: attendanceError } = await supabase
       .from('attendance')
       .select('status, date');
@@ -62,14 +65,19 @@ export const getAnalyticsStats = async (monthYear?: string): Promise<{ data: Ana
     if (monthYear) {
       filteredAttendance = filteredAttendance.filter(record => {
         const date = new Date(record.date);
-        const month = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+        const month = date.toLocaleString('default', { month: 'long', year: 'numeric' });
         return month === monthYear;
       });
     }
 
-    const totalAttend = filteredAttendance.length;
+    // Count attendance points: Present = 1.0, Late = 0.5, others = 0
     const presentCount = filteredAttendance.filter(a => a.status === 'Present').length;
-    const attendanceRate = totalAttend > 0 ? (presentCount / totalAttend) * 100 : 0;
+    const lateCount = filteredAttendance.filter(a => a.status === 'Late').length;
+    const totalRecords = filteredAttendance.length;
+    
+    // Calculate attendance rate: (Present + Late*0.5) / Total
+    const attendancePointsTotal = presentCount * 1.0 + lateCount * 0.5;
+    const attendanceRate = totalRecords > 0 ? (attendancePointsTotal / totalRecords) * 100 : 0;
 
     // Build patient appointment list and returning patients list for completeness
     const patientAppointmentList = Object.entries(patientCounts).map(([name, count]) => ({ name, count }));

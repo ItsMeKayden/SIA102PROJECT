@@ -99,16 +99,18 @@ function Attendance() {
         setTimeout(() => reject(new Error('Request timed out')), 8000)
       );
 
-      const [attendanceRes, staffRes] = await Promise.all([
+      const [attendanceRes, staffRes, schedulesRes] = await Promise.all([
         Promise.race([
           getAllAttendance(),
           timeoutPromise,
         ]) as Promise<{ data: AttendanceType[] | null; error: string | null }>,
         getAllStaff(),
+        getAllSchedules(),
       ]);
 
       const { data: attendanceRecords, error: attendanceError } = attendanceRes;
       const { data: allStaff } = staffRes;
+      const { data: allSchedules } = schedulesRes;
 
       console.log('Attendance records fetched:', attendanceRecords);
 
@@ -148,6 +150,7 @@ function Attendance() {
       const completeRecords: AttendanceType[] = [];
       recordsByDate.forEach((dateRecords, date) => {
         const recordedStaffIds = new Set(dateRecords.map(r => r.staff_id));
+        const dayOfWeek = new Date(date).getDay();
         
         // Add existing records
         completeRecords.push(...dateRecords);
@@ -155,6 +158,13 @@ function Attendance() {
         // Add placeholder records for staff without attendance
         staffMembers.forEach((staff) => {
           if (!recordedStaffIds.has(staff.id)) {
+            // Check if staff has a schedule for this day of the week
+            const hasSchedule = allSchedules?.some(
+              schedule => schedule.staff_id === staff.id && 
+                          schedule.day_of_week === dayOfWeek && 
+                          schedule.is_active
+            ) || false;
+            
             completeRecords.push({
               id: `placeholder-${staff.id}-${date}`,
               staff_id: staff.id,
@@ -162,7 +172,7 @@ function Attendance() {
               date,
               time_in: null,
               time_out: null,
-              status: 'Pending',
+              status: hasSchedule ? 'Pending' : 'Not Scheduled',
               notes: null,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
@@ -1066,7 +1076,9 @@ function Attendance() {
                                   ? '#f3f4f6'
                                   : row.status === 'On-Call'
                                     ? '#dbeafe'
-                                    : '#fee2e2',
+                                    : row.status === 'Not Scheduled'
+                                      ? '#e5e7eb'
+                                      : '#fee2e2',
                           color:
                             row.status === 'Present'
                               ? '#065f46'
@@ -1076,13 +1088,15 @@ function Attendance() {
                                   ? '#6b7280'
                                   : row.status === 'On-Call'
                                     ? '#1e40af'
-                                    : '#991b1b',
+                                    : row.status === 'Not Scheduled'
+                                      ? '#6b7280'
+                                      : '#991b1b',
                         }}
                       />
                     </TableCell>
                     <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 } }}>
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center', justifyContent: 'center' }}>
-                        {(row.status === 'Absent' || row.status === 'Pending') ? (
+                        {(row.status === 'Absent' || row.status === 'Pending' || row.status === 'Not Scheduled') ? (
                           <Typography sx={{ fontSize: { xs: '10px', sm: '12px' }, color: '#9ca3af' }}>—</Typography>
                         ) : (
                           <>
