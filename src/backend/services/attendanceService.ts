@@ -502,3 +502,84 @@ export const getAttendanceStats = async (staffId: string, startDate: string, end
   }
 };
 
+// Mark staff as absent and save to database
+export const markStaffAbsent = async (
+  staffId: string,
+  date: string,
+  notes?: string
+): Promise<{ data: Attendance | null; error: string | null }> => {
+  try {
+    // First, check if an attendance record already exists for this staff on this date
+    const { data: existingRecord, error: fetchError } = await supabase
+      .from('attendance')
+      .select('id, status, notes')
+      .eq('staff_id', staffId)
+      .eq('date', date)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      // PGRST116 is "no rows returned" error
+      throw fetchError;
+    }
+
+    let result;
+    
+    if (existingRecord) {
+      // Update existing record to Absent status
+      const { data, error } = await supabase
+        .from('attendance')
+        .update({
+          status: 'Absent',
+          notes: notes || existingRecord.notes || 'Marked as absent',
+        })
+        .eq('id', existingRecord.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      result = data;
+    } else {
+      // Create new attendance record with Absent status
+      const attendanceData = {
+        staff_id: staffId,
+        date: date,
+        status: 'Absent' as const,
+        notes: notes || 'Marked as absent',
+      };
+
+      const { data, error } = await supabase
+        .from('attendance')
+        .insert(attendanceData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      result = data;
+    }
+
+    // Send notification to the staff member
+    await createNotification({
+      title: 'Marked as Absent',
+      message: `You have been marked as absent on ${date}`,
+      staff_id: staffId,
+      type: 'warning',
+    });
+
+    // Get all admins and send them notifications
+    const admins = await getAllAdmins();
+    const staffName = await getStaffName(staffId);
+    for (const adminId of admins) {
+      await createNotification({
+        title: `${staffName} Marked as Absent`,
+        message: `${staffName} has been marked as absent on ${date}`,
+        staff_id: adminId,
+        type: 'info',
+      });
+    }
+
+    return { data: result, error: null };
+  } catch (error) {
+    return { data: null, error: handleSupabaseError(error) };
+  }
+};
+

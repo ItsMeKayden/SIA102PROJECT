@@ -23,6 +23,10 @@ import {
   Card,
   CardContent,
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 import { FiClock, FiX } from 'react-icons/fi';
 import { QRCodeSVG } from 'qrcode.react';
 import { QRScanner } from '../components/scanner/QRScanner';
@@ -33,6 +37,7 @@ import {
   clockIn,
   clockOut,
   isStaffClockedIn,
+  markStaffAbsent,
 } from '../../backend/services/attendanceService';
 import { recordQRCodeScan, validateQRCode, getDailyQRCode } from '../../backend/services/qrCodeService';
 import { getAllStaff } from '../../backend/services/staffService';
@@ -425,6 +430,7 @@ function Attendance() {
 
       const updatedRecords = [...attendanceData];
       let hasChanges = false;
+      const staffMarkedAbsent: { staffId: string; date: string }[] = [];
 
       // Check today's records with Pending status and no clock-in
       for (const record of updatedRecords) {
@@ -447,6 +453,7 @@ function Attendance() {
                   ...record,
                   status: 'Absent',
                 };
+                staffMarkedAbsent.push({ staffId: record.staff_id, date: today });
                 hasChanges = true;
               }
             }
@@ -456,6 +463,11 @@ function Attendance() {
 
       if (hasChanges) {
         setAttendanceData(updatedRecords);
+        
+        // Save each absent record to database
+        for (const { staffId, date } of staffMarkedAbsent) {
+          await markStaffAbsent(staffId, date, 'Automatically marked as absent after scheduled end time');
+        }
         
         // Recalculate stats
         const todayRecords = updatedRecords.filter((a: AttendanceType) => a.date === today);
@@ -808,16 +820,21 @@ function Attendance() {
             )}
             {userRole === 'admin' && (
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' }, width: { xs: '100%', sm: 'auto' } }}>
-                <TextField
-                  label="Select Date"
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  sx={{
-                    width: { xs: '100%', sm: '200px' },
-                  }}
-                />
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DatePicker
+                    label="Select Date"
+                    value={dayjs(selectedDate)}
+                    onChange={(date) => {
+                      if (date) {
+                        const formattedDate = date.format('YYYY-MM-DD');
+                        setSelectedDate(formattedDate);
+                      }
+                    }}
+                    sx={{
+                      width: { xs: '100%', sm: '200px' },
+                    }}
+                  />
+                </LocalizationProvider>
                 <Button
                   variant="contained"
                   onClick={() => setGenerateQRModalOpen(true)}
