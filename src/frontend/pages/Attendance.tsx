@@ -979,7 +979,7 @@ function Attendance() {
                     px: { xs: 0.5, sm: 2 },
                   }}
                 >
-                  Location Status
+                  Location
                 </TableCell>
               </TableRow>
             </TableHead>
@@ -1082,34 +1082,40 @@ function Attendance() {
                     </TableCell>
                     <TableCell align="center" sx={{ py: 1, px: { xs: 0.5, sm: 2 } }}>
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center', justifyContent: 'center' }}>
-                        {row.clock_in_within_premises !== null && (
-                          <Chip
-                            label={row.clock_in_within_premises ? '✓ In' : '✗ Out'}
-                            size="small"
-                            sx={{
-                              fontWeight: 600,
-                              fontSize: { xs: '8px', sm: '10px' },
-                              backgroundColor: row.clock_in_within_premises ? '#d1fae5' : '#fee2e2',
-                              color: row.clock_in_within_premises ? '#065f46' : '#991b1b',
-                              padding: { xs: '2px 4px', sm: '4px 8px' },
-                            }}
-                          />
-                        )}
-                        {row.clock_out_within_premises !== null && (
-                          <Chip
-                            label={row.clock_out_within_premises ? '✓ In' : '✗ Out'}
-                            size="small"
-                            sx={{
-                              fontWeight: 600,
-                              fontSize: { xs: '8px', sm: '10px' },
-                              backgroundColor: row.clock_out_within_premises ? '#d1fae5' : '#fee2e2',
-                              color: row.clock_out_within_premises ? '#065f46' : '#991b1b',
-                              padding: { xs: '2px 4px', sm: '4px 8px' },
-                            }}
-                          />
-                        )}
-                        {row.clock_in_within_premises === null && row.clock_out_within_premises === null && (
+                        {(row.status === 'Absent' || row.status === 'Pending') ? (
                           <Typography sx={{ fontSize: { xs: '10px', sm: '12px' }, color: '#9ca3af' }}>—</Typography>
+                        ) : (
+                          <>
+                            {row.clock_in_within_premises !== null && (
+                              <Chip
+                                label={row.clock_in_within_premises ? 'Clocked in Inside' : 'Clocked in Outside'}
+                                size="small"
+                                sx={{
+                                  fontWeight: 600,
+                                  fontSize: { xs: '8px', sm: '10px' },
+                                  backgroundColor: row.clock_in_within_premises ? '#d1fae5' : '#fee2e2',
+                                  color: row.clock_in_within_premises ? '#065f46' : '#991b1b',
+                                  padding: { xs: '2px 4px', sm: '4px 8px' },
+                                }}
+                              />
+                            )}
+                            {row.clock_out_within_premises !== null && (
+                              <Chip
+                                label={row.clock_out_within_premises ? 'Clocked out Inside' : 'Clocked out Outside'}
+                                size="small"
+                                sx={{
+                                  fontWeight: 600,
+                                  fontSize: { xs: '8px', sm: '10px' },
+                                  backgroundColor: row.clock_out_within_premises ? '#d1fae5' : '#fee2e2',
+                                  color: row.clock_out_within_premises ? '#065f46' : '#991b1b',
+                                  padding: { xs: '2px 4px', sm: '4px 8px' },
+                                }}
+                              />
+                            )}
+                            {row.clock_in_within_premises === null && row.clock_out_within_premises === null && (
+                              <Typography sx={{ fontSize: { xs: '10px', sm: '12px' }, color: '#9ca3af' }}>—</Typography>
+                            )}
+                          </>
                         )}
                       </Box>
                     </TableCell>
