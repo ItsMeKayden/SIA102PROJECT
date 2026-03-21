@@ -85,6 +85,61 @@ const fieldLabel = (text: string, required = false) => (
   </label>
 );
 
+// ─── Name helpers ─────────────────────────────────────────────────────────────
+
+/** Builds the stored name string: "LastName, FirstName MiddleName" */
+const formatNameForStorage = (
+  last: string,
+  first: string,
+  middle: string,
+): string => {
+  const l = last.trim();
+  const f = first.trim();
+  const m = middle.trim();
+  if (!l) return m ? `${f} ${m}` : f;
+  return m ? `${l}, ${f} ${m}` : `${l}, ${f}`;
+};
+
+/**
+ * Formats a stored name for display: "LastName, FirstName M."
+ * Falls back gracefully for old records that have no comma.
+ */
+const formatNameForDisplay = (storedName: string): string => {
+  const commaIdx = storedName.indexOf(",");
+  if (commaIdx === -1) return storedName;
+  const last = storedName.slice(0, commaIdx).trim();
+  const rest = storedName.slice(commaIdx + 1).trim();
+  const spaceIdx = rest.indexOf(" ");
+  if (spaceIdx === -1) return `${last}, ${rest}`;
+  const first = rest.slice(0, spaceIdx).trim();
+  const middle = rest.slice(spaceIdx + 1).trim();
+  const middleInitial = middle ? ` ${middle.charAt(0).toUpperCase()}.` : "";
+  return `${last}, ${first}${middleInitial}`;
+};
+
+/** Parses a stored name back into its three parts for the edit form. */
+const parseStoredName = (
+  storedName: string,
+): { lastName: string; firstName: string; middleName: string } => {
+  const commaIdx = storedName.indexOf(",");
+  if (commaIdx === -1)
+    return { lastName: "", firstName: storedName.trim(), middleName: "" };
+  const last = storedName.slice(0, commaIdx).trim();
+  const rest = storedName.slice(commaIdx + 1).trim();
+  const spaceIdx = rest.indexOf(" ");
+  if (spaceIdx === -1)
+    return { lastName: last, firstName: rest, middleName: "" };
+  return {
+    lastName: last,
+    firstName: rest.slice(0, spaceIdx).trim(),
+    middleName: rest.slice(spaceIdx + 1).trim(),
+  };
+};
+
+/** Returns the avatar initial from a stored name (uses last name first letter). */
+const getAvatarInitial = (storedName: string): string =>
+  storedName.charAt(0).toUpperCase();
+
 // ─── Staff Tab ────────────────────────────────────────────────────────────────
 function StaffTab() {
   const { staffProfile, isAdmin } = useAuth();
@@ -110,15 +165,17 @@ function StaffTab() {
   const [viewModal, setViewModal] = useState<{
     open: boolean;
     staff: Staff | null;
-  }>({
-    open: false,
-    staff: null,
-  });
+  }>({ open: false, staff: null });
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success" as "success" | "error",
   });
+
+  // ── Split-name form state ──
+  const [lastName, setLastName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
   const [formData, setFormData] = useState<StaffFormData>({
     name: "",
     role: "",
@@ -185,7 +242,9 @@ function StaffTab() {
       staff.id !== staffProfile.id
     )
       return false;
+    const displayName = formatNameForDisplay(staff.name);
     const matchesSearch =
+      displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       staff.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       staff.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (staff.staffid ?? "").toLowerCase().includes(searchQuery.toLowerCase());
@@ -197,9 +256,16 @@ function StaffTab() {
     return matchesSearch && matchesSpecialization && matchesStatus;
   });
 
+  const resetNameFields = () => {
+    setLastName("");
+    setFirstName("");
+    setMiddleName("");
+  };
+
   const handleOpenModal = (mode: "add" | "edit") => {
     setModalMode(mode);
     setSelectedStaffId("");
+    resetNameFields();
     setFormData({
       name: "",
       role: "",
@@ -213,7 +279,12 @@ function StaffTab() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.role || !formData.specialization) {
+    if (
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !formData.role ||
+      !formData.specialization
+    ) {
       showSnackbar("Please fill in all required fields", "error");
       return;
     }
@@ -221,8 +292,12 @@ function StaffTab() {
       showSnackbar("Please enter a valid email address", "error");
       return;
     }
+
+    const builtName = formatNameForStorage(lastName, firstName, middleName);
+    const payload: StaffFormData = { ...formData, name: builtName };
+
     if (modalMode === "add") {
-      const { error } = await createStaff(formData);
+      const { error } = await createStaff(payload);
       if (error) showSnackbar(error, "error");
       else {
         showSnackbar("Staff member added successfully", "success");
@@ -230,7 +305,7 @@ function StaffTab() {
         setOpenModal(false);
       }
     } else {
-      const { error } = await updateStaff(selectedStaffId, formData);
+      const { error } = await updateStaff(selectedStaffId, payload);
       if (error) showSnackbar(error, "error");
       else {
         showSnackbar("Staff member updated successfully", "success");
@@ -433,7 +508,7 @@ function StaffTab() {
                     textOverflow: "ellipsis",
                   }}
                 >
-                  {staff.name}
+                  {formatNameForDisplay(staff.name)}
                 </TableCell>
                 <TableCell
                   sx={{
@@ -521,7 +596,12 @@ function StaffTab() {
                     {staff.user_role !== "admin" ? (
                       <IconButton
                         size="small"
-                        onClick={() => handleDelete(staff.id, staff.name)}
+                        onClick={() =>
+                          handleDelete(
+                            staff.id,
+                            formatNameForDisplay(staff.name),
+                          )
+                        }
                         sx={{
                           color: "#ef4444",
                           "&:hover": { backgroundColor: "#fee2e2" },
@@ -553,7 +633,7 @@ function StaffTab() {
         </Table>
       </TableContainer>
 
-      {/* Add/Edit Modal */}
+      {/* ── Add / Edit Modal ── */}
       <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
@@ -586,45 +666,81 @@ function StaffTab() {
         </DialogTitle>
         <DialogContent dividers sx={{ py: 3 }}>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-            {[
-              {
-                label: "Full Name",
-                key: "name",
-                type: "text",
-                placeholder: "Enter full name",
-              },
-              {
-                label: "Email",
-                key: "email",
-                type: "email",
-                placeholder: "staff@clinika.com",
-                disableOnEdit: true,
-              },
-              {
-                label: "Phone (Optional)",
-                key: "phone",
-                type: "tel",
-                placeholder: "555-0000",
-              },
-            ].map(({ label, key, type, placeholder, disableOnEdit }) => (
-              <Box key={key}>
-                {fieldLabel(label)}
-                <TextField
-                  fullWidth
-                  size="small"
-                  type={type}
-                  placeholder={placeholder}
-                  value={formData[key as keyof StaffFormData]}
-                  onChange={(e) =>
-                    setFormData({ ...formData, [key]: e.target.value })
-                  }
-                  disabled={modalMode === "edit" && !!disableOnEdit}
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
-                />
-              </Box>
-            ))}
+            {/* Last Name */}
             <Box>
-              {fieldLabel("Role")}
+              {fieldLabel("Last Name", true)}
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="e.g. Dela Cruz"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+              />
+            </Box>
+
+            {/* First Name */}
+            <Box>
+              {fieldLabel("First Name", true)}
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="e.g. Juan"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+              />
+            </Box>
+
+            {/* Middle Name */}
+            <Box>
+              {fieldLabel("Middle Name (Optional)")}
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="e.g. Santos"
+                value={middleName}
+                onChange={(e) => setMiddleName(e.target.value)}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+              />
+            </Box>
+
+            {/* Email */}
+            <Box>
+              {fieldLabel("Email", true)}
+              <TextField
+                fullWidth
+                size="small"
+                type="email"
+                placeholder="staff@clinika.com"
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+                disabled={modalMode === "edit"}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+              />
+            </Box>
+
+            {/* Phone */}
+            <Box>
+              {fieldLabel("Phone (Optional)")}
+              <TextField
+                fullWidth
+                size="small"
+                type="tel"
+                placeholder="555-0000"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+              />
+            </Box>
+
+            {/* Role */}
+            <Box>
+              {fieldLabel("Role", true)}
               <FormControl fullWidth size="small">
                 <Select
                   value={formData.role}
@@ -643,6 +759,8 @@ function StaffTab() {
                 </Select>
               </FormControl>
             </Box>
+
+            {/* Department */}
             <Box>
               {fieldLabel("Department")}
               <FormControl fullWidth size="small">
@@ -667,8 +785,10 @@ function StaffTab() {
                 </Select>
               </FormControl>
             </Box>
+
+            {/* Specialization */}
             <Box>
-              {fieldLabel("Specialization")}
+              {fieldLabel("Specialization", true)}
               <FormControl fullWidth size="small">
                 <Select
                   value={formData.specialization}
@@ -723,7 +843,7 @@ function StaffTab() {
         onConfirm={handleConfirmDelete}
       />
 
-      {/* Staff Info Card Modal */}
+      {/* ── Staff Info Card Modal ── */}
       <Dialog
         open={viewModal.open}
         onClose={() => setViewModal({ open: false, staff: null })}
@@ -739,15 +859,7 @@ function StaffTab() {
       >
         {viewModal.staff && (
           <>
-            {/* Header with back arrow and close */}
-            <Box
-              sx={{
-                position: "absolute",
-                top: 8,
-                right: 8,
-                zIndex: 1,
-              }}
-            >
+            <Box sx={{ position: "absolute", top: 8, right: 8, zIndex: 1 }}>
               <IconButton
                 onClick={() => setViewModal({ open: false, staff: null })}
                 size="small"
@@ -784,7 +896,7 @@ function StaffTab() {
                   {(viewModal.staff as any).avatar_url ? (
                     <img
                       src={(viewModal.staff as any).avatar_url}
-                      alt={viewModal.staff.name}
+                      alt={formatNameForDisplay(viewModal.staff.name)}
                       style={{
                         width: "100%",
                         height: "100%",
@@ -799,7 +911,7 @@ function StaffTab() {
                         color: "#2563eb",
                       }}
                     >
-                      {viewModal.staff.name.charAt(0).toUpperCase()}
+                      {getAvatarInitial(viewModal.staff.name)}
                     </span>
                   )}
                 </Box>
@@ -811,9 +923,10 @@ function StaffTab() {
                     fontSize: "18px",
                     color: "#111827",
                     lineHeight: 1.2,
+                    textAlign: "center",
                   }}
                 >
-                  {viewModal.staff.name}
+                  {formatNameForDisplay(viewModal.staff.name)}
                 </Typography>
                 <Typography
                   sx={{ fontSize: "13px", color: "#6b7280", mt: 0.3 }}
@@ -852,7 +965,7 @@ function StaffTab() {
                   </Typography>
                 </Box>
 
-                {/* Full ID below status */}
+                {/* Staff ID row */}
                 <Box
                   sx={{
                     display: "flex",
@@ -1037,7 +1150,7 @@ function StaffTab() {
                 }}
               />
 
-              {/* Last attendance & total days */}
+              {/* Attendance / duty rows */}
               <Box sx={{ mb: 2 }}>
                 <Box
                   sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}
@@ -1097,19 +1210,22 @@ function StaffTab() {
               {/* Edit button */}
               <Button
                 onClick={() => {
+                  const staff = viewModal.staff!;
+                  const parsed = parseStoredName(staff.name);
                   setViewModal({ open: false, staff: null });
                   setModalMode("edit");
-                  setSelectedStaffId(viewModal.staff!.id);
+                  setSelectedStaffId(staff.id);
+                  setLastName(parsed.lastName);
+                  setFirstName(parsed.firstName);
+                  setMiddleName(parsed.middleName);
                   setFormData({
-                    name: viewModal.staff!.name,
-                    role: viewModal.staff!.role,
-                    specialization: viewModal.staff!.specialization || "",
-                    department: viewModal.staff!.department || "",
-                    status:
-                      (viewModal.staff!.status as "Active" | "Inactive") ||
-                      "Active",
-                    email: viewModal.staff!.email || "",
-                    phone: viewModal.staff!.phone || "",
+                    name: staff.name,
+                    role: staff.role,
+                    specialization: staff.specialization || "",
+                    department: staff.department || "",
+                    status: (staff.status as "Active" | "Inactive") || "Active",
+                    email: staff.email || "",
+                    phone: staff.phone || "",
                   });
                   setOpenModal(true);
                 }}
@@ -1383,7 +1499,7 @@ function ServicesTab() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.duration) {
+    if (!formData.name.trim() || !formData.duration.trim()) {
       showSnackbar("Please fill in all required fields", "error");
       return;
     }

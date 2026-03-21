@@ -232,6 +232,9 @@ export type Database = {
           id: string;
           staffid: string;
           avatar_url?: string | null;
+          lastName: string;
+          firstName: string;
+          middleName: string;
           name: string;
           phone: string | null;
           role: string;
