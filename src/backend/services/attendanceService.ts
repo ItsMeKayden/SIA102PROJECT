@@ -1,7 +1,7 @@
 import { supabase, handleSupabaseError } from '../../lib/supabase-client';
-import type { Attendance, AttendanceInsert, AttendanceUpdate, NotificationInsert } from '../../types';
+import type { Attendance, AttendanceInsert, AttendanceUpdate } from '../../types';
 import { createNotification } from './notificationService';
-import { isWithinClinicPremises, calculateDistance, CLINIC_LOCATION } from '../../lib/locationUtils';
+import { isWithinClinicPremises } from '../../lib/locationUtils';
 
 /**
  * Get today's date in local timezone (not UTC)
@@ -171,7 +171,7 @@ export const getAllAttendance = async (): Promise<{ data: (Attendance & { staff_
     if (error) throw error;
 
     // Transform data to flatten staff name
-    const transformedData = (data || []).map((record: any) => ({
+    const transformedData = (data || []).map((record: Attendance & { staff: { id: string; name: string } | null }) => ({
       ...record,
       staff_name: record.staff?.name || 'Unknown',
     }));
@@ -328,7 +328,7 @@ export const clockIn = async (
       clockInWithinPremises = isWithinClinicPremises(latitude, longitude);
     }
 
-    const attendanceData: any = {
+    const attendanceData: AttendanceInsert = {
       staff_id: staffId,
       date: dateStr,
       time_in: timeStr,
@@ -445,7 +445,6 @@ export const clockOut = async (
 // Check if staff is already clocked in today
 export const isStaffClockedIn = async (staffId: string): Promise<{ isClockedIn: boolean; error: string | null }> => {
   try {
-    const now = new Date();
     const dateStr = getTodayDateString();
 
     const { data, error } = await supabase
