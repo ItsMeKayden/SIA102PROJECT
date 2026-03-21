@@ -39,6 +39,7 @@ import {
   FiKey,
   FiUser,
   FiCamera,
+  FiMenu,
 } from "react-icons/fi";
 import {
   getAllNotifications,
@@ -87,6 +88,14 @@ const Layout = () => {
     phone: "",
   });
 
+  // ── Mobile sidebar state ──
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Close sidebar when switching to desktop
+  useEffect(() => {
+    if (!isMobile) setSidebarOpen(false);
+  }, [isMobile]);
+
   const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(
     null,
   );
@@ -122,9 +131,7 @@ const Layout = () => {
   }, []);
 
   useEffect(() => {
-    if (!user) {
-      setTimeout(() => setShowLoginModal(true), 0);
-    }
+    if (!user) setTimeout(() => setShowLoginModal(true), 0);
   }, [user]);
 
   const fetchNotifications = async () => {
@@ -197,7 +204,6 @@ const Layout = () => {
 
   const handleUserMenuClick = (event: MouseEvent<HTMLElement>) =>
     setUserMenuAnchorEl(event.currentTarget);
-
   const handleUserMenuClose = () => setUserMenuAnchorEl(null);
 
   const handleSignOut = async () => {
@@ -205,7 +211,6 @@ const Layout = () => {
     handleUserMenuClose();
     navigate("/");
   };
-
   const handleChangePassword = () => {
     setShowChangePasswordModal(true);
     handleUserMenuClose();
@@ -240,29 +245,23 @@ const Layout = () => {
       return;
     }
     setEditProfileLoading(true);
-
     let avatarUrl = (staffProfile as any).avatar_url || "";
-
-    // Upload avatar if a new file was selected
     if (avatarFile) {
       const fileExt = avatarFile.name.split(".").pop();
       const filePath = `${staffProfile.id}.${fileExt}`;
       const { error: uploadError } = await supabase.storage
         .from("avatars")
         .upload(filePath, avatarFile, { upsert: true });
-
       if (uploadError) {
         showSnackbar(`Avatar upload failed: ${uploadError.message}`, "error");
         setEditProfileLoading(false);
         return;
       }
-
       const { data: urlData } = supabase.storage
         .from("avatars")
         .getPublicUrl(filePath);
       avatarUrl = urlData.publicUrl;
     }
-
     const { error } = await updateStaff(staffProfile.id, {
       name: editProfileForm.name.trim(),
       role: staffProfile.role || "",
@@ -273,7 +272,6 @@ const Layout = () => {
       phone: editProfileForm.phone.trim() || "",
       avatar_url: avatarUrl,
     });
-
     setEditProfileLoading(false);
     if (error) {
       showSnackbar(error, "error");
@@ -329,6 +327,21 @@ const Layout = () => {
             flexShrink: 0,
           }}
         >
+          {/* Hamburger — mobile only */}
+          {isMobile && (
+            <IconButton
+              onClick={() => setSidebarOpen(true)}
+              size="small"
+              sx={{
+                color: "#374151",
+                mr: 0.5,
+                "&:hover": { backgroundColor: "#f3f4f6" },
+              }}
+              aria-label="Open menu"
+            >
+              <FiMenu size={22} />
+            </IconButton>
+          )}
           <img
             src={logo}
             alt="Logo"
@@ -458,8 +471,7 @@ const Layout = () => {
                   "&:hover": { backgroundColor: "#f3f4f6" },
                 }}
               >
-                <FiUser size={18} />
-                Edit Profile
+                <FiUser size={18} /> Edit Profile
               </MenuItem>
               <MenuItem
                 onClick={handleChangePassword}
@@ -470,8 +482,7 @@ const Layout = () => {
                   "&:hover": { backgroundColor: "#f3f4f6" },
                 }}
               >
-                <FiKey size={18} />
-                Change Password
+                <FiKey size={18} /> Change Password
               </MenuItem>
               <Divider />
               <MenuItem
@@ -484,21 +495,17 @@ const Layout = () => {
                   "&:hover": { backgroundColor: "#fef2f2" },
                 }}
               >
-                <FiLogOut size={18} />
-                Sign Out
+                <FiLogOut size={18} /> Sign Out
               </MenuItem>
             </>
           )}
         </Menu>
       </nav>
 
-      {/* Login Modal */}
       <LoginModal
         open={showLoginModal}
         onClose={() => setShowLoginModal(false)}
       />
-
-      {/* Change Password Modal */}
       <ChangePasswordModal
         open={showChangePasswordModal}
         onClose={() => setShowChangePasswordModal(false)}
@@ -510,7 +517,14 @@ const Layout = () => {
         onClose={() => setShowEditProfileModal(false)}
         maxWidth="xs"
         fullWidth
-        PaperProps={{ sx: { borderRadius: "16px", maxWidth: "420px" } }}
+        PaperProps={{
+          sx: {
+            borderRadius: "16px",
+            maxWidth: "420px",
+            margin: "16px",
+            width: "calc(100% - 32px)",
+          },
+        }}
       >
         <DialogTitle
           sx={{
@@ -534,7 +548,6 @@ const Layout = () => {
         <DialogContent dividers sx={{ py: 3 }}>
           {staffProfile && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              {/* Avatar upload */}
               <Box
                 sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1 }}
               >
@@ -555,7 +568,6 @@ const Layout = () => {
                   >
                     {editProfileForm.name.charAt(0).toUpperCase() || "U"}
                   </Avatar>
-                  {/* Camera overlay button */}
                   <label htmlFor="avatar-upload" style={{ cursor: "pointer" }}>
                     <Box
                       sx={{
@@ -602,8 +614,6 @@ const Layout = () => {
                   </Typography>
                 </Box>
               </Box>
-
-              {/* Read-only fields */}
               <Box>
                 {fieldLabel("Email")}
                 <TextField
@@ -646,10 +656,7 @@ const Layout = () => {
                   }}
                 />
               </Box>
-
               <Divider />
-
-              {/* Editable fields */}
               <Box>
                 {fieldLabel("Full Name", true)}
                 <TextField
@@ -714,8 +721,71 @@ const Layout = () => {
       </Dialog>
 
       {/* Main Content with Sidebar */}
-      <div style={{ display: "flex", flex: 1, height: "100%", width: "100%" }}>
+      <div
+        style={{
+          display: "flex",
+          flex: 1,
+          height: "100%",
+          width: "100%",
+          overflow: "hidden",
+        }}
+      >
+        {/* Desktop sidebar — always visible */}
         {!isMobile && <Sidebar />}
+
+        {/* Mobile sidebar — backdrop + drawer */}
+        {isMobile && (
+          <>
+            {/* Backdrop */}
+            <div
+              onClick={() => setSidebarOpen(false)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                backgroundColor: "rgba(0,0,0,0.4)",
+                zIndex: 1200,
+                opacity: sidebarOpen ? 1 : 0,
+                pointerEvents: sidebarOpen ? "auto" : "none",
+                transition: "opacity 0.25s ease",
+              }}
+            />
+            {/* Sidebar drawer */}
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                height: "100%",
+                zIndex: 1300,
+                transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+                transition: "transform 0.25s ease",
+              }}
+            >
+              {/* Close button inside drawer */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "12px",
+                  right: "12px",
+                  zIndex: 1,
+                }}
+              >
+                <IconButton
+                  size="small"
+                  onClick={() => setSidebarOpen(false)}
+                  sx={{
+                    backgroundColor: "#f3f4f6",
+                    "&:hover": { backgroundColor: "#e5e7eb" },
+                  }}
+                >
+                  <FiX size={16} />
+                </IconButton>
+              </div>
+              <Sidebar onNavigate={() => setSidebarOpen(false)} />
+            </div>
+          </>
+        )}
+
         <main
           style={{
             flex: 1,
@@ -782,7 +852,6 @@ const Layout = () => {
             <FiX />
           </IconButton>
         </DialogTitle>
-
         <DialogContent
           sx={{
             p: 0,
@@ -840,7 +909,6 @@ const Layout = () => {
                 </Button>
               )}
             </Box>
-
             {notificationsLoading ? (
               <Box
                 sx={{
@@ -1003,7 +1071,6 @@ const Layout = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}

@@ -27,8 +27,20 @@ import {
   Tab,
   Chip,
   Typography,
+  useMediaQuery,
+  useTheme,
+  Card,
+  CardContent,
+  Collapse,
 } from "@mui/material";
-import { FiSearch, FiX, FiTrash2, FiEdit2, FiEye } from "react-icons/fi";
+import {
+  FiSearch,
+  FiX,
+  FiTrash2,
+  FiEdit2,
+  FiEye,
+  FiFilter,
+} from "react-icons/fi";
 import type { Staff, StaffFormData } from "../../types";
 import {
   getAllStaff,
@@ -86,24 +98,18 @@ const fieldLabel = (text: string, required = false) => (
 );
 
 // ─── Name helpers ─────────────────────────────────────────────────────────────
-
-/** Builds the stored name string: "LastName, FirstName MiddleName" */
 const formatNameForStorage = (
   last: string,
   first: string,
   middle: string,
 ): string => {
-  const l = last.trim();
-  const f = first.trim();
-  const m = middle.trim();
+  const l = last.trim(),
+    f = first.trim(),
+    m = middle.trim();
   if (!l) return m ? `${f} ${m}` : f;
   return m ? `${l}, ${f} ${m}` : `${l}, ${f}`;
 };
 
-/**
- * Formats a stored name for display: "LastName, FirstName M."
- * Falls back gracefully for old records that have no comma.
- */
 const formatNameForDisplay = (storedName: string): string => {
   const commaIdx = storedName.indexOf(",");
   if (commaIdx === -1) return storedName;
@@ -117,7 +123,6 @@ const formatNameForDisplay = (storedName: string): string => {
   return `${last}, ${first}${middleInitial}`;
 };
 
-/** Parses a stored name back into its three parts for the edit form. */
 const parseStoredName = (
   storedName: string,
 ): { lastName: string; firstName: string; middleName: string } => {
@@ -136,13 +141,291 @@ const parseStoredName = (
   };
 };
 
-/** Returns the avatar initial from a stored name (uses last name first letter). */
 const getAvatarInitial = (storedName: string): string =>
   storedName.charAt(0).toUpperCase();
+
+// ─── Mobile Staff Card ────────────────────────────────────────────────────────
+function StaffMobileCard({
+  staff,
+  onView,
+  onDelete,
+}: {
+  staff: Staff;
+  onView: () => void;
+  onDelete: () => void;
+}) {
+  const getStatusColor = (s: string) =>
+    s === "Active" ? "#10b981" : "#6b7280";
+  const getDutyColor = (s: string | null | undefined) => {
+    if (s === "On Duty") return "#3b82f6";
+    if (s === "On Leave") return "#f59e0b";
+    return "#9ca3af";
+  };
+
+  return (
+    <Card
+      sx={{
+        mb: 1.5,
+        borderRadius: "8px",
+        border: "1px solid #e5e7eb",
+        boxShadow: "none",
+      }}
+    >
+      <CardContent sx={{ p: "12px !important" }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: "14px",
+                color: "#1f2937",
+                mb: 0.3,
+              }}
+            >
+              {formatNameForDisplay(staff.name)}
+            </Typography>
+            <Typography sx={{ fontSize: "12px", color: "#6b7280", mb: 0.5 }}>
+              {staff.role}
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: "11px",
+                color: "#9ca3af",
+                fontFamily: "monospace",
+                mb: 1,
+              }}
+            >
+              {staff.staffid ?? staff.id.substring(0, 8) + "..."}
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <Box
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    backgroundColor: getStatusColor(staff.status),
+                  }}
+                />
+                <Typography sx={{ fontSize: "11px", color: "#6b7280" }}>
+                  {staff.status}
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <Box
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    backgroundColor: getDutyColor(staff.duty_status),
+                  }}
+                />
+                <Typography sx={{ fontSize: "11px", color: "#6b7280" }}>
+                  {staff.duty_status || "Off Duty"}
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+          <Box sx={{ display: "flex", gap: 0.5, ml: 1, flexShrink: 0 }}>
+            <IconButton
+              size="small"
+              onClick={onView}
+              sx={{
+                color: "#3b82f6",
+                "&:hover": { backgroundColor: "#dbeafe" },
+              }}
+            >
+              <FiEye size={16} />
+            </IconButton>
+            {staff.user_role !== "admin" && (
+              <IconButton
+                size="small"
+                onClick={onDelete}
+                sx={{
+                  color: "#ef4444",
+                  "&:hover": { backgroundColor: "#fee2e2" },
+                }}
+              >
+                <FiTrash2 size={16} />
+              </IconButton>
+            )}
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Mobile Service Card ──────────────────────────────────────────────────────
+function ServiceMobileCard({
+  service,
+  onEdit,
+  onDelete,
+}: {
+  service: Service;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <Card
+      sx={{
+        mb: 1.5,
+        borderRadius: "8px",
+        border: "1px solid #e5e7eb",
+        boxShadow: "none",
+      }}
+    >
+      <CardContent sx={{ p: "12px !important" }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: "14px",
+                color: "#1f2937",
+                mb: 0.5,
+              }}
+            >
+              {service.name}
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 0.5 }}>
+              {service.department && (
+                <Box
+                  sx={{
+                    backgroundColor: "#eff6ff",
+                    color: "#2563eb",
+                    borderRadius: "4px",
+                    px: "6px",
+                    py: "1px",
+                    fontSize: "11px",
+                    fontWeight: 500,
+                  }}
+                >
+                  {service.department}
+                </Box>
+              )}
+              {service.specialization && (
+                <Box
+                  sx={{
+                    backgroundColor: "#f0fdf4",
+                    color: "#16a34a",
+                    borderRadius: "4px",
+                    px: "6px",
+                    py: "1px",
+                    fontSize: "11px",
+                    fontWeight: 500,
+                  }}
+                >
+                  {service.specialization}
+                </Box>
+              )}
+            </Box>
+            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+              <Typography sx={{ fontSize: "12px", color: "#6b7280" }}>
+                ⏱ {service.duration}
+              </Typography>
+              <Typography
+                sx={{ fontSize: "12px", color: "#1f2937", fontWeight: 500 }}
+              >
+                ₱{service.price.toLocaleString()}
+              </Typography>
+              <Typography sx={{ fontSize: "12px", color: "#6b7280" }}>
+                Down: ₱{service.downpayment.toLocaleString()}
+              </Typography>
+            </Box>
+            {service.description && (
+              <Typography
+                sx={{
+                  fontSize: "11px",
+                  color: "#9ca3af",
+                  mt: 0.5,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {service.description}
+              </Typography>
+            )}
+          </Box>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: 0.5,
+              ml: 1,
+              flexShrink: 0,
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                mb: 0.5,
+              }}
+            >
+              <Box
+                sx={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  backgroundColor:
+                    service.status === "Available" ? "#10b981" : "#6b7280",
+                }}
+              />
+              <Typography sx={{ fontSize: "11px", color: "#6b7280" }}>
+                {service.status}
+              </Typography>
+            </Box>
+            <Box sx={{ display: "flex", gap: 0.5 }}>
+              <IconButton
+                size="small"
+                onClick={onEdit}
+                sx={{
+                  color: "#2563eb",
+                  "&:hover": { backgroundColor: "#eff6ff" },
+                }}
+              >
+                <FiEdit2 size={14} />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={onDelete}
+                sx={{
+                  color: "#ef4444",
+                  "&:hover": { backgroundColor: "#fee2e2" },
+                }}
+              >
+                <FiTrash2 size={14} />
+              </IconButton>
+            </Box>
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
 
 // ─── Staff Tab ────────────────────────────────────────────────────────────────
 function StaffTab() {
   const { staffProfile, isAdmin } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [staffData, setStaffData] = useState<Staff[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
@@ -172,7 +455,6 @@ function StaffTab() {
     severity: "success" as "success" | "error",
   });
 
-  // ── Split-name form state ──
   const [lastName, setLastName] = useState("");
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
@@ -218,9 +500,9 @@ function StaffTab() {
 
   useEffect(() => {
     if (formData.department) {
-      getSpecializations(formData.department).then(({ data }) => {
-        setFilteredSpecializations(data || []);
-      });
+      getSpecializations(formData.department).then(({ data }) =>
+        setFilteredSpecializations(data || []),
+      );
     } else {
       setFilteredSpecializations([]);
     }
@@ -292,10 +574,8 @@ function StaffTab() {
       showSnackbar("Please enter a valid email address", "error");
       return;
     }
-
     const builtName = formatNameForStorage(lastName, firstName, middleName);
     const payload: StaffFormData = { ...formData, name: builtName };
-
     if (modalMode === "add") {
       const { error } = await createStaff(payload);
       if (error) showSnackbar(error, "error");
@@ -351,13 +631,14 @@ function StaffTab() {
 
   return (
     <>
+      {/* Search + Action row */}
       <Box
         sx={{
           display: "flex",
-          gap: "12px",
+          gap: "8px",
           alignItems: "center",
-          flexWrap: "wrap",
-          mb: 2,
+          mb: 1.5,
+          flexWrap: "nowrap",
         }}
       >
         <TextField
@@ -366,9 +647,8 @@ function StaffTab() {
           onChange={(e) => setSearchQuery(e.target.value)}
           size="small"
           sx={{
-            flex: "1 1 180px",
-            minWidth: "150px",
-            maxWidth: "280px",
+            flex: 1,
+            minWidth: 0,
             backgroundColor: "white",
             borderRadius: "6px",
             "& .MuiOutlinedInput-root": { borderRadius: "6px" },
@@ -381,259 +661,319 @@ function StaffTab() {
             ),
           }}
         />
-        <FormControl
-          size="small"
-          sx={{
-            minWidth: 120,
-            maxWidth: 160,
-            flex: "0 1 auto",
-            backgroundColor: "white",
-            borderRadius: "6px",
-          }}
-        >
-          <Select
-            value={specializationFilter}
-            onChange={(e) => setSpecializationFilter(e.target.value)}
-            displayEmpty
-            sx={{ borderRadius: "6px", fontSize: "14px" }}
+        {isMobile && (
+          <IconButton
+            size="small"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            sx={{
+              border: "1px solid #e5e7eb",
+              borderRadius: "6px",
+              backgroundColor: filtersOpen ? "#eff6ff" : "white",
+              color: filtersOpen ? "#2563eb" : "#6b7280",
+              width: 36,
+              height: 36,
+            }}
           >
-            <MenuItem value="all">All Specializations</MenuItem>
-            {allSpecializations.map((s) => (
-              <MenuItem key={s} value={s}>
-                {s}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl
-          size="small"
-          sx={{
-            minWidth: 100,
-            maxWidth: 140,
-            flex: "0 1 auto",
-            backgroundColor: "white",
-            borderRadius: "6px",
-            mr: "12px",
-          }}
-        >
-          <Select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            displayEmpty
-            sx={{ borderRadius: "6px", fontSize: "14px" }}
-          >
-            <MenuItem value="all">All Status</MenuItem>
-            <MenuItem value="Active">Active</MenuItem>
-            <MenuItem value="Inactive">Inactive</MenuItem>
-          </Select>
-        </FormControl>
+            <FiFilter size={16} />
+          </IconButton>
+        )}
         <Button
           onClick={() => handleOpenModal("add")}
           variant="contained"
+          size={isMobile ? "small" : "medium"}
           sx={{
             textTransform: "none",
             backgroundColor: "#2563EB",
             fontWeight: 600,
-            fontSize: "14px",
-            ml: "auto",
+            fontSize: "13px",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
             "&:hover": { backgroundColor: "#1d4ed8" },
           }}
         >
-          + Add Staff
+          {isMobile ? "+ Add" : "+ Add Staff"}
         </Button>
       </Box>
 
-      <TableContainer
-        component={Paper}
-        sx={{
-          borderRadius: "8px",
-          boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-          border: "1px solid #e5e7eb",
-          overflowX: "auto",
-          maxHeight: "460px",
-          overflow: "auto",
-        }}
-      >
-        <Table stickyHeader sx={{ tableLayout: "fixed", width: "100%" }}>
-          <TableHead>
-            <TableRow>
-              {["ID", "Name", "Role", "Status / Duty", "Actions"].map(
-                (h, i) => (
+      {/* Collapsible filters on mobile, always visible on desktop */}
+      <Collapse in={!isMobile || filtersOpen}>
+        <Box sx={{ display: "flex", gap: "8px", flexWrap: "wrap", mb: 2 }}>
+          <FormControl
+            size="small"
+            sx={{
+              minWidth: 140,
+              flex: isMobile ? "1 1 calc(50% - 4px)" : "0 1 auto",
+              backgroundColor: "white",
+              borderRadius: "6px",
+            }}
+          >
+            <Select
+              value={specializationFilter}
+              onChange={(e) => setSpecializationFilter(e.target.value)}
+              displayEmpty
+              sx={{ borderRadius: "6px", fontSize: "13px" }}
+            >
+              <MenuItem value="all">All Specializations</MenuItem>
+              {allSpecializations.map((s) => (
+                <MenuItem key={s} value={s}>
+                  {s}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl
+            size="small"
+            sx={{
+              minWidth: 110,
+              flex: isMobile ? "1 1 calc(50% - 4px)" : "0 1 auto",
+              backgroundColor: "white",
+              borderRadius: "6px",
+            }}
+          >
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              displayEmpty
+              sx={{ borderRadius: "6px", fontSize: "13px" }}
+            >
+              <MenuItem value="all">All Status</MenuItem>
+              <MenuItem value="Active">Active</MenuItem>
+              <MenuItem value="Inactive">Inactive</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+      </Collapse>
+
+      {/* Mobile: card list — Desktop: table */}
+      {isMobile ? (
+        <Box>
+          {filteredStaff.map((staff) => (
+            <StaffMobileCard
+              key={staff.id}
+              staff={staff}
+              onView={() => setViewModal({ open: true, staff })}
+              onDelete={() =>
+                handleDelete(staff.id, formatNameForDisplay(staff.name))
+              }
+            />
+          ))}
+          {filteredStaff.length === 0 && (
+            <Box
+              sx={{
+                textAlign: "center",
+                py: 6,
+                color: "#9ca3af",
+                fontSize: "14px",
+              }}
+            >
+              No staff members found
+            </Box>
+          )}
+        </Box>
+      ) : (
+        <TableContainer
+          component={Paper}
+          sx={{
+            borderRadius: "8px",
+            boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+            border: "1px solid #e5e7eb",
+            maxHeight: "460px",
+            overflow: "auto",
+          }}
+        >
+          <Table stickyHeader sx={{ tableLayout: "fixed", width: "100%" }}>
+            <TableHead>
+              <TableRow>
+                {["ID", "Name", "Role", "Status / Duty", "Actions"].map(
+                  (h, i) => (
+                    <TableCell
+                      key={h}
+                      sx={{
+                        fontWeight: 600,
+                        color: "#374151",
+                        fontSize: "12px",
+                        padding: "10px 8px",
+                        width: ["15%", "20%", "15%", "12%", "10%"][i],
+                        textAlign: h === "Actions" ? "center" : "left",
+                      }}
+                    >
+                      {h}
+                    </TableCell>
+                  ),
+                )}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredStaff.map((staff) => (
+                <TableRow
+                  key={staff.id}
+                  sx={{
+                    "&:hover": { backgroundColor: "#f9fafb" },
+                    borderBottom: "1px solid #f3f4f6",
+                  }}
+                >
                   <TableCell
-                    key={h}
                     sx={{
-                      fontWeight: 600,
-                      color: "#374151",
+                      color: "#6b7280",
+                      fontSize: "11px",
+                      padding: "10px 8px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {staff.staffid ?? staff.id.substring(0, 8) + "..."}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: "#1f2937",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      padding: "10px 8px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {formatNameForDisplay(staff.name)}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: "#6b7280",
                       fontSize: "12px",
                       padding: "10px 8px",
-                      width: ["15%", "20%", "15%", "12%", "10%"][i],
-                      textAlign: h === "Actions" ? "center" : "left",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
                     }}
                   >
-                    {h}
+                    {staff.role}
                   </TableCell>
-                ),
-              )}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredStaff.map((staff) => (
-              <TableRow
-                key={staff.id}
-                sx={{
-                  "&:hover": { backgroundColor: "#f9fafb" },
-                  borderBottom: "1px solid #f3f4f6",
-                }}
-              >
-                <TableCell
-                  sx={{
-                    color: "#6b7280",
-                    fontSize: "11px",
-                    padding: "10px 8px",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {staff.staffid ?? staff.id.substring(0, 8) + "..."}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: "#1f2937",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    padding: "10px 8px",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {formatNameForDisplay(staff.name)}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: "#6b7280",
-                    fontSize: "12px",
-                    padding: "10px 8px",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {staff.role}
-                </TableCell>
-                <TableCell sx={{ padding: "10px 8px" }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "2px",
-                    }}
-                  >
+                  <TableCell sx={{ padding: "10px 8px" }}>
                     <Box
-                      sx={{ display: "flex", alignItems: "center", gap: "4px" }}
-                    >
-                      <Box
-                        sx={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: "50%",
-                          backgroundColor: getStatusColor(staff.status),
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span
-                        style={{
-                          color: "#6b7280",
-                          fontSize: "11px",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {staff.status}
-                      </span>
-                    </Box>
-                    <Box
-                      sx={{ display: "flex", alignItems: "center", gap: "4px" }}
-                    >
-                      <Box
-                        sx={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: "50%",
-                          backgroundColor: getDutyStatusColor(
-                            staff.duty_status,
-                          ),
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span
-                        style={{
-                          color: "#6b7280",
-                          fontSize: "11px",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {staff.duty_status || "Off Duty"}
-                      </span>
-                    </Box>
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ padding: "10px 8px", textAlign: "center" }}>
-                  <Box
-                    sx={{ display: "flex", gap: 0.5, justifyContent: "center" }}
-                  >
-                    <IconButton
-                      size="small"
-                      onClick={() => setViewModal({ open: true, staff })}
                       sx={{
-                        color: "#3b82f6",
-                        "&:hover": { backgroundColor: "#dbeafe" },
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "2px",
                       }}
-                      title="View Staff Info"
                     >
-                      <FiEye size={14} />
-                    </IconButton>
-                    {staff.user_role !== "admin" ? (
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            backgroundColor: getStatusColor(staff.status),
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span
+                          style={{
+                            color: "#6b7280",
+                            fontSize: "11px",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {staff.status}
+                        </span>
+                      </Box>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            backgroundColor: getDutyStatusColor(
+                              staff.duty_status,
+                            ),
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span
+                          style={{
+                            color: "#6b7280",
+                            fontSize: "11px",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {staff.duty_status || "Off Duty"}
+                        </span>
+                      </Box>
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ padding: "10px 8px", textAlign: "center" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 0.5,
+                        justifyContent: "center",
+                      }}
+                    >
                       <IconButton
                         size="small"
-                        onClick={() =>
-                          handleDelete(
-                            staff.id,
-                            formatNameForDisplay(staff.name),
-                          )
-                        }
+                        onClick={() => setViewModal({ open: true, staff })}
                         sx={{
-                          color: "#ef4444",
-                          "&:hover": { backgroundColor: "#fee2e2" },
+                          color: "#3b82f6",
+                          "&:hover": { backgroundColor: "#dbeafe" },
                         }}
+                        title="View Staff Info"
                       >
-                        <FiTrash2 size={14} />
+                        <FiEye size={14} />
                       </IconButton>
-                    ) : (
-                      <span style={{ color: "#d1d5db", fontSize: "11px" }}>
-                        —
-                      </span>
-                    )}
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
-            {filteredStaff.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={8}
-                  align="center"
-                  sx={{ py: 4, color: "#9ca3af" }}
-                >
-                  No staff members found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                      {staff.user_role !== "admin" ? (
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            handleDelete(
+                              staff.id,
+                              formatNameForDisplay(staff.name),
+                            )
+                          }
+                          sx={{
+                            color: "#ef4444",
+                            "&:hover": { backgroundColor: "#fee2e2" },
+                          }}
+                        >
+                          <FiTrash2 size={14} />
+                        </IconButton>
+                      ) : (
+                        <span style={{ color: "#d1d5db", fontSize: "11px" }}>
+                          —
+                        </span>
+                      )}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredStaff.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={8}
+                    align="center"
+                    sx={{ py: 4, color: "#9ca3af" }}
+                  >
+                    No staff members found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
-      {/* ── Add / Edit Modal ── */}
+      {/* Add / Edit Modal */}
       <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
@@ -666,33 +1006,36 @@ function StaffTab() {
         </DialogTitle>
         <DialogContent dividers sx={{ py: 3 }}>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-            {/* Last Name */}
-            <Box>
-              {fieldLabel("Last Name", true)}
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="e.g. Dela Cruz"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
-              />
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                flexDirection: { xs: "column", sm: "row" },
+              }}
+            >
+              <Box sx={{ flex: 1 }}>
+                {fieldLabel("Last Name", true)}
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="e.g. Dela Cruz"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+                />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                {fieldLabel("First Name", true)}
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="e.g. Juan"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+                />
+              </Box>
             </Box>
-
-            {/* First Name */}
-            <Box>
-              {fieldLabel("First Name", true)}
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="e.g. Juan"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
-              />
-            </Box>
-
-            {/* Middle Name */}
             <Box>
               {fieldLabel("Middle Name (Optional)")}
               <TextField
@@ -704,8 +1047,6 @@ function StaffTab() {
                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
               />
             </Box>
-
-            {/* Email */}
             <Box>
               {fieldLabel("Email", true)}
               <TextField
@@ -721,8 +1062,6 @@ function StaffTab() {
                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
               />
             </Box>
-
-            {/* Phone */}
             <Box>
               {fieldLabel("Phone (Optional)")}
               <TextField
@@ -737,8 +1076,6 @@ function StaffTab() {
                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
               />
             </Box>
-
-            {/* Role */}
             <Box>
               {fieldLabel("Role", true)}
               <FormControl fullWidth size="small">
@@ -759,57 +1096,64 @@ function StaffTab() {
                 </Select>
               </FormControl>
             </Box>
-
-            {/* Department */}
-            <Box>
-              {fieldLabel("Department")}
-              <FormControl fullWidth size="small">
-                <Select
-                  value={formData.department}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      department: e.target.value,
-                      specialization: "",
-                    })
-                  }
-                  displayEmpty
-                  sx={{ borderRadius: "6px" }}
-                >
-                  <MenuItem value="">Select department</MenuItem>
-                  {departments.map((d) => (
-                    <MenuItem key={d} value={d}>
-                      {d}
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                flexDirection: { xs: "column", sm: "row" },
+              }}
+            >
+              <Box sx={{ flex: 1 }}>
+                {fieldLabel("Department")}
+                <FormControl fullWidth size="small">
+                  <Select
+                    value={formData.department}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        department: e.target.value,
+                        specialization: "",
+                      })
+                    }
+                    displayEmpty
+                    sx={{ borderRadius: "6px" }}
+                  >
+                    <MenuItem value="">Select department</MenuItem>
+                    {departments.map((d) => (
+                      <MenuItem key={d} value={d}>
+                        {d}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                {fieldLabel("Specialization", true)}
+                <FormControl fullWidth size="small">
+                  <Select
+                    value={formData.specialization}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        specialization: e.target.value,
+                      })
+                    }
+                    displayEmpty
+                    sx={{ borderRadius: "6px" }}
+                  >
+                    <MenuItem value="">
+                      {formData.department
+                        ? "Select specialization"
+                        : "Select department first"}
                     </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-
-            {/* Specialization */}
-            <Box>
-              {fieldLabel("Specialization", true)}
-              <FormControl fullWidth size="small">
-                <Select
-                  value={formData.specialization}
-                  onChange={(e) =>
-                    setFormData({ ...formData, specialization: e.target.value })
-                  }
-                  displayEmpty
-                  sx={{ borderRadius: "6px" }}
-                >
-                  <MenuItem value="">
-                    {formData.department
-                      ? "Select specialization"
-                      : "Select department first"}
-                  </MenuItem>
-                  {filteredSpecializations.map((s) => (
-                    <MenuItem key={s} value={s}>
-                      {s}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                    {filteredSpecializations.map((s) => (
+                      <MenuItem key={s} value={s}>
+                        {s}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
             </Box>
           </Box>
         </DialogContent>
@@ -843,7 +1187,7 @@ function StaffTab() {
         onConfirm={handleConfirmDelete}
       />
 
-      {/* ── Staff Info Card Modal ── */}
+      {/* Staff Info Card Modal */}
       <Dialog
         open={viewModal.open}
         onClose={() => setViewModal({ open: false, staff: null })}
@@ -854,6 +1198,8 @@ function StaffTab() {
             borderRadius: "20px",
             maxWidth: "360px",
             overflow: "hidden",
+            margin: "16px",
+            width: "calc(100% - 32px)",
           },
         }}
       >
@@ -867,9 +1213,7 @@ function StaffTab() {
                 <FiX size={18} color="#374151" />
               </IconButton>
             </Box>
-
             <DialogContent sx={{ px: 3, pt: 1, pb: 0 }}>
-              {/* Avatar */}
               <Box
                 sx={{
                   display: "flex",
@@ -915,8 +1259,6 @@ function StaffTab() {
                     </span>
                   )}
                 </Box>
-
-                {/* Name + Role */}
                 <Typography
                   sx={{
                     fontWeight: 700,
@@ -933,8 +1275,6 @@ function StaffTab() {
                 >
                   {viewModal.staff.role}
                 </Typography>
-
-                {/* Status badge */}
                 <Box
                   sx={{
                     mt: 1.2,
@@ -964,60 +1304,7 @@ function StaffTab() {
                     {viewModal.staff.status}
                   </Typography>
                 </Box>
-
-                {/* Staff ID row */}
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 0.8,
-                    mt: 1.5,
-                  }}
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#9ca3af"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                  </svg>
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#9ca3af"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="8" y1="6" x2="21" y2="6" />
-                    <line x1="8" y1="12" x2="21" y2="12" />
-                    <line x1="8" y1="18" x2="21" y2="18" />
-                    <line x1="3" y1="6" x2="3.01" y2="6" />
-                    <line x1="3" y1="12" x2="3.01" y2="12" />
-                    <line x1="3" y1="18" x2="3.01" y2="18" />
-                  </svg>
-                  <Typography
-                    sx={{
-                      fontSize: "11px",
-                      color: "#9ca3af",
-                      fontFamily: "monospace",
-                      letterSpacing: "0.02em",
-                    }}
-                  >
-                    {viewModal.staff.staffid ?? viewModal.staff.id}
-                  </Typography>
-                </Box>
               </Box>
-
-              {/* Divider */}
               <Box
                 sx={{
                   height: "1px",
@@ -1026,112 +1313,38 @@ function StaffTab() {
                   mb: 2,
                 }}
               />
-
-              {/* Info rows */}
               {[
                 {
-                  icon: (
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#6b7280"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="2" y="7" width="20" height="14" rx="2" />
-                      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                    </svg>
-                  ),
                   label: "Staff ID",
                   value: viewModal.staff.staffid ?? viewModal.staff.id,
                 },
+                { label: "Email", value: viewModal.staff.email || "—" },
                 {
-                  icon: (
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#6b7280"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                      <polyline points="22,6 12,13 2,6" />
-                    </svg>
-                  ),
-                  label: "Email",
-                  value: viewModal.staff.email || "—",
-                },
-                {
-                  icon: (
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#6b7280"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                    </svg>
-                  ),
                   label: "Specialization",
                   value: viewModal.staff.specialization || "—",
                 },
                 {
-                  icon: (
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#6b7280"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                      <line x1="16" y1="2" x2="16" y2="6" />
-                      <line x1="8" y1="2" x2="8" y2="6" />
-                      <line x1="3" y1="10" x2="21" y2="10" />
-                    </svg>
-                  ),
                   label: "Department",
                   value: viewModal.staff.department || "—",
                 },
-              ].map(({ icon, label, value }) => (
-                <Box key={label} sx={{ mb: 2 }}>
-                  <Box
+              ].map(({ label, value }) => (
+                <Box key={label} sx={{ mb: 1.5 }}>
+                  <Typography
                     sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 0.4,
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      color: "#9ca3af",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      mb: 0.2,
                     }}
                   >
-                    {icon}
-                    <Typography
-                      sx={{
-                        fontSize: "13px",
-                        fontWeight: 600,
-                        color: "#374151",
-                      }}
-                    >
-                      {label}
-                    </Typography>
-                  </Box>
+                    {label}
+                  </Typography>
                   <Typography
                     sx={{
                       fontSize: "13px",
-                      color: "#6b7280",
-                      pl: "24px",
+                      color: "#374151",
                       wordBreak: "break-all",
                     }}
                   >
@@ -1139,8 +1352,6 @@ function StaffTab() {
                   </Typography>
                 </Box>
               ))}
-
-              {/* Divider */}
               <Box
                 sx={{
                   height: "1px",
@@ -1149,65 +1360,28 @@ function StaffTab() {
                   mb: 2,
                 }}
               />
-
-              {/* Attendance / duty rows */}
               <Box sx={{ mb: 2 }}>
-                <Box
-                  sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}
+                <Typography
+                  sx={{ fontSize: "12px", color: "#6b7280", mb: 0.5 }}
                 >
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#9ca3af"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
-                  <Typography sx={{ fontSize: "12px", color: "#6b7280" }}>
-                    Last attendance:{" "}
-                    <span style={{ color: "#374151", fontWeight: 500 }}>
-                      {viewModal.staff.duty_status === "On Duty"
-                        ? "Currently on duty"
-                        : "N/A"}
-                    </span>
-                  </Typography>
-                </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#9ca3af"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                    <line x1="16" y1="2" x2="16" y2="6" />
-                    <line x1="8" y1="2" x2="8" y2="6" />
-                    <line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                  <Typography sx={{ fontSize: "12px", color: "#6b7280" }}>
-                    Duty status:{" "}
-                    <span style={{ color: "#374151", fontWeight: 500 }}>
-                      {viewModal.staff.duty_status || "Off Duty"}
-                    </span>
-                  </Typography>
-                </Box>
+                  Last attendance:{" "}
+                  <span style={{ color: "#374151", fontWeight: 500 }}>
+                    {viewModal.staff.duty_status === "On Duty"
+                      ? "Currently on duty"
+                      : "N/A"}
+                  </span>
+                </Typography>
+                <Typography sx={{ fontSize: "12px", color: "#6b7280" }}>
+                  Duty status:{" "}
+                  <span style={{ color: "#374151", fontWeight: 500 }}>
+                    {viewModal.staff.duty_status || "Off Duty"}
+                  </span>
+                </Typography>
               </Box>
             </DialogContent>
-
-            {/* Bottom action buttons */}
             <Box
               sx={{ display: "flex", borderTop: "1px solid #f3f4f6", mt: 1 }}
             >
-              {/* Edit button */}
               <Button
                 onClick={() => {
                   const staff = viewModal.staff!;
@@ -1239,30 +1413,11 @@ function StaffTab() {
                   backgroundColor: "white",
                   borderRadius: 0,
                   borderRight: "1px solid #f3f4f6",
-                  display: "flex",
-                  gap: "6px",
-                  alignItems: "center",
-                  justifyContent: "center",
                   "&:hover": { backgroundColor: "#eff6ff" },
                 }}
               >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
                 Edit
               </Button>
-
-              {/* Activate / Deactivate button */}
               <Button
                 onClick={async () => {
                   const staff = viewModal.staff!;
@@ -1292,12 +1447,11 @@ function StaffTab() {
                       ),
                     );
                     showSnackbar(error, "error");
-                  } else {
+                  } else
                     showSnackbar(
                       `Staff member ${newStatus === "Active" ? "activated" : "deactivated"} successfully`,
                       "success",
                     );
-                  }
                 }}
                 sx={{
                   flex: 1,
@@ -1311,10 +1465,6 @@ function StaffTab() {
                       : "#10b981",
                   backgroundColor: "white",
                   borderRadius: 0,
-                  display: "flex",
-                  gap: "6px",
-                  alignItems: "center",
-                  justifyContent: "center",
                   "&:hover": {
                     backgroundColor:
                       viewModal.staff!.status === "Active"
@@ -1323,40 +1473,9 @@ function StaffTab() {
                   },
                 }}
               >
-                {viewModal.staff!.status === "Active" ? (
-                  <>
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-                    </svg>
-                    Deactivate
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    Activate
-                  </>
-                )}
+                {viewModal.staff!.status === "Active"
+                  ? "Deactivate"
+                  : "Activate"}
               </Button>
             </Box>
           </>
@@ -1374,6 +1493,10 @@ function StaffTab() {
 // ─── Services Tab ─────────────────────────────────────────────────────────────
 function ServicesTab() {
   const { isAdmin } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const [services, setServices] = useState<Service[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [allSpecializations, setAllSpecializations] = useState<string[]>([]);
@@ -1537,18 +1660,15 @@ function ServicesTab() {
     } else showSnackbar("Service deleted successfully", "success");
   };
 
-  const getServiceStatusColor = (status: string) =>
-    status === "Available" ? "#10b981" : "#6b7280";
-
   return (
     <>
       <Box
         sx={{
           display: "flex",
-          gap: "12px",
+          gap: "8px",
           alignItems: "center",
-          flexWrap: "wrap",
-          mb: 2,
+          mb: 1.5,
+          flexWrap: "nowrap",
         }}
       >
         <TextField
@@ -1557,9 +1677,8 @@ function ServicesTab() {
           onChange={(e) => setSearchQuery(e.target.value)}
           size="small"
           sx={{
-            flex: "1 1 180px",
-            minWidth: "150px",
-            maxWidth: "200px",
+            flex: 1,
+            minWidth: 0,
             backgroundColor: "white",
             borderRadius: "6px",
             "& .MuiOutlinedInput-root": { borderRadius: "6px" },
@@ -1572,318 +1691,370 @@ function ServicesTab() {
             ),
           }}
         />
-        <FormControl
-          size="small"
-          sx={{
-            minWidth: 120,
-            maxWidth: 150,
-            flex: "0 1 auto",
-            backgroundColor: "white",
-            borderRadius: "6px",
-          }}
-        >
-          <Select
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            displayEmpty
-            sx={{ borderRadius: "6px", fontSize: "14px" }}
+        {isMobile && (
+          <IconButton
+            size="small"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            sx={{
+              border: "1px solid #e5e7eb",
+              borderRadius: "6px",
+              backgroundColor: filtersOpen ? "#eff6ff" : "white",
+              color: filtersOpen ? "#2563eb" : "#6b7280",
+              width: 36,
+              height: 36,
+            }}
           >
-            <MenuItem value="all">All Departments</MenuItem>
-            {departments.map((d) => (
-              <MenuItem key={d} value={d}>
-                {d}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl
-          size="small"
-          sx={{
-            minWidth: 130,
-            maxWidth: 160,
-            flex: "0 1 auto",
-            backgroundColor: "white",
-            borderRadius: "6px",
-          }}
-        >
-          <Select
-            value={specializationFilter}
-            onChange={(e) => setSpecializationFilter(e.target.value)}
-            displayEmpty
-            sx={{ borderRadius: "6px", fontSize: "14px" }}
-          >
-            <MenuItem value="all">All Specializations</MenuItem>
-            {allSpecializations.map((s) => (
-              <MenuItem key={s} value={s}>
-                {s}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl
-          size="small"
-          sx={{
-            minWidth: 100,
-            maxWidth: 130,
-            flex: "0 1 auto",
-            backgroundColor: "white",
-            borderRadius: "6px",
-            mr: "12px",
-          }}
-        >
-          <Select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            displayEmpty
-            sx={{ borderRadius: "6px", fontSize: "14px" }}
-          >
-            <MenuItem value="all">All Status</MenuItem>
-            <MenuItem value="Available">Available</MenuItem>
-            <MenuItem value="Unavailable">Unavailable</MenuItem>
-          </Select>
-        </FormControl>
+            <FiFilter size={16} />
+          </IconButton>
+        )}
         <Button
           onClick={openAddModal}
           variant="contained"
+          size={isMobile ? "small" : "medium"}
           sx={{
             textTransform: "none",
             backgroundColor: "#2563EB",
             fontWeight: 600,
-            fontSize: "14px",
-            ml: "auto",
+            fontSize: "13px",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
             "&:hover": { backgroundColor: "#1d4ed8" },
           }}
         >
-          + Add Service
+          {isMobile ? "+ Add" : "+ Add Service"}
         </Button>
       </Box>
 
-      <TableContainer
-        component={Paper}
-        sx={{
-          borderRadius: "8px",
-          boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-          border: "1px solid #e5e7eb",
-          overflowX: "auto",
-          maxHeight: "460px",
-          overflow: "auto",
-        }}
-      >
-        <Table stickyHeader sx={{ tableLayout: "fixed", width: "100%" }}>
-          <TableHead>
-            <TableRow>
-              {[
-                { label: "Name", w: "20%" },
-                { label: "Department", w: "12%" },
-                { label: "Specialization", w: "12%" },
-                { label: "Duration", w: "9%" },
-                { label: "Price (₱)", w: "9%" },
-                { label: "Downpayment (₱)", w: "11%" },
-                { label: "Description", w: "13%" },
-                { label: "Status", w: "7%" },
-                { label: "Actions", w: "7%", center: true },
-              ].map(({ label, w, center }) => (
-                <TableCell
-                  key={label}
-                  sx={{
-                    fontWeight: 600,
-                    color: "#374151",
-                    fontSize: "12px",
-                    padding: "12px 8px",
-                    width: w,
-                    textAlign: center ? "center" : "left",
-                  }}
-                >
-                  {label}
-                </TableCell>
+      <Collapse in={!isMobile || filtersOpen}>
+        <Box sx={{ display: "flex", gap: "8px", flexWrap: "wrap", mb: 2 }}>
+          <FormControl
+            size="small"
+            sx={{
+              minWidth: 130,
+              flex: isMobile ? "1 1 calc(50% - 4px)" : "0 1 auto",
+              backgroundColor: "white",
+              borderRadius: "6px",
+            }}
+          >
+            <Select
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              displayEmpty
+              sx={{ borderRadius: "6px", fontSize: "13px" }}
+            >
+              <MenuItem value="all">All Departments</MenuItem>
+              {departments.map((d) => (
+                <MenuItem key={d} value={d}>
+                  {d}
+                </MenuItem>
               ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filtered.map((service) => (
-              <TableRow
-                key={service.id}
-                sx={{
-                  "&:hover": { backgroundColor: "#f9fafb" },
-                  borderBottom: "1px solid #f3f4f6",
-                }}
-              >
-                <TableCell
-                  sx={{
-                    color: "#1f2937",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    padding: "10px 8px",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {service.name}
-                </TableCell>
-                <TableCell sx={{ padding: "10px 8px" }}>
-                  {service.department ? (
-                    <Box
-                      sx={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        backgroundColor: "#eff6ff",
-                        color: "#2563eb",
-                        borderRadius: "4px",
-                        px: "6px",
-                        py: "2px",
-                        fontSize: "11px",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {service.department}
-                    </Box>
-                  ) : (
-                    <span style={{ color: "#9ca3af", fontSize: "11px" }}>
-                      All
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell sx={{ padding: "10px 8px" }}>
-                  {service.specialization ? (
-                    <Box
-                      sx={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        backgroundColor: "#f0fdf4",
-                        color: "#16a34a",
-                        borderRadius: "4px",
-                        px: "6px",
-                        py: "2px",
-                        fontSize: "11px",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {service.specialization}
-                    </Box>
-                  ) : (
-                    <span style={{ color: "#9ca3af", fontSize: "11px" }}>
-                      All
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: "#6b7280",
-                    fontSize: "12px",
-                    padding: "10px 8px",
-                  }}
-                >
-                  {service.duration}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: "#1f2937",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    padding: "10px 8px",
-                  }}
-                >
-                  ₱{service.price.toLocaleString()}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: "#1f2937",
-                    fontSize: "12px",
-                    fontWeight: 500,
-                    padding: "10px 8px",
-                  }}
-                >
-                  ₱{service.downpayment.toLocaleString()}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: "#6b7280",
-                    fontSize: "11px",
-                    padding: "10px 8px",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {service.description || "—"}
-                </TableCell>
-                <TableCell sx={{ padding: "10px 8px" }}>
-                  <Box
-                    sx={{ display: "flex", alignItems: "center", gap: "4px" }}
-                  >
-                    <Box
-                      sx={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: "50%",
-                        backgroundColor: getServiceStatusColor(service.status),
-                        flexShrink: 0,
-                      }}
-                    />
-                    <span
-                      style={{
-                        color: "#6b7280",
-                        fontSize: "11px",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {service.status}
-                    </span>
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ padding: "10px 8px", textAlign: "center" }}>
-                  <Box
+            </Select>
+          </FormControl>
+          <FormControl
+            size="small"
+            sx={{
+              minWidth: 140,
+              flex: isMobile ? "1 1 calc(50% - 4px)" : "0 1 auto",
+              backgroundColor: "white",
+              borderRadius: "6px",
+            }}
+          >
+            <Select
+              value={specializationFilter}
+              onChange={(e) => setSpecializationFilter(e.target.value)}
+              displayEmpty
+              sx={{ borderRadius: "6px", fontSize: "13px" }}
+            >
+              <MenuItem value="all">All Specializations</MenuItem>
+              {allSpecializations.map((s) => (
+                <MenuItem key={s} value={s}>
+                  {s}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl
+            size="small"
+            sx={{
+              minWidth: 110,
+              flex: isMobile ? "1 1 calc(50% - 4px)" : "0 1 auto",
+              backgroundColor: "white",
+              borderRadius: "6px",
+            }}
+          >
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              displayEmpty
+              sx={{ borderRadius: "6px", fontSize: "13px" }}
+            >
+              <MenuItem value="all">All Status</MenuItem>
+              <MenuItem value="Available">Available</MenuItem>
+              <MenuItem value="Unavailable">Unavailable</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+      </Collapse>
+
+      {isMobile ? (
+        <Box>
+          {filtered.map((service) => (
+            <ServiceMobileCard
+              key={service.id}
+              service={service}
+              onEdit={() => openEditModal(service)}
+              onDelete={() =>
+                setDeleteConfirm({
+                  open: true,
+                  id: service.id,
+                  name: service.name,
+                })
+              }
+            />
+          ))}
+          {filtered.length === 0 && (
+            <Box
+              sx={{
+                textAlign: "center",
+                py: 6,
+                color: "#9ca3af",
+                fontSize: "14px",
+              }}
+            >
+              No services found
+            </Box>
+          )}
+        </Box>
+      ) : (
+        <TableContainer
+          component={Paper}
+          sx={{
+            borderRadius: "8px",
+            boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+            border: "1px solid #e5e7eb",
+            maxHeight: "460px",
+            overflow: "auto",
+          }}
+        >
+          <Table stickyHeader sx={{ tableLayout: "fixed", width: "100%" }}>
+            <TableHead>
+              <TableRow>
+                {[
+                  { label: "Name", w: "20%" },
+                  { label: "Department", w: "12%" },
+                  { label: "Specialization", w: "12%" },
+                  { label: "Duration", w: "9%" },
+                  { label: "Price (₱)", w: "9%" },
+                  { label: "Downpayment (₱)", w: "11%" },
+                  { label: "Description", w: "13%" },
+                  { label: "Status", w: "7%" },
+                  { label: "Actions", w: "7%", center: true },
+                ].map(({ label, w, center }) => (
+                  <TableCell
+                    key={label}
                     sx={{
-                      display: "flex",
-                      justifyContent: "center",
-                      gap: "4px",
+                      fontWeight: 600,
+                      color: "#374151",
+                      fontSize: "12px",
+                      padding: "12px 8px",
+                      width: w,
+                      textAlign: center ? "center" : "left",
                     }}
                   >
-                    <IconButton
-                      size="small"
-                      onClick={() => openEditModal(service)}
-                      sx={{
-                        color: "#2563eb",
-                        "&:hover": { backgroundColor: "#eff6ff" },
-                      }}
-                    >
-                      <FiEdit2 size={13} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() =>
-                        setDeleteConfirm({
-                          open: true,
-                          id: service.id,
-                          name: service.name,
-                        })
-                      }
-                      sx={{
-                        color: "#ef4444",
-                        "&:hover": { backgroundColor: "#fee2e2" },
-                      }}
-                    >
-                      <FiTrash2 size={13} />
-                    </IconButton>
-                  </Box>
-                </TableCell>
+                    {label}
+                  </TableCell>
+                ))}
               </TableRow>
-            ))}
-            {filtered.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={9}
-                  align="center"
-                  sx={{ py: 4, color: "#9ca3af" }}
+            </TableHead>
+            <TableBody>
+              {filtered.map((service) => (
+                <TableRow
+                  key={service.id}
+                  sx={{
+                    "&:hover": { backgroundColor: "#f9fafb" },
+                    borderBottom: "1px solid #f3f4f6",
+                  }}
                 >
-                  No services found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                  <TableCell
+                    sx={{
+                      color: "#1f2937",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      padding: "10px 8px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {service.name}
+                  </TableCell>
+                  <TableCell sx={{ padding: "10px 8px" }}>
+                    {service.department ? (
+                      <Box
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          backgroundColor: "#eff6ff",
+                          color: "#2563eb",
+                          borderRadius: "4px",
+                          px: "6px",
+                          py: "2px",
+                          fontSize: "11px",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {service.department}
+                      </Box>
+                    ) : (
+                      <span style={{ color: "#9ca3af", fontSize: "11px" }}>
+                        All
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell sx={{ padding: "10px 8px" }}>
+                    {service.specialization ? (
+                      <Box
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          backgroundColor: "#f0fdf4",
+                          color: "#16a34a",
+                          borderRadius: "4px",
+                          px: "6px",
+                          py: "2px",
+                          fontSize: "11px",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {service.specialization}
+                      </Box>
+                    ) : (
+                      <span style={{ color: "#9ca3af", fontSize: "11px" }}>
+                        All
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: "#6b7280",
+                      fontSize: "12px",
+                      padding: "10px 8px",
+                    }}
+                  >
+                    {service.duration}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: "#1f2937",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      padding: "10px 8px",
+                    }}
+                  >
+                    ₱{service.price.toLocaleString()}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: "#1f2937",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      padding: "10px 8px",
+                    }}
+                  >
+                    ₱{service.downpayment.toLocaleString()}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: "#6b7280",
+                      fontSize: "11px",
+                      padding: "10px 8px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {service.description || "—"}
+                  </TableCell>
+                  <TableCell sx={{ padding: "10px 8px" }}>
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: "4px" }}
+                    >
+                      <Box
+                        sx={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          backgroundColor:
+                            service.status === "Available"
+                              ? "#10b981"
+                              : "#6b7280",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span
+                        style={{
+                          color: "#6b7280",
+                          fontSize: "11px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {service.status}
+                      </span>
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ padding: "10px 8px", textAlign: "center" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <IconButton
+                        size="small"
+                        onClick={() => openEditModal(service)}
+                        sx={{
+                          color: "#2563eb",
+                          "&:hover": { backgroundColor: "#eff6ff" },
+                        }}
+                      >
+                        <FiEdit2 size={13} />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          setDeleteConfirm({
+                            open: true,
+                            id: service.id,
+                            name: service.name,
+                          })
+                        }
+                        sx={{
+                          color: "#ef4444",
+                          "&:hover": { backgroundColor: "#fee2e2" },
+                        }}
+                      >
+                        <FiTrash2 size={13} />
+                      </IconButton>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={9}
+                    align="center"
+                    sx={{ py: 4, color: "#9ca3af" }}
+                  >
+                    No services found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       {/* Add / Edit Service Modal */}
       <Dialog
@@ -1931,7 +2102,13 @@ function ServicesTab() {
                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
               />
             </Box>
-            <Box sx={{ display: "flex", gap: 2 }}>
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                flexDirection: { xs: "column", sm: "row" },
+              }}
+            >
               <Box sx={{ flex: 1 }}>
                 {fieldLabel("Department")}
                 <FormControl fullWidth size="small">
@@ -1984,7 +2161,13 @@ function ServicesTab() {
                 </FormControl>
               </Box>
             </Box>
-            <Box sx={{ display: "flex", gap: 2 }}>
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                flexDirection: { xs: "column", sm: "row" },
+              }}
+            >
               <Box sx={{ flex: 1 }}>
                 {fieldLabel("Duration", true)}
                 <TextField
@@ -2220,24 +2403,15 @@ function DepartmentsTab() {
 
   return (
     <>
-      <Box
-        sx={{
-          display: "flex",
-          gap: "12px",
-          alignItems: "center",
-          flexWrap: "wrap",
-          mb: 2,
-        }}
-      >
+      <Box sx={{ display: "flex", gap: "8px", alignItems: "center", mb: 2 }}>
         <TextField
           placeholder="Search departments..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           size="small"
           sx={{
-            flex: "1 1 180px",
-            minWidth: "150px",
-            maxWidth: "280px",
+            flex: 1,
+            minWidth: 0,
             backgroundColor: "white",
             borderRadius: "6px",
             "& .MuiOutlinedInput-root": { borderRadius: "6px" },
@@ -2257,8 +2431,9 @@ function DepartmentsTab() {
             textTransform: "none",
             backgroundColor: "#2563EB",
             fontWeight: 600,
-            fontSize: "14px",
-            ml: "auto",
+            fontSize: "13px",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
             "&:hover": { backgroundColor: "#1d4ed8" },
           }}
         >
@@ -2272,7 +2447,6 @@ function DepartmentsTab() {
           borderRadius: "8px",
           boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
           border: "1px solid #e5e7eb",
-          overflowX: "auto",
           maxHeight: "460px",
           overflow: "auto",
         }}
@@ -2626,10 +2800,10 @@ function SpecializationsTab() {
       <Box
         sx={{
           display: "flex",
-          gap: "12px",
+          gap: "8px",
           alignItems: "center",
-          flexWrap: "wrap",
-          mb: 2,
+          mb: 1.5,
+          flexWrap: "nowrap",
         }}
       >
         <TextField
@@ -2638,9 +2812,8 @@ function SpecializationsTab() {
           onChange={(e) => setSearchQuery(e.target.value)}
           size="small"
           sx={{
-            flex: "1 1 180px",
-            minWidth: "150px",
-            maxWidth: "280px",
+            flex: 1,
+            minWidth: 0,
             backgroundColor: "white",
             borderRadius: "6px",
             "& .MuiOutlinedInput-root": { borderRadius: "6px" },
@@ -2656,19 +2829,17 @@ function SpecializationsTab() {
         <FormControl
           size="small"
           sx={{
-            minWidth: 120,
-            maxWidth: 160,
-            flex: "0 1 auto",
+            minWidth: 130,
             backgroundColor: "white",
             borderRadius: "6px",
-            mr: "12px",
+            flexShrink: 0,
           }}
         >
           <Select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
             displayEmpty
-            sx={{ borderRadius: "6px", fontSize: "14px" }}
+            sx={{ borderRadius: "6px", fontSize: "13px" }}
           >
             <MenuItem value="all">All Departments</MenuItem>
             {departments.map((d) => (
@@ -2685,12 +2856,13 @@ function SpecializationsTab() {
             textTransform: "none",
             backgroundColor: "#2563EB",
             fontWeight: 600,
-            fontSize: "14px",
-            ml: "auto",
+            fontSize: "13px",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
             "&:hover": { backgroundColor: "#1d4ed8" },
           }}
         >
-          + Add Specialization
+          + Add
         </Button>
       </Box>
 
@@ -2700,7 +2872,6 @@ function SpecializationsTab() {
           borderRadius: "8px",
           boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
           border: "1px solid #e5e7eb",
-          overflowX: "auto",
           maxHeight: "460px",
           overflow: "auto",
         }}
@@ -2974,7 +3145,13 @@ function DeleteConfirmDialog({
       onClose={onClose}
       maxWidth="xs"
       fullWidth
-      PaperProps={{ sx: { borderRadius: "12px" } }}
+      PaperProps={{
+        sx: {
+          borderRadius: "12px",
+          margin: "16px",
+          width: "calc(100% - 32px)",
+        },
+      }}
     >
       <DialogTitle
         sx={{
@@ -3091,11 +3268,13 @@ const TAB_TITLES = [
 
 function StaffInformation() {
   const [activeTab, setActiveTab] = useState(0);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   return (
     <div
       style={{
-        padding: "24px",
+        padding: isMobile ? "12px" : "24px",
         width: "100%",
         maxWidth: "1400px",
         margin: "0 auto",
@@ -3106,13 +3285,13 @@ function StaffInformation() {
         sx={{
           backgroundColor: "#f8f9fa",
           borderRadius: "8px",
-          padding: { xs: "16px", sm: "20px", md: "24px" },
+          padding: { xs: "12px", sm: "20px", md: "24px" },
         }}
       >
         <h2
           style={{
             margin: "0 0 16px 0",
-            fontSize: "clamp(18px, 4vw, 24px)",
+            fontSize: "clamp(16px, 4vw, 24px)",
             fontWeight: 600,
             color: "#1f2937",
           }}
@@ -3122,6 +3301,9 @@ function StaffInformation() {
         <Tabs
           value={activeTab}
           onChange={(_, val) => setActiveTab(val)}
+          variant={isMobile ? "scrollable" : "standard"}
+          scrollButtons={isMobile ? "auto" : false}
+          allowScrollButtonsMobile
           sx={{
             mb: 3,
             borderBottom: "1px solid #e5e7eb",
@@ -3133,9 +3315,9 @@ function StaffInformation() {
             "& .MuiTab-root": {
               textTransform: "none",
               fontWeight: 600,
-              fontSize: "14px",
+              fontSize: { xs: "12px", sm: "14px" },
               minHeight: "40px",
-              padding: "8px 16px",
+              padding: { xs: "8px 10px", sm: "8px 16px" },
               color: "#6b7280",
               outline: "none",
               "&:focus-visible": { outline: "none" },
