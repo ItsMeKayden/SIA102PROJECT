@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type DragEvent } from 'react';
+import { useState, useEffect, useCallback, useMemo, type DragEvent } from 'react';
 import '../styles/Pages.css';
 import {
   Box,
@@ -25,7 +25,9 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
-import { FiSearch, FiCalendar, FiPlus, FiRefreshCw, FiAlertTriangle, FiAlertCircle, FiInfo, FiUsers, FiClock, FiList, FiUserCheck, FiXCircle } from 'react-icons/fi';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { FiSearch, FiCalendar, FiPlus, FiRefreshCw, FiAlertTriangle, FiAlertCircle, FiInfo, FiUsers, FiClock, FiList, FiUserCheck, FiXCircle, FiSettings, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import {
   getAllSchedules,
   getSchedulesByStaffId,
@@ -35,12 +37,16 @@ import {
   updateSchedule,
   resolveScheduleSession,
   getSessionWindow,
+  getSessionSettings,
+  loadSessionSettings,
+  updateSessionSettings,
   createScheduleSwapRequest,
   getScheduleSwapRequests,
   approveScheduleSwapRequest,
   rejectScheduleSwapRequest,
   type ScheduleSwapRequestWithDetails,
   type ShiftSession,
+  type SessionSettings,
 } from '../../backend/services/scheduleService';
 import { getAllAppointments } from '../../backend/services/appointmentService';
 import { getAllStaff } from '../../backend/services/staffService';
@@ -62,13 +68,28 @@ const enrichSchedulesWithStaff = (
     }))
     .filter((s) => !s.staff?.role?.toLowerCase().includes('admin'));
 
+const getLastName = (fullName: string | undefined) => {
+  const trimmed = (fullName ?? '').trim();
+  if (!trimmed) return 'Unknown';
+  const parts = trimmed.split(/\s+/);
+  return parts[parts.length - 1];
+};
+
+const formatRoleLastName = (role: string | undefined, fullName: string | undefined) =>
+  `${role || 'Staff'} ${getLastName(fullName)}`;
+
 function Schedule() {
   const { isAdmin, staffProfile } = useAuth();
+  const SCHEDULE_PAGE_COUNT = 53;
   const [schedules, setSchedules] = useState<ScheduleWithStaff[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState(0);
-  const [fifteenDayStartDate, setFifteenDayStartDate] = useState<Date>(new Date());
+  const [weekAnchorDate, setWeekAnchorDate] = useState<Date>(new Date());
+  const [schedulePage, setSchedulePage] = useState<number>(1);
+  const [sessionSettings, setSessionSettings] = useState<SessionSettings>(() => getSessionSettings());
+  const [sessionSettingsDraft, setSessionSettingsDraft] = useState<SessionSettings>(() => getSessionSettings());
+  const [openSessionSettingsDialog, setOpenSessionSettingsDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [openModal, setOpenModal] = useState(false);
   const [snackbar, setSnackbar] = useState({
@@ -124,9 +145,15 @@ function Schedule() {
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [applying, setApplying] = useState(false);
 
+  const weekStartDate = useMemo(() => {
+    const next = new Date(weekAnchorDate);
+    next.setDate(next.getDate() + (schedulePage - 1) * 7);
+    return next;
+  }, [schedulePage, weekAnchorDate]);
+
   const sessions: ShiftSession[] = ['AM', 'PM'];
   const sessionLabel = (session: ShiftSession) =>
-    session === 'AM' ? 'AM Session (08:00-12:00)' : 'PM Session (13:00-17:00)';
+    `${session} Session (${sessionSettings[session].start}-${sessionSettings[session].end})`;
   const getSwapStatusStyle = (status: string) => {
     if (status === 'approved') {
       return { backgroundColor: '#dcfce7', color: '#166534' };
@@ -190,8 +217,73 @@ function Schedule() {
     fetchData();
   }, [staffProfile, fetchData]);
 
+  useEffect(() => {
+    const hydrateSessionSettings = async () => {
+      const result = await loadSessionSettings();
+      setSessionSettings(result.data);
+      setSessionSettingsDraft(result.data);
+      if (result.error) {
+        showSnackbar(`Session settings fallback applied: ${result.error}`, 'error');
+      }
+    };
+    void hydrateSessionSettings();
+  }, []);
+
   const showSnackbar = (msg: string, sev: 'success' | 'error') =>
     setSnackbar({ open: true, message: msg, severity: sev });
+
+  const handleWeekDateChange = (value: string) => {
+    setWeekAnchorDate(new Date(value));
+    setSchedulePage(1);
+  };
+
+  const handleOpenSessionSettings = () => {
+    setSessionSettingsDraft(getSessionSettings());
+    setOpenSessionSettingsDialog(true);
+  };
+
+  const handleSessionDraftChange = (
+    session: ShiftSession,
+    field: 'start' | 'end',
+    value: string,
+  ) => {
+    setSessionSettingsDraft((prev) => ({
+      ...prev,
+      [session]: {
+        ...prev[session],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSaveSessionSettings = async () => {
+    const am = sessionSettingsDraft.AM;
+    const pm = sessionSettingsDraft.PM;
+
+    if (!am.start || !am.end || !pm.start || !pm.end) {
+      showSnackbar('Please set start and end times for AM and PM sessions.', 'error');
+      return;
+    }
+    if (am.start >= am.end) {
+      showSnackbar('AM start time must be earlier than AM end time.', 'error');
+      return;
+    }
+    if (pm.start >= pm.end) {
+      showSnackbar('PM start time must be earlier than PM end time.', 'error');
+      return;
+    }
+
+    const result = await updateSessionSettings(sessionSettingsDraft);
+    if (result.error) {
+      showSnackbar(result.error, 'error');
+      return;
+    }
+
+    setSessionSettings(result.data);
+    setSessionSettingsDraft(result.data);
+    setOpenSessionSettingsDialog(false);
+    showSnackbar('Session time settings updated.', 'success');
+  };
 
   const handleOpenModal = () => {
     setFormData({
@@ -270,116 +362,91 @@ function Schedule() {
     return appointmentCounts;
   };
 
-  const getDepartmentKey = (s: Staff) => s.department?.trim() || 'General';
-
-  const getSessionTarget = (dayDemand: number, maxDemand: number, availableCount: number) => {
-    if (availableCount <= 0) return 0;
-    const baseline = maxDemand > 0 ? Math.round((dayDemand / maxDemand) * 2 + 2) : 2;
-    const cappedToRule = Math.min(4, Math.max(2, baseline));
-    return Math.min(cappedToRule, availableCount);
-  };
-
-  const assignDepartmentDaySessions = (
-    params: {
-      department: string;
-      day: number;
-      deptStaff: Staff[];
-      targetPerSession: number;
-      rotationStart: number;
-    },
-  ) => {
-    const assigned: DayPreviewEntry[] = [];
-    const inserts: PreviewData['scheduleInserts'] = [];
-    const usedToday = new Set<string>();
-    let cursor = params.rotationStart;
-    let nextRotation = params.rotationStart;
-
-    for (const session of sessions) {
-      let createdForSession = 0;
-      for (
-        let attempt = 0;
-        attempt < params.deptStaff.length && createdForSession < params.targetPerSession;
-        attempt += 1
-      ) {
-        const candidate = params.deptStaff[(cursor + attempt) % params.deptStaff.length];
-        if (usedToday.has(candidate.id)) continue;
-
-        usedToday.add(candidate.id);
-        createdForSession += 1;
-        const window = getSessionWindow(session);
-
-        assigned.push({
-          staffId: candidate.id,
-          name: candidate.name,
-          role: candidate.role,
-          specialization: candidate.specialization,
-          session,
-        });
-
-        inserts.push({
-          staff_id: candidate.id,
-          day_of_week: params.day,
-          shift_session: session,
-          start_time: window.start,
-          end_time: window.end,
-          notes: `Auto-generated ${session} schedule (${params.department})`,
-          is_active: true,
-        });
-      }
-
-      cursor = (cursor + createdForSession) % Math.max(params.deptStaff.length, 1);
-      nextRotation = cursor;
-    }
-
-    return { assigned, inserts, nextRotation };
-  };
-
-  // Helper function: Build AM/PM inserts per department with min/max constraints
+  // Build a rotating weekly roster: unique staff per day and split across AM/PM.
   const buildScheduleInserts = (
     workDays: number[],
-    appointmentCounts: Record<number, number>,
+    _appointmentCounts: Record<number, number>,
     activeStaff: Staff[],
     groupedCurrent: Record<number, ScheduleWithStaff[]>,
   ) => {
     const scheduleInserts: PreviewData['scheduleInserts'] = [];
     const dayPreviews: DayPreview[] = [];
-    const maxDemand = Math.max(...workDays.map((d) => appointmentCounts[d] ?? 0), 0);
+    const roster = [...activeStaff].sort((a, b) => a.name.localeCompare(b.name));
+    const uniquePerDayTarget = Math.min(roster.length, 4);
+    let rosterCursor = 0;
 
-    const byDepartment = activeStaff.reduce<Record<string, Staff[]>>((acc, item) => {
-      const key = getDepartmentKey(item);
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(item);
-      return acc;
-    }, {});
-
-    const departmentRotation: Record<string, number> = {};
-    Object.keys(byDepartment).forEach((key) => {
-      departmentRotation[key] = 0;
-    });
+    const pushAssignment = (
+      assigned: DayPreviewEntry[],
+      day: number,
+      staffMember: Staff,
+      session: ShiftSession,
+      notes: string,
+    ) => {
+      const window = getSessionWindow(session);
+      assigned.push({
+        staffId: staffMember.id,
+        name: staffMember.name,
+        role: staffMember.role,
+        specialization: staffMember.specialization,
+        session,
+      });
+      scheduleInserts.push({
+        staff_id: staffMember.id,
+        day_of_week: day,
+        shift_session: session,
+        start_time: window.start,
+        end_time: window.end,
+        notes,
+        is_active: true,
+      });
+    };
 
     for (const day of workDays) {
       const currentCount = groupedCurrent[day]?.length ?? 0;
       const assigned: DayPreviewEntry[] = [];
 
-      for (const [department, deptStaff] of Object.entries(byDepartment)) {
-        const targetPerSession = getSessionTarget(
-          appointmentCounts[day] ?? 0,
-          maxDemand,
-          deptStaff.length,
-        );
-        if (targetPerSession <= 0) continue;
+      const dayStaff: Staff[] = [];
+      if (roster.length > 0) {
+        for (let i = 0; i < uniquePerDayTarget; i += 1) {
+          dayStaff.push(roster[(rosterCursor + i) % roster.length]);
+        }
+        rosterCursor = (rosterCursor + uniquePerDayTarget) % roster.length;
+      }
 
-        const allocation = assignDepartmentDaySessions({
-          department,
+      const amCount = Math.ceil(dayStaff.length / 2);
+      const pmCount = dayStaff.length - amCount;
+
+      for (let i = 0; i < amCount; i += 1) {
+        pushAssignment(assigned, day, dayStaff[i], 'AM', 'Auto-generated AM schedule');
+      }
+      for (let i = 0; i < pmCount; i += 1) {
+        pushAssignment(
+          assigned,
           day,
-          deptStaff,
-          targetPerSession,
-          rotationStart: departmentRotation[department] ?? 0,
-        });
+          dayStaff[amCount + i],
+          'PM',
+          'Auto-generated PM schedule',
+        );
+      }
 
-        assigned.push(...allocation.assigned);
-        scheduleInserts.push(...allocation.inserts);
-        departmentRotation[department] = allocation.nextRotation;
+      // If staffing is too low, duplicate only as needed to keep both sessions covered.
+      for (const session of sessions) {
+        const hasSessionCoverage = assigned.some((entry) => entry.session === session);
+        if (hasSessionCoverage) continue;
+
+        const fallbackStaff =
+          roster.find((candidate) => !assigned.some((entry) => entry.staffId === candidate.id)) ??
+          roster[day % Math.max(roster.length, 1)];
+
+        if (!fallbackStaff) continue;
+
+        pushAssignment(
+          assigned,
+          day,
+          fallbackStaff,
+          session,
+          `Auto-generated ${session} coverage guarantee`,
+        );
       }
 
       dayPreviews.push({
@@ -521,6 +588,7 @@ function Schedule() {
   ) => {
     const role = schedule.staff?.role || 'Staff';
     const name = schedule.staff?.name || 'Unknown';
+    const displayName = formatRoleLastName(role, name);
     const spec = schedule.staff?.specialization;
     const color = roleColors[role] || roleColors.Staff;
     const initials = getInitials(name);
@@ -532,7 +600,7 @@ function Schedule() {
         key={schedule.id}
         title={
           <Box sx={{ p: 0.75 }}>
-            <Typography sx={{ fontSize: '12px', fontWeight: 700 }}>{name}</Typography>
+            <Typography sx={{ fontSize: '12px', fontWeight: 700 }}>{displayName}</Typography>
             <Typography sx={{ fontSize: '11px', opacity: 0.85 }}>{role}</Typography>
             {spec && <Typography sx={{ fontSize: '10px', opacity: 0.75 }}>{spec}</Typography>}
             <Typography sx={{ fontSize: '10px', mt: 0.5 }}>
@@ -554,8 +622,8 @@ function Schedule() {
             backgroundColor: color.accent,
             border: `1.5px solid ${color.border}`,
             borderRadius: '6px',
-            px: 0.8,
-            py: 0.6,
+            px: 1,
+            py: 0.8,
             cursor: isAdmin ? 'grab' : 'pointer',
             transition: 'all 0.15s',
             '&:hover': {
@@ -567,9 +635,9 @@ function Schedule() {
         >
           <Avatar
             sx={{
-              width: 20,
-              height: 20,
-              fontSize: '7px',
+              width: 24,
+              height: 24,
+              fontSize: '9px',
               fontWeight: 700,
               backgroundColor: color.border,
               color: color.accent,
@@ -581,7 +649,7 @@ function Schedule() {
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               sx={{
-                fontSize: '8px',
+                fontSize: '11px',
                 fontWeight: 600,
                 color: color.text,
                 whiteSpace: 'nowrap',
@@ -589,11 +657,11 @@ function Schedule() {
                 textOverflow: 'ellipsis',
               }}
             >
-              {name}
+              {displayName}
             </Typography>
             <Typography
               sx={{
-                fontSize: '6.5px',
+                fontSize: '9px',
                 color: color.text,
                 opacity: 0.8,
                 whiteSpace: 'nowrap',
@@ -824,6 +892,28 @@ function Schedule() {
     return alerts;
   };
 
+  const getMissingPmSessionAlerts = (
+    workDays: number[],
+    workDaySchedules: ScheduleWithStaff[],
+  ): OperationalAlert[] => {
+    const alerts: OperationalAlert[] = [];
+    for (const day of workDays) {
+      const dayEntries = workDaySchedules.filter((s) => s.day_of_week === day);
+      if (dayEntries.length === 0) continue;
+
+      const hasPmStaff = dayEntries.some((s) => resolveScheduleSession(s) === 'PM');
+      if (!hasPmStaff) {
+        alerts.push({
+          id: `no-pm-${day}`,
+          severity: 'critical',
+          title: 'No PM session coverage',
+          message: `${weekDaysFull[day]} has no staff scheduled for PM session.`,
+        });
+      }
+    }
+    return alerts;
+  };
+
   const getUnscheduledStaffAlerts = (
     activeSchedules: ScheduleWithStaff[],
     activeNonAdminStaff: Staff[],
@@ -890,6 +980,7 @@ function Schedule() {
 
     const alerts: OperationalAlert[] = [
       ...getShortStaffedAlerts(workDays, workDaySchedules),
+      ...getMissingPmSessionAlerts(workDays, workDaySchedules),
       ...getOverloadedDayAlerts(workDays, workDaySchedules),
       ...getStaffOverworkAlerts(workDaySchedules),
       ...getNoDoctorAlerts(workDays, workDaySchedules),
@@ -991,6 +1082,25 @@ function Schedule() {
               },
             }}
           />
+          {isAdmin && (
+            <Button
+              variant="outlined"
+              startIcon={<FiSettings />}
+              onClick={handleOpenSessionSettings}
+              sx={{
+                borderColor: '#4b5563',
+                color: '#374151',
+                '&:hover': { borderColor: '#1f2937', backgroundColor: '#f9fafb' },
+                borderRadius: '8px',
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '13px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Session Settings
+            </Button>
+          )}
           {isAdmin && (
             <Tooltip title="Balance existing schedules so no day is overloaded" arrow>
               <span>
@@ -1298,32 +1408,57 @@ function Schedule() {
       </Box>
       )}
 
-      {/* Tab 1: 15-Day Calendar View */}
+      {/* Tab 1: 7-Day Calendar View */}
       {currentTab === 1 && (
         <Box sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+              mb: 2,
+              flexWrap: 'wrap',
+            }}
+          >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <FiCalendar style={{ color: '#6b7280', fontSize: 18 }} />
               <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>
-                15-Day Schedule
+                Weekly Schedule
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-              <TextField
-                type="date"
-                value={fifteenDayStartDate.toISOString().split('T')[0]}
-                onChange={(e) => setFifteenDayStartDate(new Date(e.target.value))}
+            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+              <IconButton
                 size="small"
-                sx={{
-                  width: '150px',
-                  backgroundColor: 'white',
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '6px',
-                  },
-                }}
-              />
+                onClick={() => setSchedulePage(Math.max(1, schedulePage - 1))}
+                disabled={schedulePage === 1}
+              >
+                <FiChevronLeft style={{ fontSize: 18 }} />
+              </IconButton>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  value={weekStartDate}
+                  onChange={(newDate) => {
+                    if (newDate) {
+                      handleWeekDateChange(newDate.toISOString().split('T')[0]);
+                    }
+                  }}
+                  slotProps={{
+                    textField: {
+                      size: 'small',
+                      sx: {
+                        width: '120px',
+                        backgroundColor: 'white',
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '6px',
+                        },
+                      },
+                    },
+                  }}
+                />
+              </LocalizationProvider>
               <Chip
-                label={`${fifteenDayStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(fifteenDayStartDate.getTime() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                label={`${weekStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(weekStartDate.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
                 sx={{
                   backgroundColor: '#eff6ff',
                   color: '#1e40af',
@@ -1331,6 +1466,13 @@ function Schedule() {
                   fontSize: '12px',
                 }}
               />
+              <IconButton
+                size="small"
+                onClick={() => setSchedulePage(Math.min(SCHEDULE_PAGE_COUNT, schedulePage + 1))}
+                disabled={schedulePage === SCHEDULE_PAGE_COUNT}
+              >
+                <FiChevronRight style={{ fontSize: 18 }} />
+              </IconButton>
             </Box>
           </Box>
 
@@ -1340,8 +1482,20 @@ function Schedule() {
             </Typography>
           )}
 
-          {/* 15-Day Calendar Grid with 5 columns (3 rows) */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
+          {/* 7-Day Calendar Grid */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                md: 'repeat(3, 1fr)',
+                lg: 'repeat(4, 1fr)',
+                xl: 'repeat(7, 1fr)',
+              },
+              gap: '12px',
+            }}
+          >
             {(() => {
               const roleColors: Record<string, { bg: string; text: string; border: string; accent: string }> = {
                 Doctor: { bg: '#eff6ff', text: '#0c4a6e', border: '#0284c7', accent: '#dbeafe' },
@@ -1350,8 +1504,8 @@ function Schedule() {
                 Staff: { bg: '#f5f3ff', text: '#312e81', border: '#6366f1', accent: '#e0e7ff' },
               };
 
-              return Array.from({ length: 15 }).map((_, i) => {
-                const currentDate = new Date(fifteenDayStartDate);
+              return Array.from({ length: 7 }).map((_, i) => {
+                const currentDate = new Date(weekStartDate);
                 currentDate.setDate(currentDate.getDate() + i);
                 const dateKey = currentDate.toISOString().split('T')[0];
                 const dayOfWeek = currentDate.getDay();
@@ -1415,16 +1569,16 @@ function Schedule() {
                       sx={{
                         backgroundColor: headerBgColor,
                         px: 1.5,
-                        py: 1,
+                        py: 1.2,
                         borderBottom: '1px solid #e5e7eb',
                       }}
                     >
-                      <Typography sx={{ fontSize: '10px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>
+                      <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>
                         {currentDate.toLocaleString('default', { weekday: 'short' })}
                       </Typography>
                       <Typography
                         sx={{
-                          fontSize: '16px',
+                          fontSize: '22px',
                           fontWeight: 700,
                           color: headerTextColor,
                           mt: 0.3,
@@ -1434,7 +1588,7 @@ function Schedule() {
                       </Typography>
                       <Typography
                         sx={{
-                          fontSize: '9px',
+                          fontSize: '11px',
                           color: isToday ? 'rgba(255,255,255,0.8)' : '#9ca3af',
                           mt: 0.2,
                         }}
@@ -1451,7 +1605,7 @@ function Schedule() {
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '6px',
-                        minHeight: '200px',
+                        minHeight: '240px',
                         overflowY: 'auto',
                         '&::-webkit-scrollbar': {
                           width: '4px',
@@ -1477,18 +1631,18 @@ function Schedule() {
                           sx={{
                             border: draggingScheduleId && isAdmin ? '1px dashed #2563eb' : '1px solid #e5e7eb',
                             borderRadius: '8px',
-                            p: 0.8,
+                            p: 1,
                             backgroundColor: '#ffffff',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: 0.6,
                           }}
                         >
-                          <Typography sx={{ fontSize: '9px', fontWeight: 700, color: '#1f2937' }}>
+                          <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#1f2937' }}>
                             {session} Session
                           </Typography>
                           {daySchedulesBySession[session].length === 0 ? (
-                            <Typography sx={{ fontSize: '10px', color: '#9ca3af', fontStyle: 'italic' }}>
+                            <Typography sx={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>
                               No staff
                             </Typography>
                           ) : (
@@ -1508,7 +1662,7 @@ function Schedule() {
                         textAlign: 'center',
                       }}
                     >
-                      <Typography sx={{ fontSize: '10px', fontWeight: 600, color: '#6b7280' }}>
+                      <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#6b7280' }}>
                         {daySchedules.length} staff
                       </Typography>
                     </Box>
@@ -1901,29 +2055,30 @@ function Schedule() {
                                 idx < dp.assigned.length - 1 ? '1px solid #f3f4f6' : 'none',
                             }}
                           >
+                            <Avatar
+                              sx={{
+                                width: 24,
+                                height: 24,
+                                fontSize: '9px',
+                                fontWeight: 700,
+                                backgroundColor: '#2563eb',
+                                color: '#ffffff',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {getInitials(entry.name)}
+                            </Avatar>
                             <Typography
                               sx={{
                                 fontSize: '12px',
                                 fontWeight: 600,
                                 color: '#1f2937',
-                                minWidth: '110px',
+                                minWidth: '140px',
                                 flexShrink: 0,
                               }}
                             >
-                              {entry.name}
+                              {formatRoleLastName(entry.role, entry.name)}
                             </Typography>
-                            <Chip
-                              label={entry.role}
-                              size="small"
-                              sx={{
-                                height: '18px',
-                                fontSize: '9px',
-                                fontWeight: 600,
-                                backgroundColor: '#eff6ff',
-                                color: '#1e40af',
-                                flexShrink: 0,
-                              }}
-                            />
                             <Chip
                               label={entry.session}
                               size="small"
@@ -1992,6 +2147,100 @@ function Schedule() {
             }}
           >
             {applying ? 'Applying…' : 'Apply Schedule'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Session Settings Dialog */}
+      <Dialog
+        open={openSessionSettingsDialog}
+        onClose={() => setOpenSessionSettingsDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            pb: 1,
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Session Time Settings
+          </Typography>
+          <IconButton onClick={() => setOpenSessionSettingsDialog(false)} size="small">
+            <FiXCircle />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
+            <Box>
+              <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827', mb: 1 }}>
+                AM Session
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                <TextField
+                  label="Start"
+                  type="time"
+                  value={sessionSettingsDraft.AM.start}
+                  onChange={(e) => handleSessionDraftChange('AM', 'start', e.target.value)}
+                  size="small"
+                  fullWidth
+                />
+                <TextField
+                  label="End"
+                  type="time"
+                  value={sessionSettingsDraft.AM.end}
+                  onChange={(e) => handleSessionDraftChange('AM', 'end', e.target.value)}
+                  size="small"
+                  fullWidth
+                />
+              </Box>
+            </Box>
+
+            <Box>
+              <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827', mb: 1 }}>
+                PM Session
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                <TextField
+                  label="Start"
+                  type="time"
+                  value={sessionSettingsDraft.PM.start}
+                  onChange={(e) => handleSessionDraftChange('PM', 'start', e.target.value)}
+                  size="small"
+                  fullWidth
+                />
+                <TextField
+                  label="End"
+                  type="time"
+                  value={sessionSettingsDraft.PM.end}
+                  onChange={(e) => handleSessionDraftChange('PM', 'end', e.target.value)}
+                  size="small"
+                  fullWidth
+                />
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button
+            onClick={() => setOpenSessionSettingsDialog(false)}
+            sx={{ textTransform: 'none', color: '#6b7280' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void handleSaveSessionSettings()}
+            sx={{
+              textTransform: 'none',
+              backgroundColor: '#2563eb',
+              '&:hover': { backgroundColor: '#1d4ed8' },
+            }}
+          >
+            Save Settings
           </Button>
         </DialogActions>
       </Dialog>

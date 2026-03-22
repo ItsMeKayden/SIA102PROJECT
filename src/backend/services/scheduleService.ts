@@ -15,9 +15,43 @@ const weekDaysFull = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'F
 
 export type ShiftSession = 'AM' | 'PM';
 
-export const SHIFT_SESSION_WINDOWS: Record<ShiftSession, { start: string; end: string }> = {
+export type SessionWindow = { start: string; end: string };
+export type SessionSettings = Record<ShiftSession, SessionWindow>;
+
+const DEFAULT_SESSION_WINDOWS: SessionSettings = {
   AM: { start: '08:00', end: '12:00' },
   PM: { start: '13:00', end: '17:00' },
+};
+
+const isValidTime = (value: string): boolean => /^([01]\d|2[0-3]):([0-5]\d)$/.test(value);
+
+const normalizeSettings = (settings: Partial<SessionSettings> | null | undefined): SessionSettings => {
+  const result: SessionSettings = {
+    AM: { ...DEFAULT_SESSION_WINDOWS.AM },
+    PM: { ...DEFAULT_SESSION_WINDOWS.PM },
+  };
+
+  if (!settings) return result;
+
+  (['AM', 'PM'] as const).forEach((session) => {
+    const candidate = settings[session];
+    if (!candidate) return;
+    if (isValidTime(candidate.start) && isValidTime(candidate.end) && candidate.start < candidate.end) {
+      result[session] = {
+        start: candidate.start,
+        end: candidate.end,
+      };
+    }
+  });
+
+  return result;
+};
+
+const normalizeDbTime = (value: string): string => value.slice(0, 5);
+
+let currentSessionWindows: SessionSettings = {
+  AM: { ...DEFAULT_SESSION_WINDOWS.AM },
+  PM: { ...DEFAULT_SESSION_WINDOWS.PM },
 };
 
 const normalizeSession = (value?: string | null): ShiftSession => {
@@ -25,7 +59,86 @@ const normalizeSession = (value?: string | null): ShiftSession => {
   return 'AM';
 };
 
-export const getSessionWindow = (session: ShiftSession) => SHIFT_SESSION_WINDOWS[session];
+export const getSessionSettings = (): SessionSettings => ({
+  AM: { ...currentSessionWindows.AM },
+  PM: { ...currentSessionWindows.PM },
+});
+
+const persistSessionSettings = async (settings: SessionSettings): Promise<string | null> => {
+  try {
+    const payload = [
+      {
+        session_name: 'AM' as ShiftSession,
+        start_time: settings.AM.start,
+        end_time: settings.AM.end,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        session_name: 'PM' as ShiftSession,
+        start_time: settings.PM.start,
+        end_time: settings.PM.end,
+        updated_at: new Date().toISOString(),
+      },
+    ];
+
+    const { error } = await supabase
+      .from('session_settings')
+      .upsert(payload, { onConflict: 'session_name' });
+    if (error) throw error;
+    return null;
+  } catch (error) {
+    return handleSupabaseError(error);
+  }
+};
+
+export const loadSessionSettings = async (): Promise<{ data: SessionSettings; error: string | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('session_settings')
+      .select('session_name, start_time, end_time')
+      .in('session_name', ['AM', 'PM']);
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      const seedError = await persistSessionSettings(DEFAULT_SESSION_WINDOWS);
+      if (seedError) {
+        currentSessionWindows = normalizeSettings(DEFAULT_SESSION_WINDOWS);
+        return { data: getSessionSettings(), error: seedError };
+      }
+      currentSessionWindows = normalizeSettings(DEFAULT_SESSION_WINDOWS);
+      return { data: getSessionSettings(), error: null };
+    }
+
+    const partial: Partial<SessionSettings> = {};
+    for (const row of data) {
+      const sessionName = String(row.session_name);
+      if (sessionName === 'AM' || sessionName === 'PM') {
+        partial[sessionName] = {
+          start: normalizeDbTime(row.start_time),
+          end: normalizeDbTime(row.end_time),
+        };
+      }
+    }
+
+    currentSessionWindows = normalizeSettings(partial);
+    return { data: getSessionSettings(), error: null };
+  } catch (error) {
+    currentSessionWindows = normalizeSettings(DEFAULT_SESSION_WINDOWS);
+    return { data: getSessionSettings(), error: handleSupabaseError(error) };
+  }
+};
+
+export const updateSessionSettings = async (settings: SessionSettings): Promise<{ data: SessionSettings; error: string | null }> => {
+  const next = normalizeSettings(settings);
+  const error = await persistSessionSettings(next);
+  if (error) {
+    return { data: getSessionSettings(), error };
+  }
+  currentSessionWindows = next;
+  return { data: getSessionSettings(), error: null };
+};
+
+export const getSessionWindow = (session: ShiftSession) => currentSessionWindows[session];
 
 export const resolveScheduleSession = (schedule: Pick<Schedule, 'shift_session' | 'start_time'>): ShiftSession => {
   if (schedule.shift_session === 'AM' || schedule.shift_session === 'PM') {
@@ -77,12 +190,7 @@ const isSwapPairBeforeRunAllowed = (fromDayOfWeek: number, toDayOfWeek: number):
   return isSwapBeforeRunAllowed(fromDayOfWeek) && isSwapBeforeRunAllowed(toDayOfWeek);
 };
 
-const notifyDoctorNewSchedule = async (
-  staffId: string,
-  dayOfWeek: number,
-  startTime: string,
-  endTime: string,
-) => {
+const notifyDoctorNewSchedule = async (staffId: string) => {
   try {
     const { data: staff, error } = await supabase
       .from('staff')
@@ -96,8 +204,8 @@ const notifyDoctorNewSchedule = async (
 
     await createNotification({
       staff_id: staffId,
-      title: 'New schedule assigned',
-      message: `A new schedule has been added for ${weekDaysFull[dayOfWeek]} ${startTime}–${endTime}.`,
+      title: 'New schedule',
+      message: 'You have a new schedule. Please check your schedule tab.',
       type: 'info',
     });
   } catch {
@@ -177,7 +285,7 @@ export const createSchedule = async (scheduleData: ScheduleInsert): Promise<{ da
 
     if (data) {
       // Notify the staff (doctors) that a new schedule was added to their account
-      void notifyDoctorNewSchedule(data.staff_id, data.day_of_week, data.start_time, data.end_time);
+      void notifyDoctorNewSchedule(data.staff_id);
     }
 
     return { data, error: null };
@@ -329,15 +437,8 @@ export const createScheduleBulk = async (scheduleDataArray: ScheduleInsert[]): P
           .map((s) => s.id),
       );
 
-      for (const schedule of inserted) {
-        if (doctorIdSet.has(schedule.staff_id)) {
-          void notifyDoctorNewSchedule(
-            schedule.staff_id,
-            schedule.day_of_week,
-            schedule.start_time,
-            schedule.end_time,
-          );
-        }
+      for (const doctorId of doctorIdSet) {
+        void notifyDoctorNewSchedule(doctorId);
       }
     }
 

@@ -34,6 +34,27 @@ CREATE TABLE IF NOT EXISTS subsystem2.schedule_swap_requests (
 );
 
 CREATE INDEX IF NOT EXISTS idx_schedules_shift_session ON subsystem2.schedules(shift_session);
+
+CREATE TABLE IF NOT EXISTS subsystem2.session_settings (
+  session_name TEXT PRIMARY KEY CHECK (session_name IN ('AM', 'PM')),
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  CONSTRAINT session_settings_time_order CHECK (start_time < end_time)
+);
+
+INSERT INTO subsystem2.session_settings (session_name, start_time, end_time)
+VALUES
+  ('AM', TIME '08:00', TIME '12:00'),
+  ('PM', TIME '13:00', TIME '17:00')
+ON CONFLICT (session_name) DO NOTHING;
+
+CREATE INDEX IF NOT EXISTS idx_session_settings_updated_at ON subsystem2.session_settings(updated_at);
+
+ALTER TABLE subsystem2.session_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable all operations for session_settings" ON subsystem2.session_settings;
+CREATE POLICY "Enable all operations for session_settings" ON subsystem2.session_settings FOR ALL USING (true);
+
 CREATE INDEX IF NOT EXISTS idx_swap_requests_status ON subsystem2.schedule_swap_requests(status);
 CREATE INDEX IF NOT EXISTS idx_swap_requests_requested_by ON subsystem2.schedule_swap_requests(requested_by_staff_id);
 CREATE INDEX IF NOT EXISTS idx_swap_requests_from_schedule ON subsystem2.schedule_swap_requests(from_schedule_id);
