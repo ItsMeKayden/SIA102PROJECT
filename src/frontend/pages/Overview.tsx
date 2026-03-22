@@ -69,11 +69,12 @@ function Overview() {
       const completedToday = todayAppointments?.filter(a => a.status === 'Completed').length || 0;
       
       // Calculate attendance rate (last 30 days)
+      // Present = 1.0 point, Late = 0.5 point, others = 0 points
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const recentAttendance = attendanceData?.filter(a => new Date(a.date) >= thirtyDaysAgo) || [];
       const attendanceRate = recentAttendance.length > 0 
-        ? (recentAttendance.filter(a => a.status === 'Present').length / recentAttendance.length) * 100
+        ? ((recentAttendance.filter(a => a.status === 'Present').length * 1.0 + recentAttendance.filter(a => a.status === 'Late').length * 0.5) / recentAttendance.length) * 100
         : 0;
 
       setStats({

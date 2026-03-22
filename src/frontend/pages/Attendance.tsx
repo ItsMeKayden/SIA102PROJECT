@@ -686,13 +686,11 @@ function Attendance() {
         <Box
           sx={{
             display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
+            flexDirection: 'column',
             gap: { xs: 3, md: 0 },
           }}
         >
-          <Box sx={{ width: { xs: '100%', md: 'auto' } }}>
+          <Box sx={{ width: '100%' }}>
             <Box
               sx={{
                 display: 'flex',
@@ -715,13 +713,21 @@ function Attendance() {
             </Box>
             <Box
               sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' },
-                gap: { xs: 1.5, sm: 2 },
-                mt: 2,
-                width: '100%',
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                gap: { xs: 2, sm: 2 },
+                alignItems: { xs: 'stretch', sm: 'flex-start' },
+                flexWrap: 'wrap',
               }}
             >
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' },
+                  gap: { xs: 1.5, sm: 2 },
+                  flex: { xs: '1 1 100%', sm: '1 1 auto' },
+                }}
+              >
               {[
                 {
                   label: 'Present',
@@ -782,9 +788,8 @@ function Attendance() {
                   </CardContent>
                 </Card>
               ))}
-            </Box>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' }, width: { xs: '100%', md: 'auto' } }}>
+              </Box>
+              <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, flexDirection: { xs: 'column', sm: 'row' }, width: { xs: '100%', sm: 'auto' }, alignItems: { xs: 'stretch', sm: 'center' } }}>
             {userRole !== 'admin' && (
               <>
                 <Button
@@ -861,6 +866,8 @@ function Attendance() {
                 </Button>
               </Box>
             )}
+              </Box>
+            </Box>
           </Box>
         </Box>
       </Box>
