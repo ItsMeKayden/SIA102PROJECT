@@ -189,6 +189,7 @@ export type Database = {
           id: string;
           is_active: boolean;
           notes: string | null;
+          shift_session: string;
           staff_id: string;
           start_time: string;
           updated_at: string;
@@ -200,6 +201,7 @@ export type Database = {
           id?: string;
           is_active?: boolean;
           notes?: string | null;
+          shift_session?: string;
           staff_id: string;
           start_time: string;
           updated_at?: string;
@@ -211,6 +213,7 @@ export type Database = {
           id?: string;
           is_active?: boolean;
           notes?: string | null;
+          shift_session?: string;
           staff_id?: string;
           start_time?: string;
           updated_at?: string;
@@ -222,6 +225,80 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "staff";
             referencedColumns: ["id"];
+          },
+        ];
+      };
+      schedule_swap_requests: {
+        Row: {
+          approved_at: string | null;
+          approved_by_staff_id: string | null;
+          created_at: string;
+          decision_notes: string | null;
+          from_schedule_id: string;
+          id: string;
+          reason: string | null;
+          rejected_at: string | null;
+          requested_by_staff_id: string;
+          status: string;
+          to_schedule_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          approved_at?: string | null;
+          approved_by_staff_id?: string | null;
+          created_at?: string;
+          decision_notes?: string | null;
+          from_schedule_id: string;
+          id?: string;
+          reason?: string | null;
+          rejected_at?: string | null;
+          requested_by_staff_id: string;
+          status?: string;
+          to_schedule_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          approved_at?: string | null;
+          approved_by_staff_id?: string | null;
+          created_at?: string;
+          decision_notes?: string | null;
+          from_schedule_id?: string;
+          id?: string;
+          reason?: string | null;
+          rejected_at?: string | null;
+          requested_by_staff_id?: string;
+          status?: string;
+          to_schedule_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'schedule_swap_requests_approved_by_staff_id_fkey';
+            columns: ['approved_by_staff_id'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'schedule_swap_requests_from_schedule_id_fkey';
+            columns: ['from_schedule_id'];
+            isOneToOne: false;
+            referencedRelation: 'schedules';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'schedule_swap_requests_requested_by_staff_id_fkey';
+            columns: ['requested_by_staff_id'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'schedule_swap_requests_to_schedule_id_fkey';
+            columns: ['to_schedule_id'];
+            isOneToOne: false;
+            referencedRelation: 'schedules';
+            referencedColumns: ['id'];
           },
         ];
       };
