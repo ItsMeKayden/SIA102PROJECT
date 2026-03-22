@@ -18,10 +18,11 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
-  TextField,
   Snackbar,
   Card,
   CardContent,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -60,8 +61,6 @@ function Attendance() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
-  const [manualEntryOpen, setManualEntryOpen] = useState(false);
-  const [manualStaffId, setManualStaffId] = useState<string>('');
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -86,6 +85,8 @@ function Attendance() {
     return getTodayDateString();
   });
   const lastDateRef = useRef<string>(getTodayDateString());
+  const [shiftSession, setShiftSession] = useState<'AM' | 'PM'>('AM');
+  const [schedulesByStaffAndDay, setSchedulesByStaffAndDay] = useState<Map<string, Map<number, Schedule[]>>>(new Map());
 
   // Fetch attendance data
   const fetchAttendanceData = useCallback(async () => {
@@ -146,6 +147,20 @@ function Attendance() {
         recordsByDate.set(today, []);
       }
 
+      // Build a map of schedules by staff_id and day_of_week for quick lookup
+      const schedByStaffDay = new Map<string, Map<number, Schedule[]>>();
+      allSchedules?.forEach((schedule) => {
+        if (!schedByStaffDay.has(schedule.staff_id)) {
+          schedByStaffDay.set(schedule.staff_id, new Map());
+        }
+        const dayMap = schedByStaffDay.get(schedule.staff_id)!;
+        if (!dayMap.has(schedule.day_of_week)) {
+          dayMap.set(schedule.day_of_week, []);
+        }
+        dayMap.get(schedule.day_of_week)!.push(schedule);
+      });
+      setSchedulesByStaffAndDay(schedByStaffDay);
+
       // For each date, ensure all staff members have a record
       const completeRecords: AttendanceType[] = [];
       recordsByDate.forEach((dateRecords, date) => {
@@ -158,7 +173,7 @@ function Attendance() {
         // Add placeholder records for staff without attendance
         staffMembers.forEach((staff) => {
           if (!recordedStaffIds.has(staff.id)) {
-            // Check if staff has a schedule for this day of the week
+            // Check if staff has a schedule for this day of the week (any shift)
             const hasSchedule = allSchedules?.some(
               schedule => schedule.staff_id === staff.id && 
                           schedule.day_of_week === dayOfWeek && 
@@ -298,8 +313,6 @@ function Attendance() {
               })}${locationMessage}`,
               severity: 'success',
             });
-            setManualStaffId('');
-            setManualEntryOpen(false);
             setQrScannerOpen(false);
             fetchAttendanceData(); // Refresh attendance data
           }
@@ -322,8 +335,6 @@ function Attendance() {
               })}${locationMessage}`,
               severity: 'success',
             });
-            setManualStaffId('');
-            setManualEntryOpen(false);
             setQrScannerOpen(false);
             fetchAttendanceData(); // Refresh attendance data
           }
@@ -383,23 +394,34 @@ function Attendance() {
     }
   }, [userRole]);
 
-  // Update stats when selected date changes (for admin users)
+  // Update stats when selected date or shift changes (for admin users)
   useEffect(() => {
     const today = getTodayDateString();
     const displayDate = userRole === 'admin' ? selectedDate : today;
     const displayRecords = attendanceData.filter((a: AttendanceType) => a.date === displayDate);
     
-    if (displayRecords.length > 0) {
-      const present = displayRecords.filter(
+    // Filter records by shift session - only show staff scheduled for this shift
+    const shiftFilteredRecords = displayRecords.filter((record: AttendanceType) => {
+      const dayOfWeek = new Date(record.date).getDay();
+      const staffSchedules = schedulesByStaffAndDay.get(record.staff_id)?.get(dayOfWeek) || [];
+      const hasShiftSchedule = staffSchedules.some(
+        (schedule: Schedule) => schedule.shift_session === shiftSession && schedule.is_active
+      );
+      // Only include if they're scheduled for this shift
+      return hasShiftSchedule;
+    });
+    
+    if (shiftFilteredRecords.length > 0) {
+      const present = shiftFilteredRecords.filter(
         (a: AttendanceType) => a.status === 'Present',
       ).length;
-      const late = displayRecords.filter(
+      const late = shiftFilteredRecords.filter(
         (a: AttendanceType) => a.status === 'Late',
       ).length;
-      const absent = displayRecords.filter(
+      const absent = shiftFilteredRecords.filter(
         (a: AttendanceType) => a.status === 'Absent',
       ).length;
-      const onCall = displayRecords.filter(
+      const onCall = shiftFilteredRecords.filter(
         (a: AttendanceType) => a.status === 'On-Call',
       ).length;
 
@@ -417,7 +439,7 @@ function Attendance() {
         onCall: 0,
       });
     }
-  }, [selectedDate, attendanceData, userRole]);
+  }, [selectedDate, attendanceData, userRole, shiftSession, schedulesByStaffAndDay]);
 
   // Update status to Absent for staff past their scheduled end time without clocking in
   useEffect(() => {
@@ -576,11 +598,6 @@ function Attendance() {
     return `${hours.toFixed(1)} Hours`;
   };
 
-  const handleScannerClose = () => {
-    setManualEntryOpen(false);
-    setManualStaffId('');
-  };
-
   const handleQRScan = (code: string) => {
     console.log('QR Code scanned - Raw value:', code);
     console.log('QR Code length:', code.length);
@@ -652,7 +669,6 @@ function Attendance() {
 
         // Proceed with clock in/out using the extracted full staff ID
         console.log('✓ QR code scan successful, proceeding with clock in/out for staff:', staffId);
-        setManualStaffId(staffId!);
         handleClockInOut(staffId!);
       });
     });
@@ -718,24 +734,6 @@ function Attendance() {
                 {userRole !== 'admin' && (
                   <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, flexDirection: { xs: 'column', sm: 'row' }, width: { xs: '100%', sm: 'auto' }, alignItems: { xs: 'stretch', sm: 'center' } }}>
                     <Button
-                      variant="outlined"
-                      onClick={() => setManualEntryOpen(true)}
-                      sx={{
-                        textTransform: 'none',
-                        borderRadius: '10px',
-                        fontWeight: 600,
-                        fontSize: { xs: '12px', sm: '13px' },
-                        borderColor: '#3b82f6',
-                        color: '#3b82f6',
-                        width: { xs: '100%', sm: 'auto' },
-                        '&:hover': {
-                          backgroundColor: '#eff6ff',
-                        },
-                      }}
-                    >
-                      Manual Entry
-                    </Button>
-                    <Button
                       variant="contained"
                       startIcon={<FiClock size={16} />}
                       onClick={() => setQrScannerOpen(true)}
@@ -766,7 +764,7 @@ function Attendance() {
                         value={dayjs(selectedDate)}
                         onChange={(date) => {
                           if (date) {
-                            const formattedDate = date.format('YYYY-MM-DD');
+                            const formattedDate = dayjs.isDayjs(date) ? date.format('YYYY-MM-DD') : dayjs(date).format('YYYY-MM-DD');
                             setSelectedDate(formattedDate);
                           }
                         }}
@@ -895,7 +893,7 @@ function Attendance() {
 
       {/* Attendance Table */}
       <Box sx={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'auto' }}>
-        <Box sx={{ p: { xs: 2, sm: 3 }, borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 2, sm: 0 } }}>
+        <Box sx={{ p: { xs: 2, sm: 3 }, borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 2, sm: 2 } }}>
           <Box>
             <Typography
               variant="h6"
@@ -917,6 +915,49 @@ function Attendance() {
               Daily attendance records
             </Typography>
           </Box>
+          <ToggleButtonGroup
+            value={shiftSession}
+            exclusive
+            onChange={(_event, newShift) => {
+              if (newShift !== null) {
+                setShiftSession(newShift);
+              }
+            }}
+            sx={{
+              width: { xs: '100%', sm: 'auto' },
+              backgroundColor: '#f3f4f6',
+              padding: '4px',
+              borderRadius: '10px',
+              border: '1px solid #e5e7eb',
+              '& .MuiToggleButton-root': {
+                flex: 1,
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: { xs: '12px', sm: '13px' },
+                borderRadius: '8px',
+                border: 'none',
+                padding: '8px 16px',
+                color: '#6b7280',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap',
+                '&:hover': {
+                  backgroundColor: '#e5e7eb',
+                },
+              },
+              '& .MuiToggleButton-root.Mui-selected': {
+                backgroundColor: '#3b82f6',
+                color: '#ffffff',
+                border: 'none',
+                boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)',
+                '&:hover': {
+                  backgroundColor: '#2563eb',
+                },
+              },
+            }}
+          >
+            <ToggleButton value="AM">AM Shift</ToggleButton>
+            <ToggleButton value="PM">PM Shift</ToggleButton>
+          </ToggleButtonGroup>
         </Box>
 
         <TableContainer sx={{ overflowX: 'auto', overflowY: 'hidden' }}>
@@ -1031,6 +1072,7 @@ function Attendance() {
                 console.log('Current date (today):', today);
                 console.log('Display date (selectedDate):', displayDate);
                 console.log('User role:', userRole);
+                console.log('Shift session:', shiftSession);
                 console.log('selectedDate state:', selectedDate);
                 
                 // Get unique dates in attendanceData
@@ -1038,7 +1080,19 @@ function Attendance() {
                 console.log('Unique dates in attendanceData:', uniqueDates);
                 console.log('Total attendance records:', attendanceData.length);
                 
-                const displayRecords = attendanceData.filter((record) => record.date === displayDate);
+                let displayRecords = attendanceData.filter((record) => record.date === displayDate);
+                
+                // Filter by shift session - only show staff scheduled for this shift
+                displayRecords = displayRecords.filter((record) => {
+                  const dayOfWeek = new Date(record.date).getDay();
+                  const staffSchedules = schedulesByStaffAndDay.get(record.staff_id)?.get(dayOfWeek) || [];
+                  const hasShiftSchedule = staffSchedules.some(
+                    (schedule: Schedule) => schedule.shift_session === shiftSession && schedule.is_active
+                  );
+                  // Only include if they're scheduled for this shift
+                  return hasShiftSchedule;
+                });
+                
                 console.log('Filtered records for displayDate:', displayRecords.length);
                 console.log('=== END DEBUG ===');
                 
@@ -1047,7 +1101,7 @@ function Attendance() {
                     <TableRow>
                       <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                         <Typography color="textSecondary" sx={{ fontSize: '14px' }}>
-                          No attendance records found for this date
+                          No attendance records found for this date and shift
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -1172,109 +1226,6 @@ function Attendance() {
 
       {/* Camera Scanner Modal */}
       <QRScanner open={qrScannerOpen} onClose={() => setQrScannerOpen(false)} onScan={handleQRScan} />
-
-      {/* Manual Entry Dialog */}
-      <Dialog
-        key="manual-entry-dialog"
-        open={manualEntryOpen}
-        onClose={handleScannerClose}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: '12px',
-            margin: '16px',
-            width: 'calc(100% - 32px)',
-          },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            pb: 2,
-            fontSize: { xs: '16px', sm: '18px' },
-            fontWeight: 600,
-            color: '#1f2937',
-          }}
-        >
-          Manual Entry - Clock In/Out
-          <IconButton onClick={handleScannerClose} size="small">
-            <FiX />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ py: 3 }}>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 3,
-            }}
-          >
-            <TextField
-              autoFocus
-              label="Staff ID"
-              type="text"
-              fullWidth
-              value={manualStaffId}
-              onChange={(e) => setManualStaffId(e.target.value)}
-              placeholder="Enter your staff ID"
-              variant="outlined"
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && manualStaffId.trim()) {
-                  handleClockInOut(manualStaffId.trim());
-                }
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '8px',
-                },
-              }}
-            />
-            <Typography sx={{ fontSize: '13px', color: '#6b7280' }}>
-              Enter your staff ID to clock in or out. The system will automatically determine whether to clock in or out based on your current status.
-            </Typography>
-          </Box>
-        </DialogContent>
-        <DialogActions
-          sx={{
-            display: 'flex',
-            gap: 1,
-            padding: 2,
-            borderTop: '1px solid #e5e7eb',
-          }}
-        >
-          <Button
-            onClick={handleScannerClose}
-            variant="outlined"
-            sx={{
-              textTransform: 'none',
-              color: '#6b7280',
-              borderColor: '#d1d5db',
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              if (manualStaffId.trim()) {
-                handleClockInOut(manualStaffId.trim());
-              }
-            }}
-            variant="contained"
-            disabled={!manualStaffId.trim()}
-            sx={{
-              textTransform: 'none',
-              backgroundColor: '#10b981',
-              '&:hover': { backgroundColor: '#059669' },
-              '&:disabled': { backgroundColor: '#d1d5db', color: '#9ca3af' },
-            }}
-          >
-            Submit
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Generate QR Code Modal */}
       <Dialog

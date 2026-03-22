@@ -508,13 +508,31 @@ export const markStaffAbsent = async (
   notes?: string
 ): Promise<{ data: Attendance | null; error: string | null }> => {
   try {
-    // First, check if an attendance record already exists for this staff on this date
+    // Check if staff is already marked as Absent on this date - if so, skip to prevent duplicates
+    const { data: absentRecord, error: absentCheckError } = await supabase
+      .from('attendance')
+      .select('id, status')
+      .eq('staff_id', staffId)
+      .eq('date', date)
+      .eq('status', 'Absent')
+      .maybeSingle();
+
+    if (absentCheckError && absentCheckError.code !== 'PGRST116') {
+      throw absentCheckError;
+    }
+
+    // If already marked as Absent, return early to prevent duplicates
+    if (absentRecord) {
+      return { data: absentRecord as Attendance, error: null };
+    }
+
+    // Now check if an attendance record already exists for this staff on this date (with any status)
     const { data: existingRecord, error: fetchError } = await supabase
       .from('attendance')
       .select('id, status, notes')
       .eq('staff_id', staffId)
       .eq('date', date)
-      .single();
+      .maybeSingle();
 
     if (fetchError && fetchError.code !== 'PGRST116') {
       // PGRST116 is "no rows returned" error

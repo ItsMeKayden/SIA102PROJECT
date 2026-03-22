@@ -31,6 +31,12 @@ export type ScheduleInsert =
   Database['public']['Tables']['schedules']['Insert'];
 export type ScheduleUpdate =
   Database['public']['Tables']['schedules']['Update'];
+export type ScheduleSwapRequest =
+  Database['public']['Tables']['schedule_swap_requests']['Row'];
+export type ScheduleSwapRequestInsert =
+  Database['public']['Tables']['schedule_swap_requests']['Insert'];
+export type ScheduleSwapRequestUpdate =
+  Database['public']['Tables']['schedule_swap_requests']['Update'];
 
 // Notification types
 export type Notification = Database['public']['Tables']['notifications']['Row'];

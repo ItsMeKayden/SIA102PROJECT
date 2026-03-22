@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, type DragEvent } from 'react';
 import '../styles/Pages.css';
 import {
   Box,
@@ -25,13 +25,28 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
-import { FiSearch, FiCalendar, FiPlus, FiRefreshCw, FiAlertTriangle, FiAlertCircle, FiInfo, FiUsers, FiClock, FiList, FiUserCheck, FiXCircle } from 'react-icons/fi';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { FiSearch, FiCalendar, FiPlus, FiRefreshCw, FiAlertTriangle, FiAlertCircle, FiInfo, FiUsers, FiClock, FiList, FiUserCheck, FiXCircle, FiSettings, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import {
   getAllSchedules,
   getSchedulesByStaffId,
   createSchedule,
   createScheduleBulk,
   clearWeeklySchedules,
+  updateSchedule,
+  resolveScheduleSession,
+  getSessionWindow,
+  getSessionSettings,
+  loadSessionSettings,
+  updateSessionSettings,
+  createScheduleSwapRequest,
+  getScheduleSwapRequests,
+  approveScheduleSwapRequest,
+  rejectScheduleSwapRequest,
+  type ScheduleSwapRequestWithDetails,
+  type ShiftSession,
+  type SessionSettings,
 } from '../../backend/services/scheduleService';
 import { getAllAppointments } from '../../backend/services/appointmentService';
 import { getAllStaff } from '../../backend/services/staffService';
@@ -42,13 +57,39 @@ interface ScheduleWithStaff extends ScheduleRecord {
   staff?: Staff;
 }
 
+const enrichSchedulesWithStaff = (
+  rawSchedules: ScheduleRecord[],
+  allStaff: Staff[],
+): ScheduleWithStaff[] =>
+  rawSchedules
+    .map((s) => ({
+      ...s,
+      staff: allStaff.find((st) => st.id === s.staff_id),
+    }))
+    .filter((s) => !s.staff?.role?.toLowerCase().includes('admin'));
+
+const getLastName = (fullName: string | undefined) => {
+  const trimmed = (fullName ?? '').trim();
+  if (!trimmed) return 'Unknown';
+  const parts = trimmed.split(/\s+/);
+  return parts[parts.length - 1];
+};
+
+const formatRoleLastName = (role: string | undefined, fullName: string | undefined) =>
+  `${role || 'Staff'} ${getLastName(fullName)}`;
+
 function Schedule() {
   const { isAdmin, staffProfile } = useAuth();
+  const SCHEDULE_PAGE_COUNT = 53;
   const [schedules, setSchedules] = useState<ScheduleWithStaff[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState(0);
-  const [fifteenDayStartDate, setFifteenDayStartDate] = useState<Date>(new Date());
+  const [weekAnchorDate, setWeekAnchorDate] = useState<Date>(new Date());
+  const [schedulePage, setSchedulePage] = useState<number>(1);
+  const [sessionSettings, setSessionSettings] = useState<SessionSettings>(() => getSessionSettings());
+  const [sessionSettingsDraft, setSessionSettingsDraft] = useState<SessionSettings>(() => getSessionSettings());
+  const [openSessionSettingsDialog, setOpenSessionSettingsDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [openModal, setOpenModal] = useState(false);
   const [snackbar, setSnackbar] = useState({
@@ -59,11 +100,19 @@ function Schedule() {
   const [formData, setFormData] = useState({
     staff_id: '',
     days_of_week: [1] as number[],
-    start_time: '08:00',
-    end_time: '17:00',
+    shift_session: 'AM' as ShiftSession,
     notes: '',
   });
   const [generating, setGenerating] = useState(false);
+  const [draggingScheduleId, setDraggingScheduleId] = useState<string | null>(null);
+  const [swapRequests, setSwapRequests] = useState<ScheduleSwapRequestWithDetails[]>([]);
+  const [swapCandidateSchedules, setSwapCandidateSchedules] = useState<ScheduleWithStaff[]>([]);
+  const [swapForm, setSwapForm] = useState({
+    fromScheduleId: '',
+    toScheduleId: '',
+    reason: '',
+  });
+  const [swapActionLoadingId, setSwapActionLoadingId] = useState<string | null>(null);
 
   // Preview state for Generate Schedule
   type DayPreviewEntry = {
@@ -71,6 +120,7 @@ function Schedule() {
     name: string;
     role: string;
     specialization: string | null;
+    session: ShiftSession;
   };
   type DayPreview = {
     day: number;
@@ -83,6 +133,7 @@ function Schedule() {
     scheduleInserts: Array<{
       staff_id: string;
       day_of_week: number;
+      shift_session: ShiftSession;
       start_time: string;
       end_time: string;
       notes: string | null;
@@ -94,32 +145,66 @@ function Schedule() {
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [applying, setApplying] = useState(false);
 
+  const weekStartDate = useMemo(() => {
+    const next = new Date(weekAnchorDate);
+    next.setDate(next.getDate() + (schedulePage - 1) * 7);
+    return next;
+  }, [schedulePage, weekAnchorDate]);
+
+  const sessions: ShiftSession[] = ['AM', 'PM'];
+  const sessionLabel = (session: ShiftSession) =>
+    `${session} Session (${sessionSettings[session].start}-${sessionSettings[session].end})`;
+  const getSwapStatusStyle = (status: string) => {
+    if (status === 'approved') {
+      return { backgroundColor: '#dcfce7', color: '#166534' };
+    }
+    if (status === 'rejected') {
+      return { backgroundColor: '#fee2e2', color: '#991b1b' };
+    }
+    return { backgroundColor: '#fef3c7', color: '#92400e' };
+  };
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       let schedulesPromise;
+      let allSchedulesForSwapPromise;
       if (isAdmin) {
         schedulesPromise = getAllSchedules();
+        allSchedulesForSwapPromise = schedulesPromise;
       } else if (staffProfile) {
         schedulesPromise = getSchedulesByStaffId(staffProfile.id);
+        allSchedulesForSwapPromise = getAllSchedules();
       } else {
         schedulesPromise = Promise.resolve({ data: [], error: null });
+        allSchedulesForSwapPromise = Promise.resolve({ data: [], error: null });
       }
-      const [staffResult, schedulesResult] = await Promise.all([
+      const [staffResult, schedulesResult, allSchedulesForSwapResult] = await Promise.all([
         getAllStaff(),
         schedulesPromise,
+        allSchedulesForSwapPromise,
       ]);
       const allStaff = staffResult.data ?? [];
       setStaff(allStaff);
       if (schedulesResult.data) {
-        const merged = schedulesResult.data
-          .map((s) => ({
-            ...s,
-            staff: allStaff.find((st) => st.id === s.staff_id),
-          }))
-          // Exclude any schedules assigned to admin accounts
-          .filter((s) => !s.staff?.role?.toLowerCase().includes('admin'));
-        setSchedules(merged);
+        setSchedules(enrichSchedulesWithStaff(schedulesResult.data, allStaff));
+      }
+
+      if (allSchedulesForSwapResult.data) {
+        setSwapCandidateSchedules(
+          enrichSchedulesWithStaff(allSchedulesForSwapResult.data, allStaff),
+        );
+      }
+
+      let swapRequestOptions: { status?: 'pending' | 'approved' | 'rejected'; requestedByStaffId?: string } | undefined;
+      if (isAdmin) {
+        swapRequestOptions = { status: 'pending' };
+      } else if (staffProfile) {
+        swapRequestOptions = { requestedByStaffId: staffProfile.id };
+      }
+      const swapResult = await getScheduleSwapRequests(swapRequestOptions);
+      if (swapResult.data) {
+        setSwapRequests(swapResult.data);
       }
     } catch (err) {
       console.error('Error fetching schedules:', err);
@@ -132,15 +217,79 @@ function Schedule() {
     fetchData();
   }, [staffProfile, fetchData]);
 
+  useEffect(() => {
+    const hydrateSessionSettings = async () => {
+      const result = await loadSessionSettings();
+      setSessionSettings(result.data);
+      setSessionSettingsDraft(result.data);
+      if (result.error) {
+        showSnackbar(`Session settings fallback applied: ${result.error}`, 'error');
+      }
+    };
+    void hydrateSessionSettings();
+  }, []);
+
   const showSnackbar = (msg: string, sev: 'success' | 'error') =>
     setSnackbar({ open: true, message: msg, severity: sev });
+
+  const handleWeekDateChange = (value: string) => {
+    setWeekAnchorDate(new Date(value));
+    setSchedulePage(1);
+  };
+
+  const handleOpenSessionSettings = () => {
+    setSessionSettingsDraft(getSessionSettings());
+    setOpenSessionSettingsDialog(true);
+  };
+
+  const handleSessionDraftChange = (
+    session: ShiftSession,
+    field: 'start' | 'end',
+    value: string,
+  ) => {
+    setSessionSettingsDraft((prev) => ({
+      ...prev,
+      [session]: {
+        ...prev[session],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSaveSessionSettings = async () => {
+    const am = sessionSettingsDraft.AM;
+    const pm = sessionSettingsDraft.PM;
+
+    if (!am.start || !am.end || !pm.start || !pm.end) {
+      showSnackbar('Please set start and end times for AM and PM sessions.', 'error');
+      return;
+    }
+    if (am.start >= am.end) {
+      showSnackbar('AM start time must be earlier than AM end time.', 'error');
+      return;
+    }
+    if (pm.start >= pm.end) {
+      showSnackbar('PM start time must be earlier than PM end time.', 'error');
+      return;
+    }
+
+    const result = await updateSessionSettings(sessionSettingsDraft);
+    if (result.error) {
+      showSnackbar(result.error, 'error');
+      return;
+    }
+
+    setSessionSettings(result.data);
+    setSessionSettingsDraft(result.data);
+    setOpenSessionSettingsDialog(false);
+    showSnackbar('Session time settings updated.', 'success');
+  };
 
   const handleOpenModal = () => {
     setFormData({
       staff_id: isAdmin ? '' : (staffProfile?.id ?? ''),
       days_of_week: [1],
-      start_time: '08:00',
-      end_time: '17:00',
+      shift_session: 'AM',
       notes: '',
     });
     setOpenModal(true);
@@ -160,23 +309,17 @@ function Schedule() {
       showSnackbar('Please select at least one day', 'error');
       return;
     }
-    if (!formData.start_time || !formData.end_time) {
-      showSnackbar('Please fill in start and end time', 'error');
-      return;
-    }
-    if (formData.start_time >= formData.end_time) {
-      showSnackbar('End time must be after start time', 'error');
-      return;
-    }
 
     let hasError = false;
     const sortedDays = Array.from(formData.days_of_week).sort((a, b) => a - b);
     for (const day of sortedDays) {
+      const window = getSessionWindow(formData.shift_session);
       const { error } = await createSchedule({
         staff_id: targetStaffId,
         day_of_week: day,
-        start_time: formData.start_time,
-        end_time: formData.end_time,
+        shift_session: formData.shift_session,
+        start_time: window.start,
+        end_time: window.end,
         notes: formData.notes || null,
         is_active: true,
       });
@@ -199,7 +342,7 @@ function Schedule() {
     }
   };
 
-  // Helper function: Calculate appointment counts by day of week
+  // Helper function: Calculate appointment demand by day of week
   const getAppointmentCounts = async (days: number[]) => {
     const appointmentCounts: Record<number, number> = days.reduce((acc, d) => ({ ...acc, [d]: 0 }), {});
     const result = await getAllAppointments();
@@ -219,89 +362,91 @@ function Schedule() {
     return appointmentCounts;
   };
 
-  // Helper function: Calculate staff targets for each day
-  const calculateDayTargets = (
-    workDays: number[],
-    appointmentCounts: Record<number, number>,
-    activeStaffCount: number,
-    hasDoctor: boolean,
-  ) => {
-    const MIN_STAFF_PER_DAY = 2;
-    const MAX_STAFF_PER_DAY = 100;
-    const maxStaffPerDay = Math.min(activeStaffCount, MAX_STAFF_PER_DAY);
-    const minStaffPerDay = Math.min(MIN_STAFF_PER_DAY, activeStaffCount);
-
-    const maxCount = Math.max(...workDays.map((d) => appointmentCounts[d] || 0));
-    const dayTargets: Record<number, number> = {};
-
-    for (const day of workDays) {
-      const count = appointmentCounts[day] ?? 0;
-      let target = maxCount <= 0 ? minStaffPerDay : Math.round((count / maxCount) * maxStaffPerDay);
-      target = Math.max(minStaffPerDay, target);
-      dayTargets[day] = Math.min(target, maxStaffPerDay);
-    }
-
-    if (hasDoctor) {
-      for (const day of workDays) {
-        dayTargets[day] = Math.max(dayTargets[day], 1);
-      }
-    }
-    return dayTargets;
-  };
-
-  // Helper function:Build schedule inserts and day previews
+  // Build a rotating weekly roster: unique staff per day and split across AM/PM.
   const buildScheduleInserts = (
     workDays: number[],
-    dayTargets: Record<number, number>,
+    _appointmentCounts: Record<number, number>,
     activeStaff: Staff[],
-    doctors: Staff[],
     groupedCurrent: Record<number, ScheduleWithStaff[]>,
   ) => {
     const scheduleInserts: PreviewData['scheduleInserts'] = [];
     const dayPreviews: DayPreview[] = [];
-    let rotationIndex = 0;
+    const roster = [...activeStaff].sort((a, b) => a.name.localeCompare(b.name));
+    const uniquePerDayTarget = Math.min(roster.length, 4);
+    let rosterCursor = 0;
+
+    const pushAssignment = (
+      assigned: DayPreviewEntry[],
+      day: number,
+      staffMember: Staff,
+      session: ShiftSession,
+      notes: string,
+    ) => {
+      const window = getSessionWindow(session);
+      assigned.push({
+        staffId: staffMember.id,
+        name: staffMember.name,
+        role: staffMember.role,
+        specialization: staffMember.specialization,
+        session,
+      });
+      scheduleInserts.push({
+        staff_id: staffMember.id,
+        day_of_week: day,
+        shift_session: session,
+        start_time: window.start,
+        end_time: window.end,
+        notes,
+        is_active: true,
+      });
+    };
 
     for (const day of workDays) {
-      const targetCount = dayTargets[day];
       const currentCount = groupedCurrent[day]?.length ?? 0;
       const assigned: DayPreviewEntry[] = [];
-      const used = new Set<string>();
 
-      if (doctors.length > 0) {
-        const doc = doctors[day % doctors.length];
-        assigned.push({
-          staffId: doc.id,
-          name: doc.name,
-          role: doc.role,
-          specialization: doc.specialization,
-        });
-        used.add(doc.id);
+      const dayStaff: Staff[] = [];
+      if (roster.length > 0) {
+        for (let i = 0; i < uniquePerDayTarget; i += 1) {
+          dayStaff.push(roster[(rosterCursor + i) % roster.length]);
+        }
+        rosterCursor = (rosterCursor + uniquePerDayTarget) % roster.length;
       }
 
-      while (assigned.length < targetCount && used.size < activeStaff.length) {
-        const candidate = activeStaff[rotationIndex % activeStaff.length];
-        rotationIndex += 1;
-        if (used.has(candidate.id)) continue;
-        used.add(candidate.id);
-        assigned.push({
-          staffId: candidate.id,
-          name: candidate.name,
-          role: candidate.role,
-          specialization: candidate.specialization,
-        });
+      const amCount = Math.ceil(dayStaff.length / 2);
+      const pmCount = dayStaff.length - amCount;
+
+      for (let i = 0; i < amCount; i += 1) {
+        pushAssignment(assigned, day, dayStaff[i], 'AM', 'Auto-generated AM schedule');
+      }
+      for (let i = 0; i < pmCount; i += 1) {
+        pushAssignment(
+          assigned,
+          day,
+          dayStaff[amCount + i],
+          'PM',
+          'Auto-generated PM schedule',
+        );
       }
 
-      const startTime = '08:00';
-      const endTime = '17:00';
-      for (const entry of assigned) {
-        scheduleInserts.push({
-          staff_id: entry.staffId,
-          day_of_week: day,
-          start_time: startTime,
-          end_time: endTime,
-          notes: 'Auto-generated schedule',
-          is_active: true,
-        });
+      // If staffing is too low, duplicate only as needed to keep both sessions covered.
+      for (const session of sessions) {
+        const hasSessionCoverage = assigned.some((entry) => entry.session === session);
+        if (hasSessionCoverage) continue;
+
+        const fallbackStaff =
+          roster.find((candidate) => !assigned.some((entry) => entry.staffId === candidate.id)) ??
+          roster[day % Math.max(roster.length, 1)];
+
+        if (!fallbackStaff) continue;
+
+        pushAssignment(
+          assigned,
+          day,
+          fallbackStaff,
+          session,
+          `Auto-generated ${session} coverage guarantee`,
+        );
       }
 
       dayPreviews.push({
@@ -333,9 +478,6 @@ function Schedule() {
 
       const workDays = [0, 1, 2, 3, 4, 5, 6];
       const appointmentCounts = await getAppointmentCounts(workDays);
-      const doctors = activeStaff.filter((s) => /doctor|physician/i.test(s.role || ''));
-      const hasDoctor = doctors.length > 0;
-      const dayTargets = calculateDayTargets(workDays, appointmentCounts, activeStaff.length, hasDoctor);
 
       const groupedCurrent: Record<number, ScheduleWithStaff[]> = {};
       schedules
@@ -350,9 +492,8 @@ function Schedule() {
       const staffIdsToClear = activeStaff.map((s) => s.id);
       const { scheduleInserts, dayPreviews } = buildScheduleInserts(
         workDays,
-        dayTargets,
+        appointmentCounts,
         activeStaff,
-        doctors,
         groupedCurrent,
       );
 
@@ -392,6 +533,211 @@ function Schedule() {
     } finally {
       setApplying(false);
     }
+  };
+
+  const handleDragStart = (scheduleId: string) => {
+    setDraggingScheduleId(scheduleId);
+  };
+
+  const handleDropSchedule = async (dayOfWeek: number, session: ShiftSession) => {
+    if (!isAdmin || !draggingScheduleId) return;
+    const selected = schedules.find((s) => s.id === draggingScheduleId);
+    if (!selected) return;
+
+    const currentSession = resolveScheduleSession(selected);
+    if (selected.day_of_week === dayOfWeek && currentSession === session) {
+      setDraggingScheduleId(null);
+      return;
+    }
+
+    const window = getSessionWindow(session);
+    const { error } = await updateSchedule(draggingScheduleId, {
+      day_of_week: dayOfWeek,
+      shift_session: session,
+      start_time: window.start,
+      end_time: window.end,
+    });
+
+    if (error) {
+      showSnackbar(error, 'error');
+    } else {
+      showSnackbar('Schedule updated via drag-and-drop.', 'success');
+      fetchData();
+    }
+    setDraggingScheduleId(null);
+  };
+
+  const handleSessionDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (isAdmin) {
+      e.preventDefault();
+    }
+  };
+
+  const handleSessionDrop =
+    (dayOfWeek: number, session: ShiftSession) =>
+    (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      if (!isAdmin) return;
+      void handleDropSchedule(dayOfWeek, session);
+    };
+
+  const renderScheduleChip = (
+    schedule: ScheduleWithStaff,
+    session: ShiftSession,
+    roleColors: Record<string, { bg: string; text: string; border: string; accent: string }>,
+  ) => {
+    const role = schedule.staff?.role || 'Staff';
+    const name = schedule.staff?.name || 'Unknown';
+    const displayName = formatRoleLastName(role, name);
+    const spec = schedule.staff?.specialization;
+    const color = roleColors[role] || roleColors.Staff;
+    const initials = getInitials(name);
+    const startTime = schedule.start_time.slice(0, 5);
+    const endTime = schedule.end_time.slice(0, 5);
+
+    return (
+      <Tooltip
+        key={schedule.id}
+        title={
+          <Box sx={{ p: 0.75 }}>
+            <Typography sx={{ fontSize: '12px', fontWeight: 700 }}>{displayName}</Typography>
+            <Typography sx={{ fontSize: '11px', opacity: 0.85 }}>{role}</Typography>
+            {spec && <Typography sx={{ fontSize: '10px', opacity: 0.75 }}>{spec}</Typography>}
+            <Typography sx={{ fontSize: '10px', mt: 0.5 }}>
+              {session} • {startTime} – {endTime}
+            </Typography>
+          </Box>
+        }
+        arrow
+        placement="top"
+      >
+        <Box
+          draggable={isAdmin}
+          onDragStart={() => handleDragStart(schedule.id)}
+          onDragEnd={() => setDraggingScheduleId(null)}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            backgroundColor: color.accent,
+            border: `1.5px solid ${color.border}`,
+            borderRadius: '6px',
+            px: 1,
+            py: 0.8,
+            cursor: isAdmin ? 'grab' : 'pointer',
+            transition: 'all 0.15s',
+            '&:hover': {
+              backgroundColor: color.bg,
+              boxShadow: `0 2px 8px ${color.border}40`,
+              transform: 'scale(1.02)',
+            },
+          }}
+        >
+          <Avatar
+            sx={{
+              width: 24,
+              height: 24,
+              fontSize: '9px',
+              fontWeight: 700,
+              backgroundColor: color.border,
+              color: color.accent,
+              flexShrink: 0,
+            }}
+          >
+            {initials}
+          </Avatar>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: color.text,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {displayName}
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: '9px',
+                color: color.text,
+                opacity: 0.8,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {session}
+            </Typography>
+          </Box>
+        </Box>
+      </Tooltip>
+    );
+  };
+
+  const renderSessionSchedules = (
+    session: ShiftSession,
+    schedulesForSession: ScheduleWithStaff[],
+    roleColors: Record<string, { bg: string; text: string; border: string; accent: string }>,
+  ) => schedulesForSession.map((schedule) => renderScheduleChip(schedule, session, roleColors));
+
+  const handleCreateSwapRequest = async () => {
+    if (!staffProfile) {
+      showSnackbar('Staff profile is required.', 'error');
+      return;
+    }
+    if (!swapForm.fromScheduleId || !swapForm.toScheduleId) {
+      showSnackbar('Select your schedule and target schedule.', 'error');
+      return;
+    }
+
+    const { error } = await createScheduleSwapRequest({
+      requestedByStaffId: staffProfile.id,
+      fromScheduleId: swapForm.fromScheduleId,
+      toScheduleId: swapForm.toScheduleId,
+      reason: swapForm.reason || null,
+    });
+
+    if (error) {
+      showSnackbar(error, 'error');
+      return;
+    }
+
+    setSwapForm({ fromScheduleId: '', toScheduleId: '', reason: '' });
+    showSnackbar('Swap request submitted for admin approval.', 'success');
+    fetchData();
+  };
+
+  const handleApproveSwapRequest = async (requestId: string) => {
+    if (!staffProfile) {
+      showSnackbar('Admin profile is required.', 'error');
+      return;
+    }
+    setSwapActionLoadingId(requestId);
+    const { error } = await approveScheduleSwapRequest(requestId, staffProfile.id);
+    setSwapActionLoadingId(null);
+    if (error) {
+      showSnackbar(error, 'error');
+      return;
+    }
+    showSnackbar('Swap request approved.', 'success');
+    fetchData();
+  };
+
+  const handleRejectSwapRequest = async (requestId: string) => {
+    if (!staffProfile) {
+      showSnackbar('Admin profile is required.', 'error');
+      return;
+    }
+    setSwapActionLoadingId(requestId);
+    const { error } = await rejectScheduleSwapRequest(requestId, staffProfile.id, 'Rejected by admin.');
+    setSwapActionLoadingId(null);
+    if (error) {
+      showSnackbar(error, 'error');
+      return;
+    }
+    showSnackbar('Swap request rejected.', 'success');
+    fetchData();
   };
 
   // Calculate summary statistics
@@ -546,6 +892,28 @@ function Schedule() {
     return alerts;
   };
 
+  const getMissingPmSessionAlerts = (
+    workDays: number[],
+    workDaySchedules: ScheduleWithStaff[],
+  ): OperationalAlert[] => {
+    const alerts: OperationalAlert[] = [];
+    for (const day of workDays) {
+      const dayEntries = workDaySchedules.filter((s) => s.day_of_week === day);
+      if (dayEntries.length === 0) continue;
+
+      const hasPmStaff = dayEntries.some((s) => resolveScheduleSession(s) === 'PM');
+      if (!hasPmStaff) {
+        alerts.push({
+          id: `no-pm-${day}`,
+          severity: 'critical',
+          title: 'No PM session coverage',
+          message: `${weekDaysFull[day]} has no staff scheduled for PM session.`,
+        });
+      }
+    }
+    return alerts;
+  };
+
   const getUnscheduledStaffAlerts = (
     activeSchedules: ScheduleWithStaff[],
     activeNonAdminStaff: Staff[],
@@ -612,6 +980,7 @@ function Schedule() {
 
     const alerts: OperationalAlert[] = [
       ...getShortStaffedAlerts(workDays, workDaySchedules),
+      ...getMissingPmSessionAlerts(workDays, workDaySchedules),
       ...getOverloadedDayAlerts(workDays, workDaySchedules),
       ...getStaffOverworkAlerts(workDaySchedules),
       ...getNoDoctorAlerts(workDays, workDaySchedules),
@@ -643,25 +1012,6 @@ function Schedule() {
     },
   };
   // ───────────────────────────────────────────────────────────────────────────
-  // Group schedules by day
-  const groupedSchedules: Record<number, ScheduleWithStaff[]> = {};
-  schedules
-    .filter((s) => s.is_active)
-    .forEach((schedule) => {
-      if (!groupedSchedules[schedule.day_of_week]) {
-        groupedSchedules[schedule.day_of_week] = [];
-      }
-      groupedSchedules[schedule.day_of_week].push(schedule);
-    });
-
-  // Filter schedules based on search
-  // const filteredSchedules = searchTerm
-  //   ? schedules.filter(
-  //       (s) =>
-  //         s.staff?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  //         s.staff?.role.toLowerCase().includes(searchTerm.toLowerCase()),
-  //     )
-  //   : schedules;
 
   if (loading) {
     return (
@@ -733,6 +1083,25 @@ function Schedule() {
             }}
           />
           {isAdmin && (
+            <Button
+              variant="outlined"
+              startIcon={<FiSettings />}
+              onClick={handleOpenSessionSettings}
+              sx={{
+                borderColor: '#4b5563',
+                color: '#374151',
+                '&:hover': { borderColor: '#1f2937', backgroundColor: '#f9fafb' },
+                borderRadius: '8px',
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '13px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Session Settings
+            </Button>
+          )}
+          {isAdmin && (
             <Tooltip title="Balance existing schedules so no day is overloaded" arrow>
               <span>
                 <Button
@@ -782,6 +1151,7 @@ function Schedule() {
         <Tabs value={currentTab} onChange={(_, newValue) => setCurrentTab(newValue)}>
           <Tab label="Summary" />
           <Tab label="All Schedules" />
+          {isAdmin ? <Tab label="Swap Approvals" /> : <Tab label="Swap Requests" />}
           {isAdmin && <Tab label="Alerts" />}
         </Tabs>
       </Box>
@@ -1038,32 +1408,57 @@ function Schedule() {
       </Box>
       )}
 
-      {/* Tab 1: 15-Day Calendar View */}
+      {/* Tab 1: 7-Day Calendar View */}
       {currentTab === 1 && (
         <Box sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+              mb: 2,
+              flexWrap: 'wrap',
+            }}
+          >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <FiCalendar style={{ color: '#6b7280', fontSize: 18 }} />
               <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>
-                15-Day Schedule
+                Weekly Schedule
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-              <TextField
-                type="date"
-                value={fifteenDayStartDate.toISOString().split('T')[0]}
-                onChange={(e) => setFifteenDayStartDate(new Date(e.target.value))}
+            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+              <IconButton
                 size="small"
-                sx={{
-                  width: '150px',
-                  backgroundColor: 'white',
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '6px',
-                  },
-                }}
-              />
+                onClick={() => setSchedulePage(Math.max(1, schedulePage - 1))}
+                disabled={schedulePage === 1}
+              >
+                <FiChevronLeft style={{ fontSize: 18 }} />
+              </IconButton>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  value={weekStartDate}
+                  onChange={(newDate) => {
+                    if (newDate) {
+                      handleWeekDateChange(newDate.toISOString().split('T')[0]);
+                    }
+                  }}
+                  slotProps={{
+                    textField: {
+                      size: 'small',
+                      sx: {
+                        width: '120px',
+                        backgroundColor: 'white',
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '6px',
+                        },
+                      },
+                    },
+                  }}
+                />
+              </LocalizationProvider>
               <Chip
-                label={`${fifteenDayStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(fifteenDayStartDate.getTime() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                label={`${weekStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(weekStartDate.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
                 sx={{
                   backgroundColor: '#eff6ff',
                   color: '#1e40af',
@@ -1071,11 +1466,36 @@ function Schedule() {
                   fontSize: '12px',
                 }}
               />
+              <IconButton
+                size="small"
+                onClick={() => setSchedulePage(Math.min(SCHEDULE_PAGE_COUNT, schedulePage + 1))}
+                disabled={schedulePage === SCHEDULE_PAGE_COUNT}
+              >
+                <FiChevronRight style={{ fontSize: 18 }} />
+              </IconButton>
             </Box>
           </Box>
 
-          {/* 15-Day Calendar Grid with 5 columns (3 rows) */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
+          {isAdmin && (
+            <Typography sx={{ fontSize: '12px', color: '#6b7280', mb: 1.5 }}>
+              Drag schedule cards and drop them into a day/session lane to alter assignments.
+            </Typography>
+          )}
+
+          {/* 7-Day Calendar Grid */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                md: 'repeat(3, 1fr)',
+                lg: 'repeat(4, 1fr)',
+                xl: 'repeat(7, 1fr)',
+              },
+              gap: '12px',
+            }}
+          >
             {(() => {
               const roleColors: Record<string, { bg: string; text: string; border: string; accent: string }> = {
                 Doctor: { bg: '#eff6ff', text: '#0c4a6e', border: '#0284c7', accent: '#dbeafe' },
@@ -1084,12 +1504,26 @@ function Schedule() {
                 Staff: { bg: '#f5f3ff', text: '#312e81', border: '#6366f1', accent: '#e0e7ff' },
               };
 
-              return Array.from({ length: 15 }).map((_, i) => {
-                const currentDate = new Date(fifteenDayStartDate);
+              return Array.from({ length: 7 }).map((_, i) => {
+                const currentDate = new Date(weekStartDate);
                 currentDate.setDate(currentDate.getDate() + i);
                 const dateKey = currentDate.toISOString().split('T')[0];
                 const dayOfWeek = currentDate.getDay();
-                const daySchedules = schedules.filter((s) => s.day_of_week === dayOfWeek && s.is_active);
+                const daySchedules = schedules
+                  .filter((s) => s.day_of_week === dayOfWeek && s.is_active)
+                  .filter((s) => {
+                    if (!searchTerm.trim()) return true;
+                    const q = searchTerm.toLowerCase();
+                    return (
+                      (s.staff?.name ?? '').toLowerCase().includes(q) ||
+                      (s.staff?.role ?? '').toLowerCase().includes(q) ||
+                      (s.staff?.department ?? '').toLowerCase().includes(q)
+                    );
+                  });
+                const daySchedulesBySession: Record<ShiftSession, ScheduleWithStaff[]> = {
+                  AM: daySchedules.filter((s) => resolveScheduleSession(s) === 'AM'),
+                  PM: daySchedules.filter((s) => resolveScheduleSession(s) === 'PM'),
+                };
                 const isToday = new Date().toDateString() === currentDate.toDateString();
                 const isSunday = dayOfWeek === 0;
                 
@@ -1135,16 +1569,16 @@ function Schedule() {
                       sx={{
                         backgroundColor: headerBgColor,
                         px: 1.5,
-                        py: 1,
+                        py: 1.2,
                         borderBottom: '1px solid #e5e7eb',
                       }}
                     >
-                      <Typography sx={{ fontSize: '10px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>
+                      <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>
                         {currentDate.toLocaleString('default', { weekday: 'short' })}
                       </Typography>
                       <Typography
                         sx={{
-                          fontSize: '16px',
+                          fontSize: '22px',
                           fontWeight: 700,
                           color: headerTextColor,
                           mt: 0.3,
@@ -1154,7 +1588,7 @@ function Schedule() {
                       </Typography>
                       <Typography
                         sx={{
-                          fontSize: '9px',
+                          fontSize: '11px',
                           color: isToday ? 'rgba(255,255,255,0.8)' : '#9ca3af',
                           mt: 0.2,
                         }}
@@ -1171,7 +1605,7 @@ function Schedule() {
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '6px',
-                        minHeight: '200px',
+                        minHeight: '240px',
                         overflowY: 'auto',
                         '&::-webkit-scrollbar': {
                           width: '4px',
@@ -1189,104 +1623,33 @@ function Schedule() {
                         },
                       }}
                     >
-                      {daySchedules.length === 0 ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-                          <Typography sx={{ fontSize: '12px', color: '#d1d5db', fontStyle: 'italic', textAlign: 'center' }}>
-                            No shifts
+                      {sessions.map((session) => (
+                        <Box
+                          key={`${dateKey}-${session}`}
+                          onDragOver={handleSessionDragOver}
+                          onDrop={handleSessionDrop(dayOfWeek, session)}
+                          sx={{
+                            border: draggingScheduleId && isAdmin ? '1px dashed #2563eb' : '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            p: 1,
+                            backgroundColor: '#ffffff',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 0.6,
+                          }}
+                        >
+                          <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#1f2937' }}>
+                            {session} Session
                           </Typography>
+                          {daySchedulesBySession[session].length === 0 ? (
+                            <Typography sx={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>
+                              No staff
+                            </Typography>
+                          ) : (
+                            renderSessionSchedules(session, daySchedulesBySession[session], roleColors)
+                          )}
                         </Box>
-                      ) : (
-                        daySchedules.map((schedule) => {
-                          const role = schedule.staff?.role || 'Staff';
-                          const name = schedule.staff?.name || 'Unknown';
-                          const spec = schedule.staff?.specialization;
-                          const color = roleColors[role] || roleColors.Staff;
-                          const initials = getInitials(name);
-                          const startTime = schedule.start_time.slice(0, 5);
-                          const endTime = schedule.end_time.slice(0, 5);
-
-                          return (
-                            <Tooltip
-                              key={schedule.id}
-                              title={
-                                <Box sx={{ p: 0.75 }}>
-                                  <Typography sx={{ fontSize: '12px', fontWeight: 700 }}>{name}</Typography>
-                                  <Typography sx={{ fontSize: '11px', opacity: 0.85 }}>{role}</Typography>
-                                  {spec && <Typography sx={{ fontSize: '10px', opacity: 0.75 }}>{spec}</Typography>}
-                                  <Typography sx={{ fontSize: '10px', mt: 0.5 }}>
-                                    {startTime} – {endTime}
-                                  </Typography>
-                                  {schedule.notes && (
-                                    <Typography sx={{ fontSize: '9px', fontStyle: 'italic', mt: 0.5, opacity: 0.8 }}>
-                                      {schedule.notes}
-                                    </Typography>
-                                  )}
-                                </Box>
-                              }
-                              arrow
-                              placement="top"
-                            >
-                              <Box
-                                sx={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  backgroundColor: color.accent,
-                                  border: `1.5px solid ${color.border}`,
-                                  borderRadius: '6px',
-                                  px: 0.8,
-                                  py: 0.6,
-                                  cursor: 'pointer',
-                                  transition: 'all 0.15s',
-                                  '&:hover': {
-                                    backgroundColor: color.bg,
-                                    boxShadow: `0 2px 8px ${color.border}40`,
-                                    transform: 'scale(1.02)',
-                                  },
-                                }}
-                              >
-                                <Avatar
-                                  sx={{
-                                    width: 20,
-                                    height: 20,
-                                    fontSize: '7px',
-                                    fontWeight: 700,
-                                    backgroundColor: color.border,
-                                    color: color.accent,
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  {initials}
-                                </Avatar>
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                  <Typography
-                                    sx={{
-                                      fontSize: '8px',
-                                      fontWeight: 600,
-                                      color: color.text,
-                                      whiteSpace: 'nowrap',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                    }}
-                                  >
-                                    {name}
-                                  </Typography>
-                                  <Typography
-                                    sx={{
-                                      fontSize: '6.5px',
-                                      color: color.text,
-                                      opacity: 0.8,
-                                      whiteSpace: 'nowrap',
-                                    }}
-                                  >
-                                    {startTime}–{endTime}
-                                  </Typography>
-                                </Box>
-                              </Box>
-                            </Tooltip>
-                          );
-                        })
-                      )}
+                      ))}
                     </Box>
 
                     {/* Staff Count Footer */}
@@ -1299,7 +1662,7 @@ function Schedule() {
                         textAlign: 'center',
                       }}
                     >
-                      <Typography sx={{ fontSize: '10px', fontWeight: 600, color: '#6b7280' }}>
+                      <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#6b7280' }}>
                         {daySchedules.length} staff
                       </Typography>
                     </Box>
@@ -1311,9 +1674,223 @@ function Schedule() {
         </Box>
       )}
 
+      {/* Tab 2: Swap Requests / Approvals */}
+      {currentTab === 2 && (
+        <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {isAdmin ? (
+            <>
+              {swapRequests.length === 0 ? (
+                <Box
+                  sx={{
+                    borderRadius: '10px',
+                    border: '1px solid #dbeafe',
+                    backgroundColor: '#eff6ff',
+                    p: 2,
+                  }}
+                >
+                  <Typography sx={{ fontSize: '13px', color: '#1e40af', fontWeight: 600 }}>
+                    No pending schedule swap approvals.
+                  </Typography>
+                </Box>
+              ) : (
+                swapRequests.map((request) => {
+                  const fromShift = request.from_schedule ? resolveScheduleSession(request.from_schedule) : 'AM';
+                  const dayLabel = request.from_schedule
+                    ? weekDaysFull[request.from_schedule.day_of_week]
+                    : 'Unknown day';
+                  return (
+                    <Box
+                      key={request.id}
+                      sx={{
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '10px',
+                        p: 2,
+                        backgroundColor: '#ffffff',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 1,
+                      }}
+                    >
+                      <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                        {request.requested_by?.name ?? 'Unknown'} requested a swap
+                      </Typography>
+                      <Typography sx={{ fontSize: '12px', color: '#4b5563' }}>
+                        {dayLabel} • {fromShift} session
+                      </Typography>
+                      <Typography sx={{ fontSize: '12px', color: '#4b5563' }}>
+                        {request.from_schedule?.staff?.name ?? 'Unknown'} ↔ {request.to_schedule?.staff?.name ?? 'Unknown'}
+                      </Typography>
+                      {request.reason && (
+                        <Typography sx={{ fontSize: '12px', color: '#6b7280', fontStyle: 'italic' }}>
+                          Reason: {request.reason}
+                        </Typography>
+                      )}
+                      <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={() => handleApproveSwapRequest(request.id)}
+                          disabled={swapActionLoadingId === request.id}
+                          sx={{ textTransform: 'none', backgroundColor: '#16a34a', '&:hover': { backgroundColor: '#15803d' } }}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => handleRejectSwapRequest(request.id)}
+                          disabled={swapActionLoadingId === request.id}
+                          sx={{ textTransform: 'none', borderColor: '#dc2626', color: '#dc2626' }}
+                        >
+                          Reject
+                        </Button>
+                      </Box>
+                    </Box>
+                  );
+                })
+              )}
+            </>
+          ) : (
+            <>
+              <Box
+                sx={{
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '10px',
+                  p: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1.5,
+                  backgroundColor: '#ffffff',
+                }}
+              >
+                <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                  Request Schedule Swap (Doctors)
+                </Typography>
+                <FormControl size="small" fullWidth>
+                  <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.5 }}>
+                    Your upcoming schedule
+                  </Typography>
+                  <Select
+                    value={swapForm.fromScheduleId}
+                    onChange={(e) => setSwapForm((prev) => ({ ...prev, fromScheduleId: e.target.value }))}
+                    displayEmpty
+                  >
+                    <MenuItem value="" disabled>Select one of your schedules</MenuItem>
+                    {schedules
+                      .filter((s) => s.staff_id === staffProfile?.id)
+                      .filter((s) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const offset = (s.day_of_week - today.getDay() + 7) % 7;
+                        return offset > 0;
+                      })
+                      .map((s) => {
+                        const shift = resolveScheduleSession(s);
+                        return (
+                          <MenuItem key={s.id} value={s.id}>
+                            {weekDaysFull[s.day_of_week]} - {shift} ({s.staff?.name ?? 'Me'})
+                          </MenuItem>
+                        );
+                      })}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" fullWidth>
+                  <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.5 }}>
+                    Doctor schedule to swap with
+                  </Typography>
+                  <Select
+                    value={swapForm.toScheduleId}
+                    onChange={(e) => setSwapForm((prev) => ({ ...prev, toScheduleId: e.target.value }))}
+                    displayEmpty
+                  >
+                    <MenuItem value="" disabled>Select target schedule</MenuItem>
+                    {swapCandidateSchedules
+                      .filter((s) => s.staff_id !== staffProfile?.id)
+                      .filter((s) => /doctor|physician/i.test(s.staff?.role || ''))
+                      .filter((s) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const offset = (s.day_of_week - today.getDay() + 7) % 7;
+                        return offset > 0;
+                      })
+                      .map((s) => {
+                        const shift = resolveScheduleSession(s);
+                        return (
+                          <MenuItem key={s.id} value={s.id}>
+                            {weekDaysFull[s.day_of_week]} - {shift} ({s.staff?.name ?? 'Unknown'})
+                          </MenuItem>
+                        );
+                      })}
+                  </Select>
+                </FormControl>
+                <TextField
+                  size="small"
+                  multiline
+                  rows={2}
+                  label="Reason"
+                  value={swapForm.reason}
+                  onChange={(e) => setSwapForm((prev) => ({ ...prev, reason: e.target.value }))}
+                />
+                <Button
+                  variant="contained"
+                  onClick={handleCreateSwapRequest}
+                  sx={{ textTransform: 'none', width: 'fit-content', backgroundColor: '#2563eb', '&:hover': { backgroundColor: '#1d4ed8' } }}
+                >
+                  Submit Swap Request
+                </Button>
+              </Box>
 
-      {/* Tab 2: Alerts (Admin only) */}
-      {currentTab === 2 && isAdmin && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                  My Swap Requests
+                </Typography>
+                {swapRequests.length === 0 ? (
+                  <Typography sx={{ fontSize: '12px', color: '#6b7280' }}>
+                    No swap requests yet.
+                  </Typography>
+                ) : (
+                  swapRequests.map((request) => {
+                    const statusStyle = getSwapStatusStyle(request.status);
+                    return (
+                      <Box
+                        key={request.id}
+                        sx={{
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '10px',
+                          p: 1.5,
+                          backgroundColor: '#ffffff',
+                        }}
+                      >
+                        <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>
+                          {weekDaysFull[request.from_schedule?.day_of_week ?? 0]} • {request.from_schedule ? resolveScheduleSession(request.from_schedule) : 'AM'}
+                        </Typography>
+                        <Typography sx={{ fontSize: '12px', color: '#4b5563' }}>
+                          {request.from_schedule?.staff?.name ?? 'Unknown'} ↔ {request.to_schedule?.staff?.name ?? 'Unknown'}
+                        </Typography>
+                        <Chip
+                          label={request.status.toUpperCase()}
+                          size="small"
+                          sx={{
+                            mt: 1,
+                            backgroundColor: statusStyle.backgroundColor,
+                            color: statusStyle.color,
+                            fontSize: '10px',
+                            fontWeight: 700,
+                          }}
+                        />
+                      </Box>
+                    );
+                  })
+                )}
+              </Box>
+            </>
+          )}
+        </Box>
+      )}
+
+
+      {/* Tab 3: Alerts (Admin only) */}
+      {currentTab === 3 && isAdmin && (
       <Box sx={{ marginBottom: '28px' }}>
         {operationalAlerts.length === 0 ? (
           <Box
@@ -1415,7 +1992,7 @@ function Schedule() {
                 }}
               >
                 <Typography sx={{ fontSize: '12px', color: '#1e40af' }}>
-                  <strong>Preview:</strong> This will clear existing Mon–Fri schedules for{' '}
+                  <strong>Preview:</strong> This will clear existing weekly schedules for{' '}
                   <strong>{previewData.staffIdsToClear.length}</strong> staff and create{' '}
                   <strong>{previewData.scheduleInserts.length}</strong> new schedule entries.
                 </Typography>
@@ -1478,26 +2055,39 @@ function Schedule() {
                                 idx < dp.assigned.length - 1 ? '1px solid #f3f4f6' : 'none',
                             }}
                           >
+                            <Avatar
+                              sx={{
+                                width: 24,
+                                height: 24,
+                                fontSize: '9px',
+                                fontWeight: 700,
+                                backgroundColor: '#2563eb',
+                                color: '#ffffff',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {getInitials(entry.name)}
+                            </Avatar>
                             <Typography
                               sx={{
                                 fontSize: '12px',
                                 fontWeight: 600,
                                 color: '#1f2937',
-                                minWidth: '110px',
+                                minWidth: '140px',
                                 flexShrink: 0,
                               }}
                             >
-                              {entry.name}
+                              {formatRoleLastName(entry.role, entry.name)}
                             </Typography>
                             <Chip
-                              label={entry.role}
+                              label={entry.session}
                               size="small"
                               sx={{
                                 height: '18px',
                                 fontSize: '9px',
-                                fontWeight: 600,
-                                backgroundColor: '#eff6ff',
-                                color: '#1e40af',
+                                fontWeight: 700,
+                                backgroundColor: entry.session === 'AM' ? '#fff7ed' : '#eff6ff',
+                                color: entry.session === 'AM' ? '#9a3412' : '#1e40af',
                                 flexShrink: 0,
                               }}
                             />
@@ -1557,6 +2147,100 @@ function Schedule() {
             }}
           >
             {applying ? 'Applying…' : 'Apply Schedule'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Session Settings Dialog */}
+      <Dialog
+        open={openSessionSettingsDialog}
+        onClose={() => setOpenSessionSettingsDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            pb: 1,
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Session Time Settings
+          </Typography>
+          <IconButton onClick={() => setOpenSessionSettingsDialog(false)} size="small">
+            <FiXCircle />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
+            <Box>
+              <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827', mb: 1 }}>
+                AM Session
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                <TextField
+                  label="Start"
+                  type="time"
+                  value={sessionSettingsDraft.AM.start}
+                  onChange={(e) => handleSessionDraftChange('AM', 'start', e.target.value)}
+                  size="small"
+                  fullWidth
+                />
+                <TextField
+                  label="End"
+                  type="time"
+                  value={sessionSettingsDraft.AM.end}
+                  onChange={(e) => handleSessionDraftChange('AM', 'end', e.target.value)}
+                  size="small"
+                  fullWidth
+                />
+              </Box>
+            </Box>
+
+            <Box>
+              <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827', mb: 1 }}>
+                PM Session
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                <TextField
+                  label="Start"
+                  type="time"
+                  value={sessionSettingsDraft.PM.start}
+                  onChange={(e) => handleSessionDraftChange('PM', 'start', e.target.value)}
+                  size="small"
+                  fullWidth
+                />
+                <TextField
+                  label="End"
+                  type="time"
+                  value={sessionSettingsDraft.PM.end}
+                  onChange={(e) => handleSessionDraftChange('PM', 'end', e.target.value)}
+                  size="small"
+                  fullWidth
+                />
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button
+            onClick={() => setOpenSessionSettingsDialog(false)}
+            sx={{ textTransform: 'none', color: '#6b7280' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void handleSaveSessionSettings()}
+            sx={{
+              textTransform: 'none',
+              backgroundColor: '#2563eb',
+              '&:hover': { backgroundColor: '#1d4ed8' },
+            }}
+          >
+            Save Settings
           </Button>
         </DialogActions>
       </Dialog>
@@ -1666,58 +2350,29 @@ function Schedule() {
                 </Typography>
               )}
             </FormControl>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Box sx={{ flex: 1 }}>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontWeight: 600,
-                    mb: 0.5,
-                    color: '#374151',
-                    display: 'block',
-                  }}
-                >
-                  Start Time
-                </Typography>
-                <TextField
-                  type="time"
-                  size="small"
-                  fullWidth
-                  value={formData.start_time}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      start_time: e.target.value,
-                    }))
-                  }
-                />
-              </Box>
-              <Box sx={{ flex: 1 }}>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontWeight: 600,
-                    mb: 0.5,
-                    color: '#374151',
-                    display: 'block',
-                  }}
-                >
-                  End Time
-                </Typography>
-                <TextField
-                  type="time"
-                  size="small"
-                  fullWidth
-                  value={formData.end_time}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      end_time: e.target.value,
-                    }))
-                  }
-                />
-              </Box>
-            </Box>
+            <FormControl fullWidth size="small">
+              <Typography
+                variant="caption"
+                sx={{ fontWeight: 600, mb: 0.5, color: '#374151' }}
+              >
+                Session
+              </Typography>
+              <Select
+                value={formData.shift_session}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    shift_session: e.target.value as ShiftSession,
+                  }))
+                }
+              >
+                {sessions.map((session) => (
+                  <MenuItem key={session} value={session}>
+                    {sessionLabel(session)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             <Box>
               <Typography
                 variant="caption"
