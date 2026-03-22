@@ -914,7 +914,7 @@ function Attendance() {
                 fontSize: '13px',
               }}
             >
-              Latest attendance records
+              Daily attendance records
             </Typography>
           </Box>
         </Box>
