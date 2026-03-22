@@ -16,6 +16,7 @@ type MenuItem = {
   path: string;
   icon: React.ReactNode;
   adminOnly?: boolean;
+  doctorOrAdminOnly?: boolean;
 };
 
 const allMenuItems: MenuItem[] = [
@@ -33,22 +34,31 @@ const allMenuItems: MenuItem[] = [
     icon: <FiBarChart2 />,
     adminOnly: true,
   },
-  { label: "Walk Ins", path: "appointments", icon: <FiClipboard /> },
+  {
+    label: "Walk Ins",
+    path: "appointments",
+    icon: <FiClipboard />,
+    doctorOrAdminOnly: true,
+  },
   { label: "Schedule", path: "schedule", icon: <FiCalendar /> },
 ];
 
-const Sidebar: React.FC<{ isMobile?: boolean; onClose?: () => void }> = ({
-  isMobile = false,
-  onClose,
-}) => {
-  const { isAdmin } = useAuth();
+type SidebarProps = Record<string, never>;
 
-  const menuItems = allMenuItems.filter((item) => !item.adminOnly || isAdmin);
+const Sidebar: React.FC<SidebarProps> = () => {
+  const { isAdmin, staffProfile } = useAuth();
+
+  const role = staffProfile?.role?.toLowerCase();
+  const isDoctor = role === "doctor";
+
+  const menuItems = allMenuItems.filter((item) => {
+    if (item.adminOnly) return isAdmin;
+    if (item.doctorOrAdminOnly) return isAdmin || isDoctor;
+    return true;
+  });
 
   const handleMenuItemClick = () => {
-    if (isMobile && onClose) {
-      onClose();
-    }
+    // Menu item clicked
   };
 
   return (
