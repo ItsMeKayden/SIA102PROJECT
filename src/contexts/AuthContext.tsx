@@ -277,7 +277,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (error) {
         console.error('Auth sign in error:', error);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return { error: (error as any).message };
       }
 
