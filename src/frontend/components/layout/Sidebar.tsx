@@ -37,7 +37,11 @@ const allMenuItems: MenuItem[] = [
   { label: 'Schedule', path: 'schedule', icon: <FiCalendar /> },
 ];
 
-const Sidebar: React.FC = () => {
+type SidebarProps = {
+  onNavigate?: () => void;
+};
+
+const Sidebar: React.FC<SidebarProps> = ({ onNavigate }) => {
   const { isAdmin } = useAuth();
 
   const menuItems = allMenuItems.filter(
@@ -54,6 +58,7 @@ const Sidebar: React.FC = () => {
             className={({ isActive }) =>
               isActive ? 'menuItem active' : 'menuItem'
             }
+            onClick={onNavigate}
           >
             <span className="icon">{item.icon}</span>
             {item.label}

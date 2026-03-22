@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { MouseEvent } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Menu,
   MenuItem,
@@ -22,6 +22,7 @@ import {
   useTheme,
   Avatar,
   Divider,
+  Drawer,
 } from '@mui/material';
 import {
   FiBell,
@@ -32,6 +33,7 @@ import {
   FiTrash2,
   FiCheck,
   FiX,
+  FiMenu,
   FiLogOut,
   FiLogIn,
   FiKey,
@@ -52,12 +54,14 @@ import logo from './assets/logo.png';
 
 const Layout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { user, staffProfile, signOut, isAdmin } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Navigation menu state
   const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(
@@ -212,6 +216,10 @@ const Layout = () => {
     setShowLoginModal(true);
   };
 
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
+
   const filteredNotifications =
     filter === 'unread'
       ? notifications.filter((n) => !n.is_read)
@@ -257,6 +265,19 @@ const Layout = () => {
             flexShrink: 0,
           }}
         >
+          {isMobile && (
+            <IconButton
+              onClick={() => setMobileSidebarOpen(true)}
+              size="small"
+              sx={{
+                color: '#374151',
+                '&:hover': { backgroundColor: '#f3f4f6' },
+              }}
+              aria-label="Open navigation menu"
+            >
+              <FiMenu size={20} />
+            </IconButton>
+          )}
           <img
             src={logo}
             alt="Logo"
@@ -438,6 +459,22 @@ const Layout = () => {
       {/* Main Content with Sidebar */}
       <div style={{ display: 'flex', flex: 1, height: '100%', width: '100%' }}>
         {!isMobile && <Sidebar />}
+        <Drawer
+          anchor="left"
+          open={mobileSidebarOpen}
+          onClose={() => setMobileSidebarOpen(false)}
+          ModalProps={{ keepMounted: true }}
+          slotProps={{
+            paper: {
+              sx: {
+                width: 250,
+                borderRight: '1px solid #ddd',
+              },
+            },
+          }}
+        >
+          <Sidebar onNavigate={() => setMobileSidebarOpen(false)} />
+        </Drawer>
         <main
           style={{
             flex: 1,
