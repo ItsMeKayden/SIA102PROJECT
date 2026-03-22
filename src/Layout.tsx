@@ -804,7 +804,7 @@ const Layout = () => {
                   <FiX size={16} />
                 </IconButton>
               </div>
-              <Sidebar isMobile onClose={() => setSidebarOpen(false)} />
+              <Sidebar />
             </div>
           </>
         )}

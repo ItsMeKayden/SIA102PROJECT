@@ -1,5 +1,5 @@
 import '../styles/Pages.css';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -22,41 +22,50 @@ import {
   FiCheck
 } from 'react-icons/fi';
 import type { Notification as NotificationType } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   getAllNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,
   deleteNotification,
-  getUnreadNotificationCount
 } from '../../backend/services/notificationService';
 
 function Notification() {
+  const { staffProfile, userRole } = useAuth();
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const [notifData, countData] = await Promise.all([
-        getAllNotifications(),
-        getUnreadNotificationCount()
-      ]);
+      const notifData = await getAllNotifications(staffProfile?.id);
 
-      if (notifData.data) setNotifications(notifData.data);
-      if (typeof countData.data === 'number') setUnreadCount(countData.data);
+      if (notifData.data) {
+        let visibleNotifications = notifData.data;
+        
+        // If user is not admin, exclude admin-only notifications
+        if (userRole !== 'admin') {
+          visibleNotifications = visibleNotifications.filter((n: NotificationType) => n.staff_id !== null);
+        }
+        
+        setNotifications(notifData.data);
+        // Calculate unread count based on visible notifications
+        const unreadNotifications = visibleNotifications.filter((n: NotificationType) => !n.is_read);
+        setUnreadCount(unreadNotifications.length);
+      }
     } catch (err) {
       console.error('Failed to load notifications:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [staffProfile?.id, userRole]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity });
@@ -111,9 +120,33 @@ function Notification() {
     return colors[type as keyof typeof colors] || colors['info'];
   };
 
-  const filteredNotifications = filter === 'unread' 
-    ? notifications.filter(n => !n.is_read)
-    : notifications;
+  // Filter notifications based on user role and filter selection
+  const getVisibleNotifications = () => {
+    let visible = notifications;
+    
+    // If user is not admin, exclude admin-only notifications (those with staff_id = null)
+    if (userRole !== 'admin') {
+      visible = visible.filter((n: NotificationType) => n.staff_id !== null);
+    }
+    
+    // Apply read/unread filter
+    if (filter === 'unread') {
+      visible = visible.filter((n: NotificationType) => !n.is_read);
+    }
+    
+    return visible;
+  };
+
+  const filteredNotifications = getVisibleNotifications();
+  
+  // Get all visible notifications (without unread filter) for the "All" button count
+  const allVisibleNotifications = (() => {
+    let visible = notifications;
+    if (userRole !== 'admin') {
+      visible = visible.filter((n: NotificationType) => n.staff_id !== null);
+    }
+    return visible;
+  })();
 
   if (loading) {
     return (
@@ -165,7 +198,7 @@ function Notification() {
             onClick={() => setFilter('all')}
             sx={{ textTransform: 'none' }}
           >
-            All ({notifications.length})
+            All ({allVisibleNotifications.length})
           </Button>
           <Button
             variant={filter === 'unread' ? 'contained' : 'outlined'}
