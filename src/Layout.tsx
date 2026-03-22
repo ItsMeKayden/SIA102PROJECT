@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { MouseEvent } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   Menu,
   MenuItem,
@@ -23,7 +23,7 @@ import {
   useTheme,
   Avatar,
   Divider,
-  TextField,
+  Drawer,
 } from "@mui/material";
 import {
   FiBell,
@@ -34,6 +34,7 @@ import {
   FiTrash2,
   FiCheck,
   FiX,
+  FiMenu,
   FiLogOut,
   FiLogIn,
   FiKey,
@@ -73,28 +74,14 @@ const fieldLabel = (text: string, required = false) => (
 
 const Layout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { user, staffProfile, signOut, isAdmin } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
-  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
-  const [editProfileLoading, setEditProfileLoading] = useState(false);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [editProfileForm, setEditProfileForm] = useState({
-    name: "",
-    phone: "",
-  });
-
-  // ── Mobile sidebar state ──
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // Close sidebar when switching to desktop
-  useEffect(() => {
-    if (!isMobile) setSidebarOpen(false);
-  }, [isMobile]);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(
     null,
@@ -283,6 +270,10 @@ const Layout = () => {
     }
   };
 
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
+
   const filteredNotifications =
     filter === "unread"
       ? notifications.filter((n) => !n.is_read)
@@ -327,19 +318,17 @@ const Layout = () => {
             flexShrink: 0,
           }}
         >
-          {/* Hamburger — mobile only */}
           {isMobile && (
             <IconButton
-              onClick={() => setSidebarOpen(true)}
+              onClick={() => setMobileSidebarOpen(true)}
               size="small"
               sx={{
                 color: "#374151",
-                mr: 0.5,
                 "&:hover": { backgroundColor: "#f3f4f6" },
               }}
-              aria-label="Open menu"
+              aria-label="Open navigation menu"
             >
-              <FiMenu size={22} />
+              <FiMenu size={20} />
             </IconButton>
           )}
           <img
@@ -732,60 +721,22 @@ const Layout = () => {
       >
         {/* Desktop sidebar — always visible */}
         {!isMobile && <Sidebar />}
-
-        {/* Mobile sidebar — backdrop + drawer */}
-        {isMobile && (
-          <>
-            {/* Backdrop */}
-            <div
-              onClick={() => setSidebarOpen(false)}
-              style={{
-                position: "fixed",
-                inset: 0,
-                backgroundColor: "rgba(0,0,0,0.4)",
-                zIndex: 1200,
-                opacity: sidebarOpen ? 1 : 0,
-                pointerEvents: sidebarOpen ? "auto" : "none",
-                transition: "opacity 0.25s ease",
-              }}
-            />
-            {/* Sidebar drawer */}
-            <div
-              style={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                height: "100%",
-                zIndex: 1300,
-                transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
-                transition: "transform 0.25s ease",
-              }}
-            >
-              {/* Close button inside drawer */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: "12px",
-                  right: "12px",
-                  zIndex: 1,
-                }}
-              >
-                <IconButton
-                  size="small"
-                  onClick={() => setSidebarOpen(false)}
-                  sx={{
-                    backgroundColor: "#f3f4f6",
-                    "&:hover": { backgroundColor: "#e5e7eb" },
-                  }}
-                >
-                  <FiX size={16} />
-                </IconButton>
-              </div>
-              <Sidebar onNavigate={() => setSidebarOpen(false)} />
-            </div>
-          </>
-        )}
-
+        <Drawer
+          anchor="left"
+          open={mobileSidebarOpen}
+          onClose={() => setMobileSidebarOpen(false)}
+          ModalProps={{ keepMounted: true }}
+          slotProps={{
+            paper: {
+              sx: {
+                width: 250,
+                borderRight: "1px solid #ddd",
+              },
+            },
+          }}
+        >
+          <Sidebar onNavigate={() => setMobileSidebarOpen(false)} />
+        </Drawer>
         <main
           style={{
             flex: 1,

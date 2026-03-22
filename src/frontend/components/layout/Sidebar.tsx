@@ -38,7 +38,6 @@ const allMenuItems: MenuItem[] = [
 ];
 
 type SidebarProps = {
-  /** Called after a nav link is clicked — use to close the mobile drawer */
   onNavigate?: () => void;
 };
 
