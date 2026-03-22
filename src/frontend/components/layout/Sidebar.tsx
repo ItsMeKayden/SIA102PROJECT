@@ -16,6 +16,7 @@ type MenuItem = {
   path: string;
   icon: React.ReactNode;
   adminOnly?: boolean;
+  doctorOrAdminOnly?: boolean;
 };
 
 const allMenuItems: MenuItem[] = [
@@ -33,19 +34,30 @@ const allMenuItems: MenuItem[] = [
     icon: <FiBarChart2 />,
     adminOnly: true,
   },
-  { label: "Walk Ins", path: "appointments", icon: <FiClipboard /> },
+  {
+    label: "Walk Ins",
+    path: "appointments",
+    icon: <FiClipboard />,
+    doctorOrAdminOnly: true,
+  },
   { label: "Schedule", path: "schedule", icon: <FiCalendar /> },
 ];
 
 type SidebarProps = {
-  /** Called after a nav link is clicked — use to close the mobile drawer */
   onNavigate?: () => void;
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ onNavigate }) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, staffProfile } = useAuth();
 
-  const menuItems = allMenuItems.filter((item) => !item.adminOnly || isAdmin);
+  const role = staffProfile?.role?.toLowerCase();
+  const isDoctor = role === "doctor";
+
+  const menuItems = allMenuItems.filter((item) => {
+    if (item.adminOnly) return isAdmin;
+    if (item.doctorOrAdminOnly) return isAdmin || isDoctor;
+    return true;
+  });
 
   return (
     <aside className="sidebar">
