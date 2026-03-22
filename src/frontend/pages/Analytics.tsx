@@ -22,6 +22,7 @@ import {
   Line,
   Bar,
 } from 'recharts';
+import { FiTrendingUp, FiUsers, FiRotateCw, FiCalendar } from 'react-icons/fi';
 import { getAnalyticsStats, getMonthlyConsultations, getWeeklyPerformance } from '../../backend/services/analyticsService';
 import type { AnalyticsStats } from '../../types';
 
@@ -309,99 +310,82 @@ function Analytics() {
         }}
       >
         {/* Total Consultation */}
-        <Card
-          sx={{
-            background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%)',
-            border: '1px solid #22c55e',
-            borderRadius: '12px',
-          }}
-        >
-          <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
-            <Typography sx={{ fontSize: { xs: '12px', sm: '13px', md: '14px' }, color: '#666', fontWeight: '600', mb: 1 }}
-            >
-              Total Consultations Completed
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-              <Typography sx={{ fontSize: { xs: '14px', sm: '16px', md: '20px' } }}>Rx</Typography>
-              <Typography sx={{ fontSize: { xs: '16px', sm: '18px', md: '24px' }, fontWeight: 'bold', color: '#22c55e' }}>
+        <Card sx={{ background: '#ffffff', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: '12px', boxShadow: 'none' }}>
+          <CardContent sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(34, 197, 94, 0.1)', padding: '8px', borderRadius: '8px' }}>
+              <FiTrendingUp size={32} color="#22c55e" />
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: { xs: '12px', sm: '13px' }, color: '#9ca3af', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.5 }}>
+                Total Consultations
+              </Typography>
+              <Typography sx={{ fontSize: { xs: '20px', sm: '24px' }, fontWeight: 'bold', color: '#22c55e' }}>
                 {stats ? `${stats.totalConsultations}` : '--'}
               </Typography>
+              <Typography sx={{ fontSize: { xs: '11px', sm: '12px' }, color: '#666', lineHeight: 1.3, mt: 0.5 }}>
+                {consultationInsight}
+              </Typography>
             </Box>
-            <Typography sx={{ fontSize: { xs: '11px', sm: '12px' }, color: '#666', lineHeight: 1.3 }}>
-              {consultationInsight}
-            </Typography>
           </CardContent>
         </Card>
 
         {/* Avg Patients Per Doctor */}
-        <Card
-          sx={{
-            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%)',
-            border: '1px solid #3b82f6',
-            borderRadius: '12px',
-          }}
-        >
-          <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
-            <Typography sx={{ fontSize: { xs: '12px', sm: '13px', md: '14px' }, color: '#666', fontWeight: '600', mb: 1 }}>
-              Ave. Patients Per Doctor
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-              <Typography sx={{ fontSize: { xs: '14px', sm: '16px', md: '20px' } }}>👥</Typography>
-              <Typography sx={{ fontSize: { xs: '16px', sm: '18px', md: '24px' }, fontWeight: 'bold', color: '#3b82f6' }}>
+        <Card sx={{ background: '#ffffff', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '12px', boxShadow: 'none' }}>
+          <CardContent sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(59, 130, 246, 0.1)', padding: '8px', borderRadius: '8px' }}>
+              <FiUsers size={32} color="#3b82f6" />
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: { xs: '12px', sm: '13px' }, color: '#9ca3af', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.5 }}>
+                Avg Patients Per Doctor
+              </Typography>
+              <Typography sx={{ fontSize: { xs: '20px', sm: '24px' }, fontWeight: 'bold', color: '#3b82f6' }}>
                 {stats ? `${stats.avgPatientsPerDoctor.toFixed(1)}` : '--'}
               </Typography>
+              <Typography sx={{ fontSize: { xs: '11px', sm: '12px' }, color: '#666', lineHeight: 1.3, mt: 0.5 }}>
+                {doctorInsight}
+              </Typography>
             </Box>
-            <Typography sx={{ fontSize: { xs: '11px', sm: '12px' }, color: '#666', lineHeight: 1.3 }}>
-              {doctorInsight}
-            </Typography>
           </CardContent>
         </Card>
 
         {/* Patient Return Rate */}
-        <Card
-          sx={{
-            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%)',
-            border: '1px solid #f59e0b',
-            borderRadius: '12px',
-          }}
-        >
-          <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
-            <Typography sx={{ fontSize: { xs: '12px', sm: '13px', md: '14px' }, color: '#666', fontWeight: '600', mb: 1 }}>
-              Patient Return Rate
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-              <Typography sx={{ fontSize: { xs: '14px', sm: '16px', md: '20px' } }}>🔄</Typography>
-              <Typography sx={{ fontSize: { xs: '16px', sm: '18px', md: '24px' }, fontWeight: 'bold', color: '#f59e0b' }}>
+        <Card sx={{ background: '#ffffff', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '12px', boxShadow: 'none' }}>
+          <CardContent sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: '8px', borderRadius: '8px' }}>
+              <FiRotateCw size={32} color="#f59e0b" />
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: { xs: '12px', sm: '13px' }, color: '#9ca3af', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.5 }}>
+                Patient Return Rate
+              </Typography>
+              <Typography sx={{ fontSize: { xs: '20px', sm: '24px' }, fontWeight: 'bold', color: '#f59e0b' }}>
                 {stats ? `${stats.patientReturnRate.toFixed(1)}%` : '--'}
               </Typography>
+              <Typography sx={{ fontSize: { xs: '11px', sm: '12px' }, color: '#666', lineHeight: 1.3, mt: 0.5 }}>
+                {returnRateInsight}
+              </Typography>
             </Box>
-            <Typography sx={{ fontSize: { xs: '11px', sm: '12px' }, color: '#666', lineHeight: 1.3 }}>
-              {returnRateInsight}
-            </Typography>
           </CardContent>
         </Card>
 
         {/* Attendance Rate */}
-        <Card
-          sx={{
-            background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%)',
-            border: '1px solid #22c55e',
-            borderRadius: '12px',
-          }}
-        >
-          <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
-            <Typography sx={{ fontSize: { xs: '12px', sm: '13px', md: '14px' }, color: '#666', fontWeight: '600', mb: 1 }}>
-              Attendance Rate
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-              <Typography sx={{ fontSize: { xs: '14px', sm: '16px', md: '20px' } }}>📅</Typography>
-              <Typography sx={{ fontSize: { xs: '16px', sm: '18px', md: '24px' }, fontWeight: 'bold', color: '#22c55e' }}>
+        <Card sx={{ background: '#ffffff', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: '12px', boxShadow: 'none' }}>
+          <CardContent sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(34, 197, 94, 0.1)', padding: '8px', borderRadius: '8px' }}>
+              <FiCalendar size={32} color="#22c55e" />
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: { xs: '12px', sm: '13px' }, color: '#9ca3af', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.5 }}>
+                Attendance Rate
+              </Typography>
+              <Typography sx={{ fontSize: { xs: '20px', sm: '24px' }, fontWeight: 'bold', color: '#22c55e' }}>
                 {stats ? `${Math.round(stats.attendanceRate)}%` : '--'}
               </Typography>
+              <Typography sx={{ fontSize: { xs: '11px', sm: '12px' }, color: '#666', lineHeight: 1.3, mt: 0.5 }}>
+                {attendanceInsight}
+              </Typography>
             </Box>
-            <Typography sx={{ fontSize: { xs: '11px', sm: '12px' }, color: '#666', lineHeight: 1.3 }}>
-              {attendanceInsight}
-            </Typography>
           </CardContent>
         </Card>
       </Box>

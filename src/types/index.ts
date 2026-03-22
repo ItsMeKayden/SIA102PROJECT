@@ -16,7 +16,10 @@ export type AttendanceUpdate =
 export type AttendanceWithStaff = Attendance & { staff_name?: string };
 
 // Appointment types
-export type Appointment = Database['public']['Tables']['appointments']['Row'];
+export type Appointment = Database['public']['Tables']['appointments']['Row'] & {
+  specialization?: string | null;
+  service_id?: string | null;
+};
 export type AppointmentInsert =
   Database['public']['Tables']['appointments']['Insert'];
 export type AppointmentUpdate =

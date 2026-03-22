@@ -27,7 +27,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
-import { FiClock, FiX } from 'react-icons/fi';
+import { FiClock, FiX, FiCheckCircle, FiAlertCircle, FiPhone, FiMinusCircle } from 'react-icons/fi';
 import { QRCodeSVG } from 'qrcode.react';
 import { QRScanner } from '../components/scanner/QRScanner';
 import { useAuth } from '../../contexts/AuthContext';
@@ -441,13 +441,15 @@ function Attendance() {
       const updatedRecords = [...attendanceData];
       let hasChanges = false;
       const staffMarkedAbsent: { staffId: string; date: string }[] = [];
+      const processedStaffDates = new Set<string>(); // Track which staff/date combos we've already processed
 
       // Check today's records with Pending status and no clock-in
       for (const record of updatedRecords) {
         if (record.date === today && record.status === 'Pending' && !record.time_in) {
           const todaySchedule = scheduleMap.get(record.staff_id);
+          const staffDateKey = `${record.staff_id}-${today}`; // Unique key for this staff/date combo
           
-          if (todaySchedule && todaySchedule.end_time) {
+          if (todaySchedule && todaySchedule.end_time && !processedStaffDates.has(staffDateKey)) {
             // Parse times for comparison
             const [schedEndHour, schedEndMin] = todaySchedule.end_time.split(':').map(Number);
             const [currentHour, currentMin] = currentTime.split(':').map(Number);
@@ -464,6 +466,7 @@ function Attendance() {
                   status: 'Absent',
                 };
                 staffMarkedAbsent.push({ staffId: record.staff_id, date: today });
+                processedStaffDates.add(staffDateKey); // Mark this staff/date as processed
                 hasChanges = true;
               }
             }
@@ -696,20 +699,99 @@ function Attendance() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 2,
-                mb: 1,
+                mb: 3,
                 flexDirection: { xs: 'column', sm: 'row' },
+                justifyContent: { xs: 'flex-start', sm: 'space-between' },
               }}
             >
               <Typography
                 variant="h5"
                 sx={{
-                  fontWeight: 700,
-                  fontSize: { xs: '18px', sm: '20px' },
+                  fontWeight: 550,
+                  fontSize: { xs: '20px', sm: '24px' },
                   color: '#1a202c',
                 }}
               >
                 Attendance Tracking
               </Typography>
+              <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, flexDirection: { xs: 'column', sm: 'row' }, width: { xs: '100%', sm: 'auto' }, alignItems: { xs: 'stretch', sm: 'center' } }}>
+                {userRole !== 'admin' && (
+                  <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, flexDirection: { xs: 'column', sm: 'row' }, width: { xs: '100%', sm: 'auto' }, alignItems: { xs: 'stretch', sm: 'center' } }}>
+                    <Button
+                      variant="outlined"
+                      onClick={() => setManualEntryOpen(true)}
+                      sx={{
+                        textTransform: 'none',
+                        borderRadius: '10px',
+                        fontWeight: 600,
+                        fontSize: { xs: '12px', sm: '13px' },
+                        borderColor: '#3b82f6',
+                        color: '#3b82f6',
+                        width: { xs: '100%', sm: 'auto' },
+                        '&:hover': {
+                          backgroundColor: '#eff6ff',
+                        },
+                      }}
+                    >
+                      Manual Entry
+                    </Button>
+                    <Button
+                      variant="contained"
+                      startIcon={<FiClock size={16} />}
+                      onClick={() => setQrScannerOpen(true)}
+                      sx={{
+                        textTransform: 'none',
+                        borderRadius: '10px',
+                        fontWeight: 600,
+                        fontSize: { xs: '12px', sm: '13px' },
+                        backgroundColor: '#10b981',
+                        width: { xs: '100%', sm: 'auto' },
+                        '&:hover': {
+                          backgroundColor: '#059669',
+                        },
+                        '&:active': {
+                          backgroundColor: '#10b981',
+                        },
+                      }}
+                    >
+                      Scan QR Code
+                    </Button>
+                  </Box>
+                )}
+                {userRole === 'admin' && (
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' }, width: { xs: '100%', sm: 'auto' } }}>
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <DatePicker
+                        label="Select Date"
+                        value={dayjs(selectedDate)}
+                        onChange={(date) => {
+                          if (date) {
+                            const formattedDate = date.format('YYYY-MM-DD');
+                            setSelectedDate(formattedDate);
+                          }
+                        }}
+                        sx={{
+                          width: { xs: '100%', sm: '200px' },
+                        }}
+                      />
+                    </LocalizationProvider>
+                    <Button
+                      variant="contained"
+                      onClick={() => setGenerateQRModalOpen(true)}
+                      sx={{
+                        textTransform: 'none',
+                        backgroundColor: '#3b82f6',
+                        fontWeight: 600,
+                        fontSize: { xs: '12px', sm: '13px' },
+                        width: { xs: '100%', sm: 'auto' },
+                        '&:hover': { backgroundColor: '#2563eb' },
+                      }}
+                    >
+                      Generate QR Code
+                    </Button>
+                  </Box>
+                )}
+              </Box>
             </Box>
             <Box
               sx={{
@@ -722,150 +804,89 @@ function Attendance() {
             >
               <Box
                 sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' },
+                  display: 'flex',
+                  flexDirection: { xs: 'column', sm: 'row' },
                   gap: { xs: 1.5, sm: 2 },
-                  flex: { xs: '1 1 100%', sm: '1 1 auto' },
+                  width: '100%',
                 }}
               >
               {[
                 {
                   label: 'Present',
                   value: stats.present,
-                  bg: '#d1fae5',
-                  border: '#4caf50',
                   color: '#16a34a',
+                  borderColor: 'rgba(22, 163, 74, 0.3)',
+                  bgColor: 'rgba(22, 163, 74, 0.1)',
+                  icon: FiCheckCircle,
                 },
                 {
                   label: 'Late',
                   value: stats.late,
-                  bg: '#fffbeb',
-                  border: '#f59e0b',
                   color: '#d97706',
+                  borderColor: 'rgba(217, 119, 6, 0.3)',
+                  bgColor: 'rgba(217, 119, 6, 0.1)',
+                  icon: FiAlertCircle,
                 },
                 {
                   label: 'Absent',
                   value: stats.absent,
-                  bg: '#fecaca',
-                  border: '#fa0707',
                   color: '#dc2626',
+                  borderColor: 'rgba(220, 38, 38, 0.3)',
+                  bgColor: 'rgba(220, 38, 38, 0.1)',
+                  icon: FiMinusCircle,
                 },
                 {
                   label: 'On-Call',
                   value: stats.onCall,
-                  bg: '#dbeafe',
-                  border: '#1d7ff8',
                   color: '#3b82f6',
+                  borderColor: 'rgba(59, 130, 246, 0.3)',
+                  bgColor: 'rgba(59, 130, 246, 0.1)',
+                  icon: FiPhone,
                 },
-              ].map((card) => (
-                <Card
-                  key={card.label}
-                  sx={{
-                    background: card.bg,
-                    border: `1px solid ${card.border}`,
-                    borderRadius: '16px',
-                    boxShadow: 'none',
-                  }}
-                >
-                  <CardContent sx={{ py: '8px !important', px: '12px !important' }}>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: '#374151',
-                        mb: 0.5,
-                        fontWeight: 500,
-                        fontSize: { xs: '10px', sm: '12px' },
-                      }}
-                    >
-                      {card.label}
-                    </Typography>
-                    <Typography
-                      variant="h5"
-                      sx={{ color: card.color, fontWeight: 700, fontSize: { xs: '20px', sm: '28px' } }}
-                    >
-                      {card.value}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              ))}
-              </Box>
-              <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, flexDirection: { xs: 'column', sm: 'row' }, width: { xs: '100%', sm: 'auto' }, alignItems: { xs: 'stretch', sm: 'center' } }}>
-            {userRole !== 'admin' && (
-              <>
-                <Button
-                  variant="contained"
-                  startIcon={<FiClock size={16} />}
-                  onClick={() => setQrScannerOpen(true)}
-                  sx={{
-                    textTransform: 'none',
-                    borderRadius: '10px',
-                    fontWeight: 600,
-                    fontSize: { xs: '12px', sm: '13px' },
-                    backgroundColor: '#10b981',
-                    width: { xs: '100%', sm: 'auto' },
-                    '&:hover': {
-                      backgroundColor: '#059669',
-                    },
-                    '&:active': {
-                      backgroundColor: '#10b981',
-                    },
-                  }}
-                >
-                  Scan QR Code
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => setManualEntryOpen(true)}
-                  sx={{
-                    textTransform: 'none',
-                    borderRadius: '10px',
-                    fontWeight: 600,
-                    fontSize: { xs: '12px', sm: '13px' },
-                    borderColor: '#3b82f6',
-                    color: '#3b82f6',
-                    width: { xs: '100%', sm: 'auto' },
-                    '&:hover': {
-                      backgroundColor: '#eff6ff',
-                    },
-                  }}
-                >
-                  Manual Entry
-                </Button>
-              </>
-            )}
-            {userRole === 'admin' && (
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' }, width: { xs: '100%', sm: 'auto' } }}>
-                <LocalizationProvider dateAdapter={AdapterDayjs}>
-                  <DatePicker
-                    label="Select Date"
-                    value={dayjs(selectedDate)}
-                    onChange={(date) => {
-                      if (date) {
-                        const formattedDate = date.format('YYYY-MM-DD');
-                        setSelectedDate(formattedDate);
-                      }
-                    }}
+              ].map((card) => {
+                const IconComponent = card.icon;
+                return (
+                  <Card
+                    key={card.label}
                     sx={{
-                      width: { xs: '100%', sm: '200px' },
+                      background: '#ffffff',
+                      border: `1px solid ${card.borderColor}`,
+                      borderRadius: '12px',
+                      boxShadow: 'none',
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
                     }}
-                  />
-                </LocalizationProvider>
-                <Button
-                  variant="contained"
-                  onClick={() => setGenerateQRModalOpen(true)}
-                  sx={{
-                    textTransform: 'none',
-                    backgroundColor: '#3b82f6',
-                    fontWeight: 600,
-                    fontSize: { xs: '12px', sm: '13px' },
-                    width: { xs: '100%', sm: 'auto' },
-                    '&:hover': { backgroundColor: '#2563eb' },
-                  }}
-                >
-                  Generate QR Code
-                </Button>
-              </Box>
-            )}
+                  >
+                    <CardContent sx={{ display: 'flex', gap: 2, alignItems: 'center', py: '12px', px: '16px', width: '100%' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0, backgroundColor: card.bgColor, padding: '8px', borderRadius: '8px' }}>
+                        <IconComponent size={32} color={card.color} />
+                      </Box>
+                      <Box>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: '#9ca3af',
+                            mb: 0.5,
+                            fontWeight: 500,
+                            fontSize: { xs: '11px', sm: '12px' },
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                          }}
+                        >
+                          {card.label}
+                        </Typography>
+                        <Typography
+                          variant="h4"
+                          sx={{ color: '#000000', fontWeight: 700, fontSize: { xs: '24px', sm: '28px' } }}
+                        >
+                          {card.value}
+                        </Typography>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                );
+              })}
               </Box>
             </Box>
           </Box>
@@ -913,7 +934,7 @@ function Attendance() {
                     px: { xs: 1, sm: 2 },
                   }}
                 >
-                  Date
+                  {selectedDate === getTodayDateString() ? 'Date Today' : 'Date'}
                 </TableCell>
                 <TableCell
                   sx={{

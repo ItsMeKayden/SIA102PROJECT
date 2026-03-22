@@ -724,6 +724,83 @@ function Appointments() {
 
   const today = new Date().toISOString().split("T")[0];
 
+  // Helper function to get available time slots based on current time
+  const getAvailableTimeSlots = (): string[] => {
+    const allTimeSlots = [
+      "12:00 AM",
+      "12:30 AM",
+      "1:00 AM",
+      "1:30 AM",
+      "2:00 AM",
+      "2:30 AM",
+      "3:00 AM",
+      "3:30 AM",
+      "4:00 AM",
+      "4:30 AM",
+      "5:00 AM",
+      "5:30 AM",
+      "6:00 AM",
+      "6:30 AM",
+      "7:00 AM",
+      "7:30 AM",
+      "8:00 AM",
+      "8:30 AM",
+      "9:00 AM",
+      "9:30 AM",
+      "10:00 AM",
+      "10:30 AM",
+      "11:00 AM",
+      "11:30 AM",
+      "12:00 PM",
+      "12:30 PM",
+      "1:00 PM",
+      "1:30 PM",
+      "2:00 PM",
+      "2:30 PM",
+      "3:00 PM",
+      "3:30 PM",
+      "4:00 PM",
+      "4:30 PM",
+      "5:00 PM",
+      "5:30 PM",
+      "6:00 PM",
+      "6:30 PM",
+      "7:00 PM",
+      "7:30 PM",
+      "8:00 PM",
+      "8:30 PM",
+      "9:00 PM",
+      "9:30 PM",
+      "10:00 PM",
+      "10:30 PM",
+      "11:00 PM",
+      "11:30 PM",
+    ];
+
+    // If not today, return all time slots
+    if (formData.appointment_date !== today) {
+      return allTimeSlots;
+    }
+
+    // If it's today, filter out times within the next hour
+    const parseTime = (timeStr: string): number => {
+      const [time, period] = timeStr.split(" ");
+      const parts = time.split(":").map(Number);
+      let hours = parts[0];
+      const minutes = parts[1];
+      if (period === "PM" && hours !== 12) hours += 12;
+      if (period === "AM" && hours === 12) hours = 0;
+      return hours * 60 + minutes;
+    };
+
+    const now = new Date();
+    const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
+    // Add 60 minutes (1 hour) to current time for minimum available slot
+    const minimumAvailableTimeInMinutes = currentTimeInMinutes + 60;
+
+    return allTimeSlots.filter((slot) => parseTime(slot) >= minimumAvailableTimeInMinutes);
+  };
+
   const patient_name = [
     formData.patient_first_name,
     formData.patient_middle_name,
@@ -835,16 +912,10 @@ function Appointments() {
       if (formData.appointment_date < today)
         return "Appointment date cannot be in the past";
       if (formData.appointment_date === today) {
-        const parseTime = (t: string) => {
-          const [time, period] = t.split(" ");
-          let [h, m] = time.split(":").map(Number);
-          if (period === "PM" && h !== 12) h += 12;
-          if (period === "AM" && h === 12) h = 0;
-          return h * 60 + m;
-        };
-        const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
-        if (parseTime(formData.appointment_time) <= nowMinutes)
-          return "Appointment time cannot be in the past";
+        const availableSlots = getAvailableTimeSlots();
+        if (!availableSlots.includes(formData.appointment_time)) {
+          return "Please select an available time slot (must be at least 1 hour from now)";
+        }
       }
       if (isAdmin) {
         const matchingDoctors = doctors.filter(
@@ -984,8 +1055,8 @@ function Appointments() {
       const matchingDoctors = doctors.filter(
         (d) =>
           d.department === appt.department &&
-          (!(appt as any).specialization ||
-            d.specialization === (appt as any).specialization),
+          (!appt.specialization ||
+            d.specialization === appt.specialization),
       );
       await Promise.all(
         matchingDoctors.map((doc) =>
@@ -1922,29 +1993,7 @@ function Appointments() {
                 <MenuItem value="" disabled>
                   Select a time…
                 </MenuItem>
-                {[
-                  "7:00 AM",
-                  "7:30 AM",
-                  "8:00 AM",
-                  "8:30 AM",
-                  "9:00 AM",
-                  "9:30 AM",
-                  "10:00 AM",
-                  "10:30 AM",
-                  "11:00 AM",
-                  "11:30 AM",
-                  "12:00 PM",
-                  "12:30 PM",
-                  "1:00 PM",
-                  "1:30 PM",
-                  "2:00 PM",
-                  "2:30 PM",
-                  "3:00 PM",
-                  "3:30 PM",
-                  "4:00 PM",
-                  "4:30 PM",
-                  "5:00 PM",
-                ].map((t) => (
+                {getAvailableTimeSlots().map((t) => (
                   <MenuItem key={t} value={t} sx={{ fontSize: "14px" }}>
                     {t}
                   </MenuItem>
@@ -2533,7 +2582,7 @@ function Appointments() {
                     const requestedBy =
                       doctors.find((d) => d.id === appt.doctor_id) ?? null;
                     const svc = services.find(
-                      (s) => s.id === (appt as any).service_id,
+                      (s) => s.id === appt.service_id,
                     );
                     return (
                       <TableRow
@@ -2597,7 +2646,7 @@ function Appointments() {
                           />
                         </TableCell>
                         <TableCell sx={{ fontSize: "12px", color: "#374151" }}>
-                          {(appt as any).specialization ??
+                          {appt.specialization ??
                             appt.department ??
                             "—"}
                         </TableCell>
@@ -2751,7 +2800,7 @@ function Appointments() {
                 <TableBody>
                   {doctorAssignedQueue.map((appt) => {
                     const svc = services.find(
-                      (s) => s.id === (appt as any).service_id,
+                      (s) => s.id === appt.service_id,
                     );
                     return (
                       <TableRow
@@ -2781,7 +2830,7 @@ function Appointments() {
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {(appt as any).specialization ?? "—"}
+                          {appt.specialization ?? "—"}
                         </TableCell>
                         <TableCell sx={{ fontSize: "12px" }}>
                           {svc ? (
@@ -3235,7 +3284,7 @@ function Appointments() {
                     doctors.find((d) => d.id === appt.doctor_id) ??
                     (appt.doctor_id === staffProfile?.id ? staffProfile : null);
                   const svc = services.find(
-                    (s) => s.id === (appt as any).service_id,
+                    (s) => s.id === appt.service_id,
                   );
                   return (
                     <TableRow
@@ -3263,7 +3312,7 @@ function Appointments() {
                         )}
                       </TableCell>
                       <TableCell sx={{ fontSize: "12px", color: "#374151" }}>
-                        {(appt as any).specialization ?? appt.department ?? "—"}
+                        {appt.specialization ?? appt.department ?? "—"}
                       </TableCell>
                       <TableCell sx={{ fontSize: "12px" }}>
                         {svc ? (
@@ -3423,9 +3472,9 @@ function Appointments() {
                 const appt = viewModal.appt!;
                 const doctor = doctors.find((d) => d.id === appt.doctor_id);
                 const svc = services.find(
-                  (s) => s.id === (appt as any).service_id,
+                  (s) => s.id === appt.service_id,
                 );
-                const prescription = (appt as any).prescription as
+                const prescription = appt.prescription as
                   | string
                   | null
                   | undefined;
@@ -3561,7 +3610,7 @@ function Appointments() {
                         />
                         <InfoRow
                           label="Specialization"
-                          value={(appt as any).specialization ?? undefined}
+                          value={appt.specialization ?? undefined}
                         />
                         <InfoRow
                           label="Service"

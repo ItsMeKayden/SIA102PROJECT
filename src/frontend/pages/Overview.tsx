@@ -2,6 +2,7 @@ import '../styles/Pages.css';
 import '../styles/Overview.css';
 import { useEffect, useState } from 'react';
 import { CircularProgress, Alert, Card, CardContent, Typography, Box } from '@mui/material';
+import { FiUsers, FiCheckCircle, FiCalendar } from 'react-icons/fi';
 import { getStaffCountByStatus } from '../../backend/services/staffService';
 import { getUpcomingAppointments, getAppointmentStats, getAppointmentsByDate } from '../../backend/services/appointmentService';
 import { getAllAttendance } from '../../backend/services/attendanceService';
@@ -174,68 +175,30 @@ function Overview() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-          gap: 2,
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' },
+          gap: { xs: 1, sm: 1.5, md: 2 },
           mb: 3,
         }}
       >
         {[
-          {
-            label: 'Total Staff',
-            value: stats.totalStaff,
-            bg: '#fffbeb',
-            border: '#f59e0b',
-            color: '#d97706',
-          },
-          {
-            label: 'Present Today',
-            value: stats.presentToday,
-            bg: '#f0fdf4',
-            border: '#4caf50',
-            color: '#16a34a',
-          },
-          {
-            label: 'Total Appointments',
-            value: stats.appointments,
-            bg: '#eff6ff',
-            border: '#3b82f6',
-            color: '#2563eb',
-          },
-          {
-            label: 'Completed Today',
-            value: stats.completedAppointments,
-            bg: '#f0fdf4',
-            border: '#10b981',
-            color: '#059669',
-          },
+          { label: 'Total Staff', value: stats.totalStaff, Icon: FiUsers, color: '#f59e0b', rgb: '245, 158, 11' },
+          { label: 'Present Today', value: stats.presentToday, Icon: FiCheckCircle, color: '#22c55e', rgb: '34, 197, 94' },
+          { label: 'Total Appointments', value: stats.appointments, Icon: FiCalendar, color: '#3b82f6', rgb: '59, 130, 246' },
+          { label: 'Completed Today', value: stats.completedAppointments, Icon: FiCheckCircle, color: '#10b981', rgb: '16, 185, 129' },
         ].map((card) => (
-          <Card
-            key={card.label}
-            sx={{
-              background: card.bg,
-              border: `1px solid ${card.border}`,
-              borderRadius: '16px',
-              boxShadow: 'none',
-            }}
-          >
-            <CardContent sx={{ py: '8px !important', px: '16px !important' }}>
-              <Typography
-                variant="body2"
-                sx={{
-                  color: '#374151',
-                  mb: 0.5,
-                  fontWeight: 500,
-                  fontSize: '12px',
-                }}
-              >
-                {card.label}
-              </Typography>
-              <Typography
-                variant="h5"
-                sx={{ color: card.color, fontWeight: 700, fontSize: '28px' }}
-              >
-                {card.value}
-              </Typography>
+          <Card key={card.label} sx={{ background: '#ffffff', border: `1px solid rgba(${card.rgb}, 0.3)`, borderRadius: '12px', boxShadow: 'none' }}>
+            <CardContent sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: `rgba(${card.rgb}, 0.1)`, padding: '8px', borderRadius: '8px' }}>
+                <card.Icon size={32} color={card.color} />
+              </Box>
+              <Box>
+                <Typography sx={{ fontSize: { xs: '12px', sm: '13px' }, color: '#9ca3af', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.5 }}>
+                  {card.label}
+                </Typography>
+                <Typography sx={{ fontSize: { xs: '20px', sm: '24px' }, fontWeight: 'bold', color: card.color }}>
+                  {card.value}
+                </Typography>
+              </Box>
             </CardContent>
           </Card>
         ))}
