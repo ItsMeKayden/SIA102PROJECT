@@ -24,12 +24,12 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
-  Divider,
   InputAdornment,
   Menu,
   Tooltip,
   ListItemIcon,
   ListItemText,
+  Drawer,
 } from "@mui/material";
 import {
   FiX,
@@ -56,6 +56,7 @@ import {
   FiSlash,
   FiCheckSquare,
   FiClipboard,
+  FiPlusCircle,
 } from "react-icons/fi";
 import type { Appointment, Staff } from "../../types";
 import { supabase } from "../../lib/supabase-client";
@@ -90,27 +91,27 @@ import {
 const fieldSx = {
   "& .MuiOutlinedInput-root": {
     borderRadius: "10px",
-    fontSize: "14px",
+    fontSize: "13px",
     backgroundColor: "#fff",
   },
   "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e5e7eb" },
 };
 const selectSx = {
   borderRadius: "10px",
-  fontSize: "14px",
+  fontSize: "13px",
   backgroundColor: "#fff",
   "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e5e7eb" },
 };
 const labelSx = {
-  fontSize: "11px",
+  fontSize: "10px",
   fontWeight: 600,
   color: "#6b7280",
   textTransform: "uppercase" as const,
   letterSpacing: "0.07em",
   display: "flex",
   alignItems: "center",
-  gap: "5px",
-  mb: "6px",
+  gap: "4px",
+  mb: "4px",
 };
 
 function FieldLabel({
@@ -195,7 +196,7 @@ function DatePicker({
       sx={{
         display: "grid",
         gridTemplateColumns: { xs: "1fr 1fr", sm: "1fr 72px 96px" },
-        gap: 1,
+        gap: 0.75,
       }}
     >
       <FormControl size="small">
@@ -207,13 +208,13 @@ function DatePicker({
             v ? (
               (months.find((m) => m.value === v)?.label ?? v)
             ) : (
-              <span style={{ color: "#9ca3af", fontSize: "14px" }}>Month</span>
+              <span style={{ color: "#9ca3af", fontSize: "13px" }}>Month</span>
             )
           }
           sx={selectSx}
         >
           {months.map((m) => (
-            <MenuItem key={m.value} value={m.value} sx={{ fontSize: "14px" }}>
+            <MenuItem key={m.value} value={m.value} sx={{ fontSize: "13px" }}>
               {m.label}
             </MenuItem>
           ))}
@@ -228,13 +229,13 @@ function DatePicker({
             v ? (
               v
             ) : (
-              <span style={{ color: "#9ca3af", fontSize: "14px" }}>Day</span>
+              <span style={{ color: "#9ca3af", fontSize: "13px" }}>Day</span>
             )
           }
           sx={selectSx}
         >
           {days.map((d) => (
-            <MenuItem key={d} value={d} sx={{ fontSize: "14px" }}>
+            <MenuItem key={d} value={d} sx={{ fontSize: "13px" }}>
               {d}
             </MenuItem>
           ))}
@@ -249,14 +250,14 @@ function DatePicker({
             v ? (
               v
             ) : (
-              <span style={{ color: "#9ca3af", fontSize: "14px" }}>Year</span>
+              <span style={{ color: "#9ca3af", fontSize: "13px" }}>Year</span>
             )
           }
           sx={selectSx}
           MenuProps={{ PaperProps: { style: { maxHeight: 220 } } }}
         >
           {years.map((y) => (
-            <MenuItem key={y} value={y} sx={{ fontSize: "14px" }}>
+            <MenuItem key={y} value={y} sx={{ fontSize: "13px" }}>
               {y}
             </MenuItem>
           ))}
@@ -323,8 +324,8 @@ function MiniCalendar({
     <Box
       sx={{
         border: "1px solid #e5e7eb",
-        borderRadius: "12px",
-        p: 2,
+        borderRadius: "10px",
+        p: 1.25,
         backgroundColor: "#fff",
         userSelect: "none",
       }}
@@ -334,18 +335,18 @@ function MiniCalendar({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          mb: 1.5,
+          mb: 1,
         }}
       >
         <IconButton
           size="small"
           onClick={prevMonth}
-          sx={{ color: "#6b7280", fontSize: "18px", width: 28, height: 28 }}
+          sx={{ color: "#6b7280", fontSize: "16px", width: 24, height: 24 }}
         >
           ‹
         </IconButton>
         <Typography
-          sx={{ fontWeight: 600, fontSize: "14px", color: "#1a202c" }}
+          sx={{ fontWeight: 600, fontSize: "12px", color: "#1a202c" }}
         >
           {monthNames[viewMonth]}{" "}
           <span style={{ color: "#3b82f6" }}>{viewYear}</span>
@@ -353,22 +354,26 @@ function MiniCalendar({
         <IconButton
           size="small"
           onClick={nextMonth}
-          sx={{ color: "#6b7280", fontSize: "18px", width: 28, height: 28 }}
+          sx={{ color: "#6b7280", fontSize: "16px", width: 24, height: 24 }}
         >
           ›
         </IconButton>
       </Box>
       <Box
-        sx={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", mb: 0.5 }}
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "repeat(7, 1fr)",
+          mb: 0.25,
+        }}
       >
         {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
           <Typography
             key={d}
             sx={{
               textAlign: "center",
-              fontSize: "11px",
+              fontSize: "10px",
               color: "#9ca3af",
-              pb: 0.5,
+              pb: 0.25,
             }}
           >
             {d}
@@ -379,7 +384,7 @@ function MiniCalendar({
         sx={{
           display: "grid",
           gridTemplateColumns: "repeat(7, 1fr)",
-          gap: "2px",
+          gap: "1px",
         }}
       >
         {cells.map((day, i) => {
@@ -394,9 +399,9 @@ function MiniCalendar({
               onClick={() => !isPast && onChange(iso)}
               sx={{
                 textAlign: "center",
-                py: "5px",
-                borderRadius: "6px",
-                fontSize: "13px",
+                py: "3px",
+                borderRadius: "5px",
+                fontSize: "11px",
                 cursor: isPast ? "default" : "pointer",
                 color: isPast
                   ? "#d1d5db"
@@ -421,18 +426,6 @@ function MiniCalendar({
           );
         })}
       </Box>
-      {!value && (
-        <Typography
-          sx={{
-            textAlign: "center",
-            fontSize: "12px",
-            color: "#9ca3af",
-            mt: 1.5,
-          }}
-        >
-          Select your preferred date
-        </Typography>
-      )}
     </Box>
   );
 }
@@ -448,16 +441,16 @@ function TagSelector({
   onChange: (v: string) => void;
 }) {
   return (
-    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
+    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.25 }}>
       {options.map((opt) => (
         <Box
           key={opt}
           onClick={() => onChange(value === opt ? "" : opt)}
           sx={{
-            px: 1.5,
-            py: 0.5,
+            px: 1.25,
+            py: 0.35,
             borderRadius: "20px",
-            fontSize: "12px",
+            fontSize: "11px",
             cursor: "pointer",
             border: "1px solid",
             transition: "all .15s",
@@ -476,15 +469,15 @@ function TagSelector({
 
 // ── Stepper ───────────────────────────────────────────────────────────────────
 const STEPS = [
-  { id: 1, label: "Patient info", icon: <FiUser size={13} /> },
-  { id: 2, label: "Appointment", icon: <FiCalendar size={13} /> },
-  { id: 3, label: "Clinical notes", icon: <FiHeart size={13} /> },
-  { id: 4, label: "Review", icon: <FiCheck size={13} /> },
+  { id: 1, label: "Patient info", icon: <FiUser size={11} /> },
+  { id: 2, label: "Appointment", icon: <FiCalendar size={11} /> },
+  { id: 3, label: "Clinical notes", icon: <FiHeart size={11} /> },
+  { id: 4, label: "Review", icon: <FiCheck size={11} /> },
 ];
 
 function StepperHeader({ currentStep }: { currentStep: number }) {
   return (
-    <Box sx={{ mb: 1.5 }}>
+    <Box sx={{ mb: 1 }}>
       <Box
         sx={{ display: "flex", alignItems: "flex-start", position: "relative" }}
       >
@@ -507,7 +500,7 @@ function StepperHeader({ currentStep }: { currentStep: number }) {
                 <Box
                   sx={{
                     position: "absolute",
-                    top: "18px",
+                    top: "14px",
                     left: "50%",
                     width: "100%",
                     height: "2px",
@@ -518,13 +511,13 @@ function StepperHeader({ currentStep }: { currentStep: number }) {
               )}
               <Box
                 sx={{
-                  width: 36,
-                  height: 36,
+                  width: 28,
+                  height: 28,
                   borderRadius: "50%",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: "13px",
+                  fontSize: "11px",
                   fontWeight: 500,
                   zIndex: 1,
                   transition: "all .25s",
@@ -542,14 +535,14 @@ function StepperHeader({ currentStep }: { currentStep: number }) {
                   color: done || active ? "#fff" : "#9ca3af",
                 }}
               >
-                {done ? <FiCheck size={14} /> : step.icon}
+                {done ? <FiCheck size={11} /> : step.icon}
               </Box>
               <Typography
                 sx={{
-                  fontSize: "11px",
-                  mt: 0.75,
+                  fontSize: "10px",
+                  mt: 0.5,
                   textAlign: "center",
-                  maxWidth: "70px",
+                  maxWidth: "60px",
                   fontWeight: active ? 600 : 400,
                   color: done ? "#10b981" : active ? "#3b82f6" : "#9ca3af",
                 }}
@@ -572,23 +565,23 @@ function ReviewField({ label, value }: { label: string; value: string }) {
         display: "flex",
         flexDirection: "column",
         gap: "2px",
-        p: 1,
+        p: 0.75,
         backgroundColor: "#f9fafb",
         borderRadius: "8px",
       }}
     >
-      <Typography sx={{ fontSize: "11px", color: "#9ca3af" }}>
+      <Typography sx={{ fontSize: "10px", color: "#9ca3af" }}>
         {label}
       </Typography>
       {value ? (
         <Typography
-          sx={{ fontSize: "13px", fontWeight: 500, color: "#1a202c" }}
+          sx={{ fontSize: "12px", fontWeight: 500, color: "#1a202c" }}
         >
           {value}
         </Typography>
       ) : (
         <Typography
-          sx={{ fontSize: "12px", color: "#d1d5db", fontStyle: "italic" }}
+          sx={{ fontSize: "11px", color: "#d1d5db", fontStyle: "italic" }}
         >
           —
         </Typography>
@@ -618,7 +611,6 @@ function formatDOB(iso: string): string {
   return `${monthNames[parseInt(m, 10) - 1] ?? m} ${parseInt(d, 10)}, ${y}`;
 }
 
-// Builds a clean, multi-line structured notes string saved to the DB
 function buildOPDNotes(f: {
   notes: string;
   chief_complaint: string;
@@ -635,7 +627,6 @@ function buildOPDNotes(f: {
   patient_address: string;
 }): string | null {
   const lines: string[] = [];
-
   if (f.chief_complaint) lines.push(`Chief Complaint: ${f.chief_complaint}`);
   if (f.allergies) lines.push(`Allergies: ${f.allergies}`);
   if (f.bp) lines.push(`BP: ${f.bp}`);
@@ -649,7 +640,6 @@ function buildOPDNotes(f: {
   if (f.patient_height) lines.push(`Height: ${f.patient_height}`);
   if (f.patient_weight) lines.push(`Weight: ${f.patient_weight}`);
   if (f.patient_address) lines.push(`Address: ${f.patient_address}`);
-
   return lines.length ? lines.join("\n") : null;
 }
 
@@ -688,6 +678,7 @@ function Appointments() {
     appt: Appointment | null;
     text: string;
   }>({ open: false, appt: null, text: "" });
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -772,6 +763,20 @@ function Appointments() {
     }
   }, [staffProfile?.department, staffProfile?.specialization, isAdmin]);
 
+  // Directly lock the <main> scroll container while this page is mounted
+  useEffect(() => {
+    const main = document.querySelector("main") as HTMLElement | null;
+    if (!main) return;
+    const prevOverflow = main.style.overflow;
+    const prevHeight = main.style.height;
+    main.style.overflow = "hidden";
+    main.style.height = "100%";
+    return () => {
+      main.style.overflow = prevOverflow;
+      main.style.height = prevHeight;
+    };
+  }, []);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -802,10 +807,8 @@ function Appointments() {
 
   const showSnackbar = (msg: string, sev: "success" | "error") =>
     setSnackbar({ open: true, message: msg, severity: sev });
-
   const isValidPHPhone = (v: string) => /^(09\d{9}|\+639\d{9})$/.test(v.trim());
 
-  // ── Validation ────────────────────────────────────────────────────────────────
   const validateStep = (step: number): string | null => {
     if (step === 1) {
       const missing: string[] = [];
@@ -881,7 +884,6 @@ function Appointments() {
 
   const handleBack = () => setCurrentStep((s) => Math.max(s - 1, 1));
 
-  // ── Submit ────────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     const selectedService = services.find((s) => s.id === formData.service_id);
     const status = isAdmin ? "Assigned" : "Pending";
@@ -938,6 +940,7 @@ function Appointments() {
 
     fetchData();
     resetForm();
+    setDrawerOpen(false);
   };
 
   const resetForm = () => {
@@ -1159,14 +1162,11 @@ function Appointments() {
       showSnackbar("Please enter a prescription", "error");
       return;
     }
-
     const { error } = await updateAppointmentPrescription(appt.id, text.trim());
     if (error) {
       showSnackbar(error, "error");
       return;
     }
-
-    // Optimistically update local state so view modal reflects the change immediately
     setAppointments((prev) =>
       prev.map((a) =>
         a.id === appt.id ? { ...a, prescription: text.trim() } : a,
@@ -1269,10 +1269,8 @@ function Appointments() {
   const renderStaffActions = (appt: Appointment) => {
     if (isAdmin || appt.doctor_id !== staffProfile?.id) return null;
     if (appt.status !== "Approved" && appt.status !== "Accepted") return null;
-
     const isMenuOpen =
       actionsMenu.appt?.id === appt.id && Boolean(actionsMenu.anchor);
-
     return (
       <>
         <Tooltip title="Actions" placement="top">
@@ -1296,7 +1294,6 @@ function Appointments() {
             <FiMoreVertical size={13} />
           </IconButton>
         </Tooltip>
-
         <Menu
           anchorEl={actionsMenu.anchor}
           open={isMenuOpen}
@@ -1473,17 +1470,16 @@ function Appointments() {
 
   // ── Step 1: Patient Information ───────────────────────────────────────────────
   const renderStep1 = () => (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-      {/* Name */}
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
       <Box
         sx={{
           display: "grid",
           gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" },
-          gap: 1.5,
+          gap: 1,
         }}
       >
         <Box>
-          <FieldLabel icon={<FiUser size={11} />} text="Last Name" required />
+          <FieldLabel icon={<FiUser size={10} />} text="Last Name" required />
           <TextField
             size="small"
             fullWidth
@@ -1496,7 +1492,7 @@ function Appointments() {
           />
         </Box>
         <Box>
-          <FieldLabel icon={<FiUser size={11} />} text="First Name" required />
+          <FieldLabel icon={<FiUser size={10} />} text="First Name" required />
           <TextField
             size="small"
             fullWidth
@@ -1509,7 +1505,7 @@ function Appointments() {
           />
         </Box>
         <Box>
-          <FieldLabel icon={<FiUser size={11} />} text="Middle Name" required />
+          <FieldLabel icon={<FiUser size={10} />} text="Middle Name" required />
           <TextField
             size="small"
             fullWidth
@@ -1523,17 +1519,16 @@ function Appointments() {
         </Box>
       </Box>
 
-      {/* Contact + DOB */}
       <Box
         sx={{
           display: "grid",
           gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-          gap: 1.5,
+          gap: 1,
         }}
       >
         <Box>
           <FieldLabel
-            icon={<FiPhone size={11} />}
+            icon={<FiPhone size={10} />}
             text="Mobile Number"
             required
           />
@@ -1564,7 +1559,7 @@ function Appointments() {
         </Box>
         <Box>
           <FieldLabel
-            icon={<FiCalendar size={11} />}
+            icon={<FiCalendar size={10} />}
             text="Date of Birth"
             required
           />
@@ -1575,9 +1570,8 @@ function Appointments() {
         </Box>
       </Box>
 
-      {/* Address */}
       <Box>
-        <FieldLabel icon={<FiEdit2 size={11} />} text="Address" required />
+        <FieldLabel icon={<FiEdit2 size={10} />} text="Address" required />
         <TextField
           size="small"
           fullWidth
@@ -1590,16 +1584,15 @@ function Appointments() {
         />
       </Box>
 
-      {/* Age / Height / Weight */}
       <Box
         sx={{
           display: "grid",
           gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" },
-          gap: 1.5,
+          gap: 1,
         }}
       >
         <Box>
-          <FieldLabel icon={<FiUser size={11} />} text="Age" required />
+          <FieldLabel icon={<FiUser size={10} />} text="Age" required />
           <TextField
             size="small"
             fullWidth
@@ -1613,7 +1606,7 @@ function Appointments() {
           />
         </Box>
         <Box>
-          <FieldLabel icon={<FiEdit2 size={11} />} text="Height" required />
+          <FieldLabel icon={<FiEdit2 size={10} />} text="Height" required />
           <TextField
             size="small"
             fullWidth
@@ -1626,7 +1619,7 @@ function Appointments() {
           />
         </Box>
         <Box>
-          <FieldLabel icon={<FiEdit2 size={11} />} text="Weight" required />
+          <FieldLabel icon={<FiEdit2 size={10} />} text="Weight" required />
           <TextField
             size="small"
             fullWidth
@@ -1640,16 +1633,15 @@ function Appointments() {
         </Box>
       </Box>
 
-      {/* Sex + Civil Status */}
       <Box
         sx={{
           display: "grid",
           gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-          gap: 1.5,
+          gap: 1,
         }}
       >
         <Box>
-          <FieldLabel icon={<FiUser size={11} />} text="Sex" required />
+          <FieldLabel icon={<FiUser size={10} />} text="Sex" required />
           <TagSelector
             options={["Male", "Female", "Prefer not to say"]}
             value={formData.patient_sex}
@@ -1658,7 +1650,7 @@ function Appointments() {
         </Box>
         <Box>
           <FieldLabel
-            icon={<FiUser size={11} />}
+            icon={<FiUser size={10} />}
             text="Civil Status"
             required
           />
@@ -1676,17 +1668,10 @@ function Appointments() {
 
   // ── Step 2: Appointment Details ───────────────────────────────────────────────
   const renderStep2 = () => (
-    <Box
-      sx={{
-        display: "grid",
-        gridTemplateColumns: { xs: "1fr", md: "300px 1fr" },
-        gap: 3,
-        alignItems: "start",
-      }}
-    >
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <Box>
         <FieldLabel
-          icon={<FiCalendar size={11} />}
+          icon={<FiCalendar size={10} />}
           text="Select Date"
           required
         />
@@ -1696,17 +1681,17 @@ function Appointments() {
         />
       </Box>
 
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
         <Box
           sx={{
             display: "grid",
             gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-            gap: 2,
+            gap: 1.5,
           }}
         >
           <Box>
             <FieldLabel
-              icon={<FiUser size={11} />}
+              icon={<FiUser size={10} />}
               text="Department"
               required
             />
@@ -1726,7 +1711,7 @@ function Appointments() {
                   selected ? (
                     selected
                   ) : (
-                    <span style={{ color: "#9ca3af", fontSize: "14px" }}>
+                    <span style={{ color: "#9ca3af", fontSize: "13px" }}>
                       Select a department…
                     </span>
                   )
@@ -1738,7 +1723,7 @@ function Appointments() {
                 </MenuItem>
                 {departments.length > 0 ? (
                   departments.map((dept) => (
-                    <MenuItem key={dept} value={dept} sx={{ fontSize: "14px" }}>
+                    <MenuItem key={dept} value={dept} sx={{ fontSize: "13px" }}>
                       {dept}
                     </MenuItem>
                   ))
@@ -1755,7 +1740,7 @@ function Appointments() {
           </Box>
           <Box>
             <FieldLabel
-              icon={<FiBriefcase size={11} />}
+              icon={<FiBriefcase size={10} />}
               text="Specialization"
               required={isAdmin}
             />
@@ -1779,7 +1764,7 @@ function Appointments() {
                     selected ? (
                       selected
                     ) : (
-                      <span style={{ color: "#9ca3af", fontSize: "14px" }}>
+                      <span style={{ color: "#9ca3af", fontSize: "13px" }}>
                         {formData.department
                           ? "Select a specialization…"
                           : "Select department first"}
@@ -1796,7 +1781,7 @@ function Appointments() {
                       <MenuItem
                         key={spec}
                         value={spec}
-                        sx={{ fontSize: "14px" }}
+                        sx={{ fontSize: "13px" }}
                       >
                         {spec}
                       </MenuItem>
@@ -1834,11 +1819,11 @@ function Appointments() {
           sx={{
             display: "grid",
             gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-            gap: 2,
+            gap: 1.5,
           }}
         >
           <Box>
-            <FieldLabel icon={<FiTag size={11} />} text="Service" />
+            <FieldLabel icon={<FiTag size={10} />} text="Service" />
             <FormControl fullWidth size="small">
               <Select
                 value={formData.service_id}
@@ -1849,7 +1834,7 @@ function Appointments() {
                 renderValue={(selected) => {
                   if (!selected)
                     return (
-                      <span style={{ color: "#9ca3af", fontSize: "14px" }}>
+                      <span style={{ color: "#9ca3af", fontSize: "13px" }}>
                         Select a service…
                       </span>
                     );
@@ -1858,7 +1843,7 @@ function Appointments() {
                 }}
                 sx={selectSx}
               >
-                <MenuItem value="" sx={{ fontSize: "14px", color: "#9ca3af" }}>
+                <MenuItem value="" sx={{ fontSize: "13px", color: "#9ca3af" }}>
                   No service selected
                 </MenuItem>
                 {availableServices.length > 0 ? (
@@ -1866,10 +1851,10 @@ function Appointments() {
                     <MenuItem
                       key={svc.id}
                       value={svc.id}
-                      sx={{ fontSize: "14px" }}
+                      sx={{ fontSize: "13px" }}
                     >
                       <Box>
-                        <Typography sx={{ fontSize: "13px", fontWeight: 500 }}>
+                        <Typography sx={{ fontSize: "12px", fontWeight: 500 }}>
                           {svc.name}
                         </Typography>
                         <Typography sx={{ fontSize: "11px", color: "#6b7280" }}>
@@ -1897,7 +1882,7 @@ function Appointments() {
           </Box>
           <Box>
             <FieldLabel
-              icon={<FiClock size={11} />}
+              icon={<FiClock size={10} />}
               text="Time Slot"
               required
             />
@@ -1912,7 +1897,7 @@ function Appointments() {
                   selected ? (
                     selected
                   ) : (
-                    <span style={{ color: "#9ca3af", fontSize: "14px" }}>
+                    <span style={{ color: "#9ca3af", fontSize: "13px" }}>
                       Select a time…
                     </span>
                   )
@@ -1945,7 +1930,7 @@ function Appointments() {
                   "4:30 PM",
                   "5:00 PM",
                 ].map((t) => (
-                  <MenuItem key={t} value={t} sx={{ fontSize: "14px" }}>
+                  <MenuItem key={t} value={t} sx={{ fontSize: "13px" }}>
                     {t}
                   </MenuItem>
                 ))}
@@ -1963,15 +1948,15 @@ function Appointments() {
               backgroundColor: "#eff6ff",
               border: "1px solid #bfdbfe",
               borderRadius: "10px",
-              px: 2,
-              py: 1.25,
+              px: 1.5,
+              py: 1,
             }}
           >
             <Box sx={{ flexShrink: 0, mt: "2px" }}>
-              <FiUser size={14} color="#3b82f6" />
+              <FiUser size={13} color="#3b82f6" />
             </Box>
             <Typography
-              sx={{ fontSize: "13px", color: "#1d4ed8", flexWrap: "wrap" }}
+              sx={{ fontSize: "12px", color: "#1d4ed8", flexWrap: "wrap" }}
             >
               Appointment will be assigned to{" "}
               <strong>{staffProfile.name}</strong> ·{" "}
@@ -1986,16 +1971,16 @@ function Appointments() {
 
   // ── Step 3: Clinical Notes ────────────────────────────────────────────────────
   const renderStep3 = () => (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
       <Box>
         <Typography
           sx={{
-            fontSize: "11px",
+            fontSize: "10px",
             fontWeight: 600,
             color: "#6b7280",
             textTransform: "uppercase",
             letterSpacing: "0.07em",
-            mb: 1,
+            mb: 0.75,
           }}
         >
           Vital Signs
@@ -2004,12 +1989,12 @@ function Appointments() {
           sx={{
             display: "grid",
             gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" },
-            gap: 2,
+            gap: 1,
           }}
         >
           <Box>
             <FieldLabel
-              icon={<FiHeart size={11} />}
+              icon={<FiHeart size={10} />}
               text="Blood Pressure"
               required
             />
@@ -2024,7 +2009,7 @@ function Appointments() {
           </Box>
           <Box>
             <FieldLabel
-              icon={<FiHeart size={11} />}
+              icon={<FiHeart size={10} />}
               text="Pulse Rate"
               required
             />
@@ -2041,7 +2026,7 @@ function Appointments() {
           </Box>
           <Box>
             <FieldLabel
-              icon={<FiHeart size={11} />}
+              icon={<FiHeart size={10} />}
               text="Temperature"
               required
             />
@@ -2061,7 +2046,7 @@ function Appointments() {
 
       <Box>
         <FieldLabel
-          icon={<FiAlertCircle size={11} />}
+          icon={<FiAlertCircle size={10} />}
           text="Known Allergies"
           required
         />
@@ -2079,7 +2064,7 @@ function Appointments() {
 
       <Box>
         <FieldLabel
-          icon={<FiFileText size={11} />}
+          icon={<FiFileText size={10} />}
           text="Chief Complaint"
           required
         />
@@ -2105,16 +2090,16 @@ function Appointments() {
           backgroundColor: "#eff6ff",
           border: "1px solid #bfdbfe",
           borderRadius: "10px",
-          px: 2,
-          py: 1.25,
+          px: 1.5,
+          py: 1,
         }}
       >
         <FiClipboard
-          size={13}
+          size={12}
           color="#3b82f6"
           style={{ marginTop: 1, flexShrink: 0 }}
         />
-        <Typography sx={{ fontSize: "12px", color: "#1d4ed8" }}>
+        <Typography sx={{ fontSize: "11px", color: "#1d4ed8" }}>
           Prescription can be added by the doctor once the appointment has
           started.
         </Typography>
@@ -2126,17 +2111,17 @@ function Appointments() {
   const renderStep4 = () => {
     const selectedService = services.find((s) => s.id === formData.service_id);
     return (
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
         <Box>
           <Typography
             sx={{
-              fontSize: "11px",
+              fontSize: "10px",
               fontWeight: 600,
               color: "#6b7280",
               textTransform: "uppercase",
               letterSpacing: "0.07em",
-              mb: 1,
-              pb: 0.75,
+              mb: 0.75,
+              pb: 0.5,
               borderBottom: "1px solid #f3f4f6",
             }}
           >
@@ -2146,7 +2131,7 @@ function Appointments() {
             sx={{
               display: "grid",
               gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-              gap: 1,
+              gap: 0.75,
             }}
           >
             <ReviewField label="Full Name" value={patient_name} />
@@ -2177,13 +2162,13 @@ function Appointments() {
         <Box>
           <Typography
             sx={{
-              fontSize: "11px",
+              fontSize: "10px",
               fontWeight: 600,
               color: "#6b7280",
               textTransform: "uppercase",
               letterSpacing: "0.07em",
-              mb: 1,
-              pb: 0.75,
+              mb: 0.75,
+              pb: 0.5,
               borderBottom: "1px solid #f3f4f6",
             }}
           >
@@ -2193,7 +2178,7 @@ function Appointments() {
             sx={{
               display: "grid",
               gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-              gap: 1,
+              gap: 0.75,
             }}
           >
             <ReviewField label="Department" value={formData.department} />
@@ -2221,24 +2206,24 @@ function Appointments() {
         <Box>
           <Typography
             sx={{
-              fontSize: "11px",
+              fontSize: "10px",
               fontWeight: 600,
               color: "#6b7280",
               textTransform: "uppercase",
               letterSpacing: "0.07em",
-              mb: 1,
-              pb: 0.75,
+              mb: 0.75,
+              pb: 0.5,
               borderBottom: "1px solid #f3f4f6",
             }}
           >
             Clinical Notes
           </Typography>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
             <Box
               sx={{
                 display: "grid",
                 gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" },
-                gap: 1,
+                gap: 0.75,
               }}
             >
               <ReviewField label="Blood Pressure" value={formData.bp} />
@@ -2261,17 +2246,17 @@ function Appointments() {
             backgroundColor: isAdmin ? "#f5f3ff" : "#fffbeb",
             border: `1px solid ${isAdmin ? "#c4b5fd" : "#fde68a"}`,
             borderRadius: "10px",
-            px: 2,
-            py: 1.5,
+            px: 1.5,
+            py: 1,
           }}
         >
           <FiAlertCircle
-            size={14}
+            size={13}
             color={isAdmin ? "#7c3aed" : "#d97706"}
             style={{ marginTop: 2, flexShrink: 0 }}
           />
           <Typography
-            sx={{ fontSize: "13px", color: isAdmin ? "#6d28d9" : "#92400e" }}
+            sx={{ fontSize: "12px", color: isAdmin ? "#6d28d9" : "#92400e" }}
           >
             {submitSubtitle}
           </Typography>
@@ -2298,206 +2283,49 @@ function Appointments() {
     <div
       style={{
         width: "100%",
-        maxWidth: "1400px",
-        margin: "0 auto",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
         boxSizing: "border-box",
-        padding: "12px",
+        padding: "8px",
       }}
     >
-      <Box sx={{ display: { xs: "block" }, px: { xs: 0, sm: 1 } }}>
-        {/* ── NEW APPOINTMENT FORM ── */}
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: "16px",
-            border: "1px solid #e5e7eb",
-            p: { xs: 2, sm: 3 },
-            mb: 3,
-          }}
-        >
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              flexWrap: "wrap",
-              gap: 1,
-              mb: 3,
-            }}
-          >
-            <Box>
-              <Typography
-                sx={{ fontWeight: 700, color: "#1a202c", fontSize: "20px" }}
-              >
-                New Appointment
-              </Typography>
-              <Typography
-                sx={{ fontSize: "13px", color: submitSubtitleColor, mt: 0.25 }}
-              >
-                OPD Record — fill in each section to continue
-              </Typography>
-            </Box>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                border: "1px solid #e5e7eb",
-                borderRadius: "10px",
-                px: 1.5,
-                py: 0.75,
-              }}
-            >
-              <FiCalendar size={13} color="#9ca3af" />
-              <Typography
-                sx={{ fontSize: "13px", fontWeight: 500, color: "#374151" }}
-              >
-                {new Date().toLocaleDateString("en-US", {
-                  weekday: "short",
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </Typography>
-            </Box>
-          </Box>
-
-          <StepperHeader currentStep={currentStep} />
-
-          <Box sx={{ mb: 1.5 }}>
-            <Typography
-              sx={{ fontWeight: 600, color: "#1a202c", fontSize: "16px" }}
-            >
-              {stepTitles[currentStep - 1]}
-            </Typography>
-            <Typography sx={{ fontSize: "13px", color: "#6b7280", mt: 0.25 }}>
-              {stepSubtitles[currentStep - 1]}
-            </Typography>
-          </Box>
-
-          <Box sx={{ minHeight: "240px" }}>
-            {stepContent[currentStep - 1]()}
-          </Box>
-
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              mt: 3,
-              pt: 2.5,
-              borderTop: "1px solid #f3f4f6",
-            }}
-          >
-            {currentStep > 1 ? (
-              <Button
-                variant="outlined"
-                startIcon={<FiArrowLeft size={14} />}
-                onClick={handleBack}
-                sx={{
-                  textTransform: "none",
-                  borderRadius: "10px",
-                  px: { xs: 1.5, sm: 2.5 },
-                  py: 1,
-                  fontSize: { xs: "13px", sm: "14px" },
-                  fontWeight: 500,
-                  borderColor: "#e5e7eb",
-                  color: "#374151",
-                  "&:hover": {
-                    backgroundColor: "#f9fafb",
-                    borderColor: "#d1d5db",
-                  },
-                }}
-              >
-                Back
-              </Button>
-            ) : (
-              <Box />
-            )}
-
-            <Box sx={{ display: "flex", gap: 0.75, alignItems: "center" }}>
-              {STEPS.map((step) => (
-                <Box
-                  key={step.id}
-                  sx={{
-                    width: currentStep === step.id ? 20 : 7,
-                    height: 7,
-                    borderRadius: "4px",
-                    transition: "all .25s",
-                    backgroundColor:
-                      currentStep === step.id
-                        ? "#3b82f6"
-                        : currentStep > step.id
-                          ? "#10b981"
-                          : "#e5e7eb",
-                  }}
-                />
-              ))}
-            </Box>
-
-            {currentStep < STEPS.length ? (
-              <Button
-                variant="contained"
-                endIcon={<FiArrowRight size={14} />}
-                onClick={handleNext}
-                sx={{
-                  backgroundColor: "#3b82f6",
-                  textTransform: "none",
-                  borderRadius: "10px",
-                  px: { xs: 1.5, sm: 2.5 },
-                  py: 1,
-                  fontSize: { xs: "13px", sm: "14px" },
-                  fontWeight: 600,
-                  "&:hover": { backgroundColor: "#2563eb" },
-                }}
-              >
-                Continue
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                endIcon={<FiArrowRight size={14} />}
-                onClick={handleSubmit}
-                sx={{
-                  backgroundColor: "#10b981",
-                  textTransform: "none",
-                  borderRadius: "10px",
-                  px: { xs: 1.5, sm: 2.5 },
-                  py: 1,
-                  fontSize: { xs: "12px", sm: "14px" },
-                  fontWeight: 600,
-                  "&:hover": { backgroundColor: "#059669" },
-                }}
-              >
-                {isAdmin ? "Assign to Department" : "Submit for Approval"}
-              </Button>
-            )}
-          </Box>
-        </Paper>
-
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          height: "100%",
+          minHeight: 0,
+          overflow: "hidden",
+          gap: 1.5,
+          px: { xs: 0, sm: 0.5 },
+        }}
+      >
         {/* ── ADMIN PENDING QUEUE ── */}
         {isAdmin && adminPendingQueue.length > 0 && (
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ flexShrink: 0 }}>
             <Typography
               variant="h6"
               sx={{
                 fontWeight: 600,
                 color: "#92400e",
-                mb: 1,
+                mb: 0.75,
+                fontSize: "14px",
                 display: "flex",
                 alignItems: "center",
                 gap: 1,
               }}
             >
-              <FiAlertCircle /> Pending Request that needs your Approval (
+              <FiAlertCircle /> Pending Requests Needing Approval (
               {adminPendingQueue.length})
             </Typography>
             <TableContainer
               component={Paper}
               sx={{
-                borderRadius: "12px",
+                borderRadius: "10px",
                 border: "2px solid #fde68a",
-                maxHeight: "300px",
+                maxHeight: "180px",
                 overflowX: "auto",
                 overflowY: "auto",
               }}
@@ -2519,7 +2347,7 @@ function Appointments() {
                         key={h}
                         sx={{
                           fontWeight: 600,
-                          fontSize: "12px",
+                          fontSize: "11px",
                           backgroundColor: "#fef3c7",
                         }}
                       >
@@ -2554,8 +2382,8 @@ function Appointments() {
                             >
                               <Box
                                 sx={{
-                                  width: 24,
-                                  height: 24,
+                                  width: 22,
+                                  height: 22,
                                   borderRadius: "50%",
                                   backgroundColor: "#dbeafe",
                                   display: "flex",
@@ -2563,7 +2391,7 @@ function Appointments() {
                                   justifyContent: "center",
                                 }}
                               >
-                                <FiUser size={11} color="#3b82f6" />
+                                <FiUser size={10} color="#3b82f6" />
                               </Box>
                               <Typography
                                 sx={{
@@ -2638,8 +2466,8 @@ function Appointments() {
                                 size="small"
                                 onClick={() => handleOpenView(appt)}
                                 sx={{
-                                  width: 28,
-                                  height: 28,
+                                  width: 26,
+                                  height: 26,
                                   border: "1px solid #e5e7eb",
                                   borderRadius: "6px",
                                   color: "#6b7280",
@@ -2647,7 +2475,7 @@ function Appointments() {
                                   flexShrink: 0,
                                 }}
                               >
-                                <FiEye size={13} />
+                                <FiEye size={12} />
                               </IconButton>
                             </Tooltip>
                             <Button
@@ -2658,10 +2486,10 @@ function Appointments() {
                               sx={{
                                 textTransform: "none",
                                 fontSize: "11px",
-                                px: 1.5,
-                                py: 0.4,
+                                px: 1.25,
+                                py: 0.3,
                                 minWidth: 0,
-                                height: 28,
+                                height: 26,
                                 borderRadius: "6px",
                               }}
                             >
@@ -2675,10 +2503,10 @@ function Appointments() {
                               sx={{
                                 textTransform: "none",
                                 fontSize: "11px",
-                                px: 1.5,
-                                py: 0.4,
+                                px: 1.25,
+                                py: 0.3,
                                 minWidth: 0,
-                                height: 28,
+                                height: 26,
                                 borderRadius: "6px",
                               }}
                             >
@@ -2692,33 +2520,33 @@ function Appointments() {
                 </TableBody>
               </Table>
             </TableContainer>
-            <Divider sx={{ mt: 3, mb: 3 }} />
           </Box>
         )}
 
         {/* ── DOCTOR ASSIGNED QUEUE ── */}
         {!isAdmin && doctorAssignedQueue.length > 0 && (
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ flexShrink: 0 }}>
             <Typography
               variant="h6"
               sx={{
                 fontWeight: 600,
                 color: "#5b21b6",
-                mb: 1,
+                mb: 0.75,
+                fontSize: "14px",
                 display: "flex",
                 alignItems: "center",
                 gap: 1,
               }}
             >
-              <FiAlertCircle /> Pending Appointment Request Available in Your
-              Department ({doctorAssignedQueue.length})
+              <FiAlertCircle /> Available in Your Department (
+              {doctorAssignedQueue.length})
             </Typography>
             <TableContainer
               component={Paper}
               sx={{
-                borderRadius: "12px",
+                borderRadius: "10px",
                 border: "2px solid #c4b5fd",
-                maxHeight: "300px",
+                maxHeight: "180px",
                 overflowX: "auto",
                 overflowY: "auto",
               }}
@@ -2739,7 +2567,7 @@ function Appointments() {
                         key={h}
                         sx={{
                           fontWeight: 600,
-                          fontSize: "12px",
+                          fontSize: "11px",
                           backgroundColor: "#ede9fe",
                         }}
                       >
@@ -2820,8 +2648,8 @@ function Appointments() {
                                 size="small"
                                 onClick={() => handleOpenView(appt)}
                                 sx={{
-                                  width: 28,
-                                  height: 28,
+                                  width: 26,
+                                  height: 26,
                                   border: "1px solid #e5e7eb",
                                   borderRadius: "6px",
                                   color: "#6b7280",
@@ -2829,7 +2657,7 @@ function Appointments() {
                                   flexShrink: 0,
                                 }}
                               >
-                                <FiEye size={13} />
+                                <FiEye size={12} />
                               </IconButton>
                             </Tooltip>
                             <Button
@@ -2840,10 +2668,10 @@ function Appointments() {
                               sx={{
                                 textTransform: "none",
                                 fontSize: "11px",
-                                px: 1.5,
-                                py: 0.4,
+                                px: 1.25,
+                                py: 0.3,
                                 minWidth: 0,
-                                height: 28,
+                                height: 26,
                                 borderRadius: "6px",
                               }}
                             >
@@ -2857,10 +2685,10 @@ function Appointments() {
                               sx={{
                                 textTransform: "none",
                                 fontSize: "11px",
-                                px: 1.5,
-                                py: 0.4,
+                                px: 1.25,
+                                py: 0.3,
                                 minWidth: 0,
-                                height: 28,
+                                height: 26,
                                 borderRadius: "6px",
                               }}
                             >
@@ -2874,7 +2702,6 @@ function Appointments() {
                 </TableBody>
               </Table>
             </TableContainer>
-            <Divider sx={{ mt: 3, mb: 3 }} />
           </Box>
         )}
 
@@ -2882,17 +2709,22 @@ function Appointments() {
         <Paper
           elevation={0}
           sx={{
-            borderRadius: "16px",
+            borderRadius: "14px",
             border: "1px solid #e5e7eb",
             overflow: "hidden",
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
           }}
         >
           <Box
             sx={{
-              px: { xs: 1.5, sm: 2.5 },
-              pt: { xs: 1.5, sm: 2.5 },
-              pb: 1.5,
+              px: { xs: 1.5, sm: 2 },
+              pt: { xs: 1.25, sm: 1.5 },
+              pb: 1,
               borderBottom: "1px solid #f3f4f6",
+              flexShrink: 0,
             }}
           >
             {(() => {
@@ -2957,7 +2789,7 @@ function Appointments() {
                       alignItems: "flex-start",
                       flexWrap: "wrap",
                       gap: 1,
-                      mb: 1.5,
+                      mb: 1,
                     }}
                   >
                     <Box>
@@ -2965,29 +2797,29 @@ function Appointments() {
                         sx={{
                           fontWeight: 700,
                           color: "#1a202c",
-                          fontSize: "20px",
+                          fontSize: "16px",
                         }}
                       >
-                        Your Appointments
+                        Appointments
                       </Typography>
                       <Box
                         sx={{
                           display: "flex",
                           alignItems: "center",
                           gap: 0.75,
-                          mt: 0.5,
+                          mt: 0.25,
                           flexWrap: "wrap",
                         }}
                       >
-                        <Typography sx={{ fontSize: "13px", color: "#6b7280" }}>
-                          {tabCounts.all} requests total
+                        <Typography sx={{ fontSize: "12px", color: "#6b7280" }}>
+                          {tabCounts.all} total
                         </Typography>
                         {tabCounts.pending > 0 && (
                           <>
                             <Typography sx={{ color: "#d1d5db" }}>·</Typography>
                             <Typography
                               sx={{
-                                fontSize: "13px",
+                                fontSize: "12px",
                                 color: "#d97706",
                                 fontWeight: 500,
                               }}
@@ -3001,7 +2833,7 @@ function Appointments() {
                             <Typography sx={{ color: "#d1d5db" }}>·</Typography>
                             <Typography
                               sx={{
-                                fontSize: "13px",
+                                fontSize: "12px",
                                 color: "#3b82f6",
                                 fontWeight: 500,
                               }}
@@ -3015,7 +2847,7 @@ function Appointments() {
                             <Typography sx={{ color: "#d1d5db" }}>·</Typography>
                             <Typography
                               sx={{
-                                fontSize: "13px",
+                                fontSize: "12px",
                                 color: "#0891b2",
                                 fontWeight: 500,
                               }}
@@ -3024,54 +2856,12 @@ function Appointments() {
                             </Typography>
                           </>
                         )}
-                        {tabCounts.noShow > 0 && (
-                          <>
-                            <Typography sx={{ color: "#d1d5db" }}>·</Typography>
-                            <Typography
-                              sx={{
-                                fontSize: "13px",
-                                color: "#ea580c",
-                                fontWeight: 500,
-                              }}
-                            >
-                              {tabCounts.noShow} no show
-                            </Typography>
-                          </>
-                        )}
-                        {tabCounts.rejected > 0 && (
-                          <>
-                            <Typography sx={{ color: "#d1d5db" }}>·</Typography>
-                            <Typography
-                              sx={{
-                                fontSize: "13px",
-                                color: "#dc2626",
-                                fontWeight: 500,
-                              }}
-                            >
-                              {tabCounts.rejected} rejected
-                            </Typography>
-                          </>
-                        )}
-                        {tabCounts.cancelled > 0 && (
-                          <>
-                            <Typography sx={{ color: "#d1d5db" }}>·</Typography>
-                            <Typography
-                              sx={{
-                                fontSize: "13px",
-                                color: "#ef4444",
-                                fontWeight: 500,
-                              }}
-                            >
-                              {tabCounts.cancelled} cancelled
-                            </Typography>
-                          </>
-                        )}
                         {tabCounts.completed > 0 && (
                           <>
                             <Typography sx={{ color: "#d1d5db" }}>·</Typography>
                             <Typography
                               sx={{
-                                fontSize: "13px",
+                                fontSize: "12px",
                                 color: "#10b981",
                                 fontWeight: 500,
                               }}
@@ -3082,27 +2872,48 @@ function Appointments() {
                         )}
                       </Box>
                     </Box>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<FiRefreshCw size={13} />}
-                      onClick={fetchData}
-                      sx={{
-                        textTransform: "none",
-                        fontSize: "13px",
-                        borderRadius: "10px",
-                        borderColor: "#e5e7eb",
-                        color: "#374151",
-                        "&:hover": {
-                          backgroundColor: "#f9fafb",
-                          borderColor: "#d1d5db",
-                        },
-                      }}
-                    >
-                      Refresh
-                    </Button>
+                    <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<FiRefreshCw size={12} />}
+                        onClick={fetchData}
+                        sx={{
+                          textTransform: "none",
+                          fontSize: "12px",
+                          borderRadius: "8px",
+                          borderColor: "#e5e7eb",
+                          color: "#374151",
+                          "&:hover": {
+                            backgroundColor: "#f9fafb",
+                            borderColor: "#d1d5db",
+                          },
+                        }}
+                      >
+                        Refresh
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<FiPlusCircle size={13} />}
+                        onClick={() => {
+                          resetForm();
+                          setDrawerOpen(true);
+                        }}
+                        sx={{
+                          textTransform: "none",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          borderRadius: "8px",
+                          backgroundColor: "#3b82f6",
+                          "&:hover": { backgroundColor: "#2563eb" },
+                        }}
+                      >
+                        New Appointment
+                      </Button>
+                    </Box>
                   </Box>
-                  <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                  <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
                     {tabs.map((tab) => (
                       <Button
                         key={tab.value}
@@ -3110,10 +2921,10 @@ function Appointments() {
                         onClick={() => setStatusFilter(tab.value)}
                         sx={{
                           textTransform: "none",
-                          fontSize: "13px",
-                          borderRadius: "8px",
-                          px: 1.5,
-                          py: 0.5,
+                          fontSize: "12px",
+                          borderRadius: "7px",
+                          px: 1.25,
+                          py: 0.35,
                           minWidth: 0,
                           backgroundColor:
                             statusFilter === tab.value
@@ -3134,7 +2945,7 @@ function Appointments() {
                       >
                         {tab.label}
                         {tab.count > 0 && (
-                          <span style={{ marginLeft: 5, opacity: 0.7 }}>
+                          <span style={{ marginLeft: 4, opacity: 0.7 }}>
                             {tab.count}
                           </span>
                         )}
@@ -3153,11 +2964,12 @@ function Appointments() {
               flexDirection: { xs: "column", sm: "row" },
               justifyContent: "space-between",
               flexWrap: "wrap",
-              gap: 1.5,
+              gap: 1,
               px: 2,
-              py: 1.5,
+              py: 1,
               borderBottom: "1px solid #f3f4f6",
               backgroundColor: "#fafafa",
+              flexShrink: 0,
             }}
           >
             <TextField
@@ -3168,38 +2980,34 @@ function Appointments() {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <FiSearch size={15} color="#9ca3af" />
+                    <FiSearch size={14} color="#9ca3af" />
                   </InputAdornment>
                 ),
                 endAdornment: searchQuery ? (
                   <InputAdornment position="end">
                     <IconButton size="small" onClick={() => setSearchQuery("")}>
-                      <FiX size={13} />
+                      <FiX size={12} />
                     </IconButton>
                   </InputAdornment>
                 ) : null,
               }}
               sx={{
-                width: { xs: "100%", sm: 300 },
+                width: { xs: "100%", sm: 280 },
                 "& .MuiOutlinedInput-root": {
-                  borderRadius: "10px",
-                  fontSize: "13px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
                   backgroundColor: "#fff",
                   "& fieldset": { borderColor: "#e5e7eb" },
                 },
               }}
             />
-            <Typography sx={{ fontSize: "12px", color: "#9ca3af" }}>
+            <Typography sx={{ fontSize: "11px", color: "#9ca3af" }}>
               {filteredRows.length} of {mainTableRows.length} appointments
             </Typography>
           </Box>
 
           <TableContainer
-            sx={{
-              maxHeight: "calc(100vh - 350px)",
-              overflowX: "auto",
-              overflowY: "auto",
-            }}
+            sx={{ flex: 1, overflowX: "auto", overflowY: "auto" }}
           >
             <Table size="small" stickyHeader>
               <TableHead>
@@ -3219,7 +3027,7 @@ function Appointments() {
                       key={h}
                       sx={{
                         fontWeight: 600,
-                        fontSize: "12px",
+                        fontSize: "11px",
                         backgroundColor: "#f9fafb",
                         borderBottom: "1px solid #e5e7eb",
                       }}
@@ -3314,8 +3122,8 @@ function Appointments() {
                               size="small"
                               onClick={() => handleOpenView(appt)}
                               sx={{
-                                width: 28,
-                                height: 28,
+                                width: 26,
+                                height: 26,
                                 border: "1px solid #e5e7eb",
                                 borderRadius: "6px",
                                 color: "#6b7280",
@@ -3323,7 +3131,7 @@ function Appointments() {
                                 flexShrink: 0,
                               }}
                             >
-                              <FiEye size={13} />
+                              <FiEye size={12} />
                             </IconButton>
                           </Tooltip>
                           {isAdmin ? (
@@ -3336,10 +3144,10 @@ function Appointments() {
                                 sx={{
                                   textTransform: "none",
                                   fontSize: "11px",
-                                  px: 1.5,
-                                  py: 0.4,
+                                  px: 1.25,
+                                  py: 0.3,
                                   minWidth: 0,
-                                  height: 28,
+                                  height: 26,
                                   borderRadius: "6px",
                                 }}
                               >
@@ -3371,6 +3179,201 @@ function Appointments() {
             </Table>
           </TableContainer>
         </Paper>
+
+        {/* ── OPD FORM DRAWER ── */}
+        <Drawer
+          anchor="right"
+          open={drawerOpen}
+          onClose={() => {
+            setDrawerOpen(false);
+            resetForm();
+          }}
+          PaperProps={{
+            sx: {
+              width: { xs: "100%", sm: 480 },
+              display: "flex",
+              flexDirection: "column",
+            },
+          }}
+        >
+          {/* Drawer header */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              px: 2.5,
+              py: 2,
+              borderBottom: "1px solid #f3f4f6",
+              flexShrink: 0,
+            }}
+          >
+            <Box>
+              <Typography
+                sx={{ fontWeight: 700, fontSize: "16px", color: "#1a202c" }}
+              >
+                OPD Record Form
+              </Typography>
+              <Typography
+                sx={{ fontSize: "11px", color: submitSubtitleColor, mt: 0.25 }}
+              >
+                Fill all the fields to continue
+              </Typography>
+            </Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "8px",
+                  px: 1.25,
+                  py: 0.5,
+                }}
+              >
+                <FiCalendar size={11} color="#9ca3af" />
+                <Typography
+                  sx={{ fontSize: "11px", fontWeight: 500, color: "#374151" }}
+                >
+                  {new Date().toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </Typography>
+              </Box>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setDrawerOpen(false);
+                  resetForm();
+                }}
+                sx={{ color: "#6b7280" }}
+              >
+                <FiX size={16} />
+              </IconButton>
+            </Box>
+          </Box>
+
+          {/* Stepper */}
+          <Box sx={{ px: 2.5, pt: 1.5, flexShrink: 0 }}>
+            <StepperHeader currentStep={currentStep} />
+            <Box sx={{ mb: 1 }}>
+              <Typography
+                sx={{ fontWeight: 600, color: "#1a202c", fontSize: "14px" }}
+              >
+                {stepTitles[currentStep - 1]}
+              </Typography>
+              <Typography sx={{ fontSize: "11px", color: "#6b7280", mt: 0.15 }}>
+                {stepSubtitles[currentStep - 1]}
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Scrollable step content */}
+          <Box sx={{ flex: 1, overflowY: "auto", px: 2.5, pb: 2 }}>
+            {stepContent[currentStep - 1]()}
+          </Box>
+
+          {/* Footer navigation */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              px: 2.5,
+              py: 2,
+              borderTop: "1px solid #f3f4f6",
+              flexShrink: 0,
+              backgroundColor: "#fff",
+            }}
+          >
+            {currentStep > 1 ? (
+              <Button
+                variant="outlined"
+                startIcon={<FiArrowLeft size={13} />}
+                onClick={handleBack}
+                sx={{
+                  textTransform: "none",
+                  borderRadius: "8px",
+                  px: 2,
+                  py: 0.75,
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  borderColor: "#e5e7eb",
+                  color: "#374151",
+                  "&:hover": {
+                    backgroundColor: "#f9fafb",
+                    borderColor: "#d1d5db",
+                  },
+                }}
+              >
+                Back
+              </Button>
+            ) : (
+              <Box />
+            )}
+
+            <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+              {STEPS.map((step) => (
+                <Box
+                  key={step.id}
+                  sx={{
+                    width: currentStep === step.id ? 16 : 6,
+                    height: 6,
+                    borderRadius: "3px",
+                    transition: "all .25s",
+                    backgroundColor:
+                      currentStep === step.id
+                        ? "#3b82f6"
+                        : currentStep > step.id
+                          ? "#10b981"
+                          : "#e5e7eb",
+                  }}
+                />
+              ))}
+            </Box>
+
+            {currentStep < STEPS.length ? (
+              <Button
+                variant="contained"
+                endIcon={<FiArrowRight size={13} />}
+                onClick={handleNext}
+                sx={{
+                  backgroundColor: "#3b82f6",
+                  textTransform: "none",
+                  borderRadius: "8px",
+                  px: 2,
+                  py: 0.75,
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  "&:hover": { backgroundColor: "#2563eb" },
+                }}
+              >
+                Continue
+              </Button>
+            ) : (
+              <Button
+                variant="contained"
+                endIcon={<FiArrowRight size={13} />}
+                onClick={handleSubmit}
+                sx={{
+                  backgroundColor: "#10b981",
+                  textTransform: "none",
+                  borderRadius: "8px",
+                  px: 2,
+                  py: 0.75,
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  "&:hover": { backgroundColor: "#059669" },
+                }}
+              >
+                {isAdmin ? "Assign to Dept." : "Submit for Approval"}
+              </Button>
+            )}
+          </Box>
+        </Drawer>
 
         {/* ── VIEW PATIENT INFO MODAL ── */}
         <Dialog
@@ -3533,7 +3536,6 @@ function Appointments() {
 
                 return (
                   <>
-                    {/* Appointment */}
                     <Box>
                       <SectionTitle>Appointment</SectionTitle>
                       <Box
@@ -3600,7 +3602,6 @@ function Appointments() {
                       </Box>
                     </Box>
 
-                    {/* Patient Details */}
                     {demoItems.length > 0 && (
                       <Box>
                         <SectionTitle>Patient Details</SectionTitle>
@@ -3625,7 +3626,6 @@ function Appointments() {
                       </Box>
                     )}
 
-                    {/* Vital Signs */}
                     {vitals.length > 0 && (
                       <Box>
                         <SectionTitle>Vital Signs</SectionTitle>
@@ -3653,7 +3653,6 @@ function Appointments() {
                       </Box>
                     )}
 
-                    {/* Clinical Notes */}
                     {(parsed["Chief Complaint"] || parsed["Allergies"]) && (
                       <Box>
                         <SectionTitle>Clinical Notes</SectionTitle>
@@ -3676,7 +3675,6 @@ function Appointments() {
                       </Box>
                     )}
 
-                    {/* Raw notes fallback for old records */}
                     {!parsed["Chief Complaint"] &&
                       !vitals.length &&
                       !demoItems.length &&
@@ -3704,7 +3702,6 @@ function Appointments() {
                         </Box>
                       )}
 
-                    {/* Prescription — dedicated column */}
                     {prescription && (
                       <Box>
                         <SectionTitle>Prescription</SectionTitle>
