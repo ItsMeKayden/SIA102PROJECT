@@ -1,4 +1,5 @@
-import React, { ReactNode } from 'react';
+import React from 'react';
+import type { ReactNode } from 'react';
 import { Box, Typography, Button } from '@mui/material';
 
 interface Props {
@@ -71,7 +72,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             >
               We encountered an error. Try refreshing the page or using manual entry instead of the camera.
             </Typography>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {import.meta.env.MODE === 'development' && this.state.error && (
               <Box
                 sx={{
                   backgroundColor: '#fee2e2',
@@ -105,7 +106,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               Try Again
             </Button>
             <Button
-              onClick={() => window.location.reload()}
+              onClick={() => globalThis.location.reload()}
               variant="outlined"
               sx={{
                 borderColor: '#3b82f6',

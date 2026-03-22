@@ -1,22 +1,10 @@
-import { supabase, handleSupabaseError } from '../../lib/supabase-client';
+import { supabase, handleSupabaseError } from "../../lib/supabase-client";
 import type {
   Appointment,
   AppointmentInsert,
   AppointmentUpdate,
-} from '../../types';
-import { createNotification } from './notificationService';
-
-/**
- * Get today's date in local timezone (not UTC)
- * Fixes timezone issues where UTC date may be one day behind local date
- */
-const getTodayDateString = (): string => {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+} from "../../types";
+import { createNotification } from "./notificationService";
 
 export const getAllAppointments = async (): Promise<{
   data: Appointment[] | null;
@@ -24,10 +12,10 @@ export const getAllAppointments = async (): Promise<{
 }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
-      .select('*')
-      .order('appointment_date', { ascending: true })
-      .order('appointment_time', { ascending: true });
+      .from("appointments")
+      .select("*")
+      .order("appointment_date", { ascending: true })
+      .order("appointment_time", { ascending: true });
 
     if (error) throw error;
     return { data, error: null };
@@ -41,11 +29,11 @@ export const getAppointmentsByDoctorId = async (
 ): Promise<{ data: Appointment[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
-      .select('*')
-      .eq('doctor_id', doctorId)
-      .order('appointment_date', { ascending: true })
-      .order('appointment_time', { ascending: true });
+      .from("appointments")
+      .select("*")
+      .eq("doctor_id", doctorId)
+      .order("appointment_date", { ascending: true })
+      .order("appointment_time", { ascending: true });
 
     if (error) throw error;
     return { data, error: null };
@@ -59,10 +47,10 @@ export const getAppointmentsByDate = async (
 ): Promise<{ data: Appointment[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
-      .select('*')
-      .eq('appointment_date', date)
-      .order('appointment_time', { ascending: true });
+      .from("appointments")
+      .select("*")
+      .eq("appointment_date", date)
+      .order("appointment_time", { ascending: true });
 
     if (error) throw error;
     return { data, error: null };
@@ -75,14 +63,14 @@ export const getUpcomingAppointments = async (
   limit: number = 10,
 ): Promise<{ data: Appointment[] | null; error: string | null }> => {
   try {
-    const today = getTodayDateString();
+    const today = new Date().toISOString().split("T")[0];
     const { data, error } = await supabase
-      .from('appointments')
-      .select('*')
-      .gte('appointment_date', today)
-      .in('status', ['Approved', 'Accepted'])
-      .order('appointment_date', { ascending: true })
-      .order('appointment_time', { ascending: true })
+      .from("appointments")
+      .select("*")
+      .gte("appointment_date", today)
+      .in("status", ["Approved", "Accepted"])
+      .order("appointment_date", { ascending: true })
+      .order("appointment_time", { ascending: true })
       .limit(limit);
 
     if (error) throw error;
@@ -102,7 +90,7 @@ export const createAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
+      .from("appointments")
       .insert(appointmentData)
       .select()
       .single();
@@ -120,9 +108,28 @@ export const updateAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
+      .from("appointments")
       .update({ ...appointmentData, updated_at: new Date().toISOString() })
-      .eq('id', id)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error: handleSupabaseError(error) };
+  }
+};
+
+export const updateAppointmentPrescription = async (
+  id: string,
+  prescription: string,
+): Promise<{ data: Appointment | null; error: string | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from("appointments")
+      .update({ prescription, updated_at: new Date().toISOString() })
+      .eq("id", id)
       .select()
       .single();
 
@@ -137,7 +144,7 @@ export const deleteAppointment = async (
   id: string,
 ): Promise<{ error: string | null }> => {
   try {
-    const { error } = await supabase.from('appointments').delete().eq('id', id);
+    const { error } = await supabase.from("appointments").delete().eq("id", id);
     if (error) throw error;
     return { error: null };
   } catch (error) {
@@ -150,9 +157,9 @@ export const cancelAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
-      .update({ status: 'Cancelled', updated_at: new Date().toISOString() })
-      .eq('id', id)
+      .from("appointments")
+      .update({ status: "Cancelled", updated_at: new Date().toISOString() })
+      .eq("id", id)
       .select()
       .single();
 
@@ -168,9 +175,9 @@ export const completeAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
-      .update({ status: 'Completed', updated_at: new Date().toISOString() })
-      .eq('id', id)
+      .from("appointments")
+      .update({ status: "Completed", updated_at: new Date().toISOString() })
+      .eq("id", id)
       .select()
       .single();
 
@@ -186,9 +193,9 @@ export const approveAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
-      .update({ status: 'Approved', updated_at: new Date().toISOString() })
-      .eq('id', id)
+      .from("appointments")
+      .update({ status: "Approved", updated_at: new Date().toISOString() })
+      .eq("id", id)
       .select()
       .single();
 
@@ -205,14 +212,14 @@ export const acceptAssignedAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
+      .from("appointments")
       .update({
-        status: 'Approved',
+        status: "Approved",
         doctor_id: doctorId,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', id)
-      .is('doctor_id', null)
+      .eq("id", id)
+      .is("doctor_id", null)
       .select();
 
     if (error) throw error;
@@ -220,15 +227,15 @@ export const acceptAssignedAppointment = async (
     if (!data || data.length === 0) {
       return {
         data: null,
-        error: 'Appointment was already claimed by another doctor.',
+        error: "Appointment was already claimed by another doctor.",
       };
     }
 
     await createNotification({
       staff_id: null,
-      title: 'Appointment Accepted by Doctor',
+      title: "Appointment Accepted by Doctor",
       message: `The appointment for patient "${data[0].patient_name}" on ${new Date(data[0].appointment_date).toLocaleDateString()} at ${data[0].appointment_time} has been accepted by a doctor.`,
-      type: 'success',
+      type: "success",
     });
 
     return { data: data[0], error: null };
@@ -243,9 +250,9 @@ export const rejectAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
-      .update({ status: 'Rejected', updated_at: new Date().toISOString() })
-      .eq('id', id)
+      .from("appointments")
+      .update({ status: "Rejected", updated_at: new Date().toISOString() })
+      .eq("id", id)
       .select()
       .single();
 
@@ -254,9 +261,9 @@ export const rejectAppointment = async (
     if (data?.doctor_id) {
       await createNotification({
         staff_id: data.doctor_id,
-        title: 'Appointment Rejected',
-        message: `The appointment for patient "${data.patient_name}" on ${new Date(data.appointment_date).toLocaleDateString()} was rejected${reason ? ': ' + reason : '.'}`,
-        type: 'warning',
+        title: "Appointment Rejected",
+        message: `The appointment for patient "${data.patient_name}" on ${new Date(data.appointment_date).toLocaleDateString()} was rejected${reason ? ": " + reason : "."}`,
+        type: "warning",
       });
     }
 
@@ -271,9 +278,9 @@ export const rejectAssignedAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
-      .update({ status: 'Rejected', updated_at: new Date().toISOString() })
-      .eq('id', id)
+      .from("appointments")
+      .update({ status: "Rejected", updated_at: new Date().toISOString() })
+      .eq("id", id)
       .select()
       .single();
 
@@ -281,9 +288,9 @@ export const rejectAssignedAppointment = async (
 
     await createNotification({
       staff_id: null,
-      title: 'Appointment Rejected by Doctor',
+      title: "Appointment Rejected by Doctor",
       message: `The appointment for patient "${data.patient_name}" on ${new Date(data.appointment_date).toLocaleDateString()} at ${data.appointment_time} was rejected by the assigned doctor.`,
-      type: 'warning',
+      type: "warning",
     });
 
     return { data, error: null };
@@ -297,9 +304,9 @@ export const startAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
-      .update({ status: 'Accepted', updated_at: new Date().toISOString() })
-      .eq('id', id)
+      .from("appointments")
+      .update({ status: "Accepted", updated_at: new Date().toISOString() })
+      .eq("id", id)
       .select()
       .single();
 
@@ -307,9 +314,9 @@ export const startAppointment = async (
 
     await createNotification({
       staff_id: null,
-      title: 'Appointment In Progress',
+      title: "Appointment In Progress",
       message: `Appointment for patient "${data.patient_name}" has started. Doctor is now On Duty.`,
-      type: 'info',
+      type: "info",
     });
 
     return { data, error: null };
@@ -323,9 +330,9 @@ export const noShowAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
-      .update({ status: 'No Show', updated_at: new Date().toISOString() })
-      .eq('id', id)
+      .from("appointments")
+      .update({ status: "No Show", updated_at: new Date().toISOString() })
+      .eq("id", id)
       .select()
       .single();
 
@@ -333,9 +340,9 @@ export const noShowAppointment = async (
 
     await createNotification({
       staff_id: null,
-      title: 'Appointment No Show',
+      title: "Appointment No Show",
       message: `Patient "${data.patient_name}" did not show up for their appointment on ${new Date(data.appointment_date).toLocaleDateString()}.`,
-      type: 'warning',
+      type: "warning",
     });
 
     return { data, error: null };
@@ -351,14 +358,14 @@ export const rescheduleAppointment = async (
 ): Promise<{ data: Appointment | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
+      .from("appointments")
       .update({
         appointment_date: newDate,
         appointment_time: newTime,
-        status: 'Approved',
+        status: "Approved",
         updated_at: new Date().toISOString(),
       })
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -366,9 +373,9 @@ export const rescheduleAppointment = async (
 
     await createNotification({
       staff_id: null,
-      title: 'Appointment Rescheduled',
+      title: "Appointment Rescheduled",
       message: `Appointment for patient "${data.patient_name}" has been rescheduled to ${new Date(newDate).toLocaleDateString()} at ${newTime}.`,
-      type: 'info',
+      type: "info",
     });
 
     return { data, error: null };
@@ -389,26 +396,26 @@ export const getAppointmentStats = async (): Promise<{
 }> => {
   try {
     const { data, error } = await supabase
-      .from('appointments')
-      .select('status');
+      .from("appointments")
+      .select("status");
     if (error) throw error;
 
     const stats = {
       total: data?.length || 0,
       scheduled:
         data?.filter((a: { status: string }) =>
-          ['Assigned', 'Approved', 'Accepted'].includes(a.status),
+          ["Assigned", "Approved", "Accepted"].includes(a.status),
         ).length || 0,
       completed:
-        data?.filter((a: { status: string }) => a.status === 'Completed')
+        data?.filter((a: { status: string }) => a.status === "Completed")
           .length || 0,
       cancelled:
         data?.filter(
           (a: { status: string }) =>
-            a.status === 'Cancelled' || a.status === 'Rejected',
+            a.status === "Cancelled" || a.status === "Rejected",
         ).length || 0,
       noShow:
-        data?.filter((a: { status: string }) => a.status === 'No Show')
+        data?.filter((a: { status: string }) => a.status === "No Show")
           .length || 0,
     };
 
@@ -417,4 +424,3 @@ export const getAppointmentStats = async (): Promise<{
     return { data: null, error: handleSupabaseError(error) };
   }
 };
-

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   Table,
   TableBody,
@@ -25,15 +25,28 @@ import {
   Alert,
   Tabs,
   Tab,
-} from '@mui/material';
-import { FiSearch, FiX, FiTrash2, FiEdit2 } from 'react-icons/fi';
-import type { Staff, StaffFormData } from '../../types';
+  Typography,
+  useMediaQuery,
+  useTheme,
+  Card,
+  CardContent,
+  Collapse,
+} from "@mui/material";
+import {
+  FiSearch,
+  FiX,
+  FiTrash2,
+  FiEdit2,
+  FiEye,
+  FiFilter,
+} from "react-icons/fi";
+import type { Staff, StaffFormData } from "../../types";
 import {
   getAllStaff,
   createStaff,
   updateStaff,
   deleteStaff,
-} from '../../backend/services/staffService';
+} from "../../backend/services/staffService";
 import {
   getAllServices,
   createService,
@@ -54,38 +67,364 @@ import {
   type Department,
   type SpecializationRecord,
   type SpecializationFormData,
-} from '../../backend/services/serviceServices';
+} from "../../backend/services/serviceServices";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 const EMPTY_SERVICE_FORM: ServiceFormData = {
-  name: '',
-  department: '',
-  specialization: '',
-  duration: '',
+  name: "",
+  department: "",
+  specialization: "",
+  duration: "",
   price: 0,
   downpayment: 0,
-  status: 'Available',
-  description: '',
+  status: "Available",
+  description: "",
 };
 
 const fieldLabel = (text: string, required = false) => (
   <label
     style={{
-      display: 'block',
-      marginBottom: '6px',
-      fontSize: '13px',
+      display: "block",
+      marginBottom: "6px",
+      fontSize: "13px",
       fontWeight: 500,
-      color: '#374151',
+      color: "#374151",
     }}
   >
     {text}
-    {required && ' *'}
+    {required && " *"}
   </label>
 );
+
+// ─── Name helpers ─────────────────────────────────────────────────────────────
+const formatNameForStorage = (
+  last: string,
+  first: string,
+  middle: string,
+): string => {
+  const l = last.trim(),
+    f = first.trim(),
+    m = middle.trim();
+  if (!l) return m ? `${f} ${m}` : f;
+  return m ? `${l}, ${f} ${m}` : `${l}, ${f}`;
+};
+
+const formatNameForDisplay = (storedName: string): string => {
+  const commaIdx = storedName.indexOf(",");
+  if (commaIdx === -1) return storedName;
+  const last = storedName.slice(0, commaIdx).trim();
+  const rest = storedName.slice(commaIdx + 1).trim();
+  const spaceIdx = rest.indexOf(" ");
+  if (spaceIdx === -1) return `${last}, ${rest}`;
+  const first = rest.slice(0, spaceIdx).trim();
+  const middle = rest.slice(spaceIdx + 1).trim();
+  const middleInitial = middle ? ` ${middle.charAt(0).toUpperCase()}.` : "";
+  return `${last}, ${first}${middleInitial}`;
+};
+
+const parseStoredName = (
+  storedName: string,
+): { lastName: string; firstName: string; middleName: string } => {
+  const commaIdx = storedName.indexOf(",");
+  if (commaIdx === -1)
+    return { lastName: "", firstName: storedName.trim(), middleName: "" };
+  const last = storedName.slice(0, commaIdx).trim();
+  const rest = storedName.slice(commaIdx + 1).trim();
+  const spaceIdx = rest.indexOf(" ");
+  if (spaceIdx === -1)
+    return { lastName: last, firstName: rest, middleName: "" };
+  return {
+    lastName: last,
+    firstName: rest.slice(0, spaceIdx).trim(),
+    middleName: rest.slice(spaceIdx + 1).trim(),
+  };
+};
+
+const getAvatarInitial = (storedName: string): string =>
+  storedName.charAt(0).toUpperCase();
+
+// ─── Mobile Staff Card ────────────────────────────────────────────────────────
+function StaffMobileCard({
+  staff,
+  onView,
+  onDelete,
+}: {
+  staff: Staff;
+  onView: () => void;
+  onDelete: () => void;
+}) {
+  const getStatusColor = (s: string) =>
+    s === "Active" ? "#10b981" : "#6b7280";
+  const getDutyColor = (s: string | null | undefined) => {
+    if (s === "On Duty") return "#3b82f6";
+    if (s === "On Leave") return "#f59e0b";
+    return "#9ca3af";
+  };
+
+  return (
+    <Card
+      sx={{
+        mb: 1.5,
+        borderRadius: "8px",
+        border: "1px solid #e5e7eb",
+        boxShadow: "none",
+      }}
+    >
+      <CardContent sx={{ p: "12px !important" }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: "14px",
+                color: "#1f2937",
+                mb: 0.3,
+              }}
+            >
+              {formatNameForDisplay(staff.name)}
+            </Typography>
+            <Typography sx={{ fontSize: "12px", color: "#6b7280", mb: 0.5 }}>
+              {staff.role}
+            </Typography>
+            <Typography
+              sx={{
+                fontSize: "11px",
+                color: "#9ca3af",
+                fontFamily: "monospace",
+                mb: 1,
+              }}
+            >
+              {staff.staffid ?? staff.id.substring(0, 8) + "..."}
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <Box
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    backgroundColor: getStatusColor(staff.status),
+                  }}
+                />
+                <Typography sx={{ fontSize: "11px", color: "#6b7280" }}>
+                  {staff.status}
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <Box
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    backgroundColor: getDutyColor(staff.duty_status),
+                  }}
+                />
+                <Typography sx={{ fontSize: "11px", color: "#6b7280" }}>
+                  {staff.duty_status || "Off Duty"}
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+          <Box sx={{ display: "flex", gap: 0.5, ml: 1, flexShrink: 0 }}>
+            <IconButton
+              size="small"
+              onClick={onView}
+              sx={{
+                color: "#3b82f6",
+                "&:hover": { backgroundColor: "#dbeafe" },
+              }}
+            >
+              <FiEye size={16} />
+            </IconButton>
+            {staff.user_role !== "admin" && (
+              <IconButton
+                size="small"
+                onClick={onDelete}
+                sx={{
+                  color: "#ef4444",
+                  "&:hover": { backgroundColor: "#fee2e2" },
+                }}
+              >
+                <FiTrash2 size={16} />
+              </IconButton>
+            )}
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Mobile Service Card ──────────────────────────────────────────────────────
+function ServiceMobileCard({
+  service,
+  onEdit,
+  onDelete,
+}: {
+  service: Service;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <Card
+      sx={{
+        mb: 1.5,
+        borderRadius: "8px",
+        border: "1px solid #e5e7eb",
+        boxShadow: "none",
+      }}
+    >
+      <CardContent sx={{ p: "12px !important" }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: "14px",
+                color: "#1f2937",
+                mb: 0.5,
+              }}
+            >
+              {service.name}
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 0.5 }}>
+              {service.department && (
+                <Box
+                  sx={{
+                    backgroundColor: "#eff6ff",
+                    color: "#2563eb",
+                    borderRadius: "4px",
+                    px: "6px",
+                    py: "1px",
+                    fontSize: "11px",
+                    fontWeight: 500,
+                  }}
+                >
+                  {service.department}
+                </Box>
+              )}
+              {service.specialization && (
+                <Box
+                  sx={{
+                    backgroundColor: "#f0fdf4",
+                    color: "#16a34a",
+                    borderRadius: "4px",
+                    px: "6px",
+                    py: "1px",
+                    fontSize: "11px",
+                    fontWeight: 500,
+                  }}
+                >
+                  {service.specialization}
+                </Box>
+              )}
+            </Box>
+            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+              <Typography sx={{ fontSize: "12px", color: "#6b7280" }}>
+                ⏱ {service.duration}
+              </Typography>
+              <Typography
+                sx={{ fontSize: "12px", color: "#1f2937", fontWeight: 500 }}
+              >
+                ₱{service.price.toLocaleString()}
+              </Typography>
+              <Typography sx={{ fontSize: "12px", color: "#6b7280" }}>
+                Down: ₱{service.downpayment.toLocaleString()}
+              </Typography>
+            </Box>
+            {service.description && (
+              <Typography
+                sx={{
+                  fontSize: "11px",
+                  color: "#9ca3af",
+                  mt: 0.5,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {service.description}
+              </Typography>
+            )}
+          </Box>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: 0.5,
+              ml: 1,
+              flexShrink: 0,
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                mb: 0.5,
+              }}
+            >
+              <Box
+                sx={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  backgroundColor:
+                    service.status === "Available" ? "#10b981" : "#6b7280",
+                }}
+              />
+              <Typography sx={{ fontSize: "11px", color: "#6b7280" }}>
+                {service.status}
+              </Typography>
+            </Box>
+            <Box sx={{ display: "flex", gap: 0.5 }}>
+              <IconButton
+                size="small"
+                onClick={onEdit}
+                sx={{
+                  color: "#2563eb",
+                  "&:hover": { backgroundColor: "#eff6ff" },
+                }}
+              >
+                <FiEdit2 size={14} />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={onDelete}
+                sx={{
+                  color: "#ef4444",
+                  "&:hover": { backgroundColor: "#fee2e2" },
+                }}
+              >
+                <FiTrash2 size={14} />
+              </IconButton>
+            </Box>
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
 
 // ─── Staff Tab ────────────────────────────────────────────────────────────────
 function StaffTab() {
   const { staffProfile, isAdmin } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [staffData, setStaffData] = useState<Staff[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
@@ -94,33 +433,41 @@ function StaffTab() {
     string[]
   >([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [specializationFilter, setSpecializationFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [specializationFilter, setSpecializationFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [openModal, setOpenModal] = useState(false);
-  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
-  const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [modalMode, setModalMode] = useState<"add" | "edit">("add");
+  const [selectedStaffId, setSelectedStaffId] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<{
     open: boolean;
     id: string;
     name: string;
-  }>({ open: false, id: '', name: '' });
+  }>({ open: false, id: "", name: "" });
+  const [viewModal, setViewModal] = useState<{
+    open: boolean;
+    staff: Staff | null;
+  }>({ open: false, staff: null });
   const [snackbar, setSnackbar] = useState({
     open: false,
-    message: '',
-    severity: 'success' as 'success' | 'error',
-  });
-  const [formData, setFormData] = useState<StaffFormData>({
-    name: '',
-    role: '',
-    specialization: '',
-    department: '',
-    status: 'Active',
-    email: '',
-    phone: '',
+    message: "",
+    severity: "success" as "success" | "error",
   });
 
-  const showSnackbar = (message: string, severity: 'success' | 'error') =>
+  const [lastName, setLastName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [formData, setFormData] = useState<StaffFormData>({
+    name: "",
+    role: "",
+    specialization: "",
+    department: "",
+    status: "Active",
+    email: "",
+    phone: "",
+  });
+
+  const showSnackbar = (message: string, severity: "success" | "error") =>
     setSnackbar({ open: true, message, severity });
 
   const fetchStaff = useCallback(async () => {
@@ -135,12 +482,12 @@ function StaffTab() {
         getAllDepartments(),
         getSpecializations(),
       ]);
-      if (staffErr) showSnackbar(staffErr, 'error');
+      if (staffErr) showSnackbar(staffErr, "error");
       else setStaffData(staffRes || []);
       setDepartments(deptRes || []);
       setAllSpecializations(specRes || []);
     } catch {
-      showSnackbar('Failed to load staff data', 'error');
+      showSnackbar("Failed to load staff data", "error");
     } finally {
       setLoading(false);
     }
@@ -152,94 +499,95 @@ function StaffTab() {
 
   useEffect(() => {
     if (formData.department) {
-      getSpecializations(formData.department).then(({ data }) => {
-        setFilteredSpecializations(data || []);
-      });
+      getSpecializations(formData.department).then(({ data }) =>
+        setFilteredSpecializations(data || []),
+      );
     } else {
       setFilteredSpecializations([]);
     }
   }, [formData.department]);
 
   const getStatusColor = (status: string) =>
-    status === 'Active' ? '#10b981' : '#6b7280';
+    status === "Active" ? "#10b981" : "#6b7280";
   const getDutyStatusColor = (dutyStatus: string | null | undefined) => {
-    if (dutyStatus === 'On Duty') return '#3b82f6';
-    if (dutyStatus === 'On Leave') return '#f59e0b';
-    return '#9ca3af';
+    if (dutyStatus === "On Duty") return "#3b82f6";
+    if (dutyStatus === "On Leave") return "#f59e0b";
+    return "#9ca3af";
   };
 
   const filteredStaff = staffData.filter((staff) => {
     if (
       isAdmin &&
       staffProfile &&
-      staff.user_role === 'admin' &&
+      staff.user_role === "admin" &&
       staff.id !== staffProfile.id
     )
       return false;
+    const displayName = formatNameForDisplay(staff.name);
     const matchesSearch =
+      displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       staff.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      staff.role.toLowerCase().includes(searchQuery.toLowerCase());
+      staff.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (staff.staffid ?? "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSpecialization =
-      specializationFilter === 'all' ||
+      specializationFilter === "all" ||
       staff.specialization === specializationFilter;
     const matchesStatus =
-      statusFilter === 'all' || staff.status === statusFilter;
+      statusFilter === "all" || staff.status === statusFilter;
     return matchesSearch && matchesSpecialization && matchesStatus;
   });
 
-  const handleOpenModal = (mode: 'add' | 'edit') => {
+  const resetNameFields = () => {
+    setLastName("");
+    setFirstName("");
+    setMiddleName("");
+  };
+
+  const handleOpenModal = (mode: "add" | "edit") => {
     setModalMode(mode);
-    setSelectedStaffId('');
+    setSelectedStaffId("");
+    resetNameFields();
     setFormData({
-      name: '',
-      role: '',
-      specialization: '',
-      department: '',
-      status: 'Active',
-      email: '',
-      phone: '',
+      name: "",
+      role: "",
+      specialization: "",
+      department: "",
+      status: "Active",
+      email: "",
+      phone: "",
     });
     setOpenModal(true);
   };
 
-  const handleStaffSelection = (staffId: string) => {
-    const staff = staffData.find((s) => s.id === staffId);
-    if (staff) {
-      setSelectedStaffId(staffId);
-      setFormData({
-        name: staff.name,
-        role: staff.role,
-        specialization: staff.specialization || '',
-        department: staff.department || '',
-        status: (staff.status as 'Active' | 'Inactive') || 'Active',
-        email: staff.email || '',
-        phone: staff.phone || '',
-      });
-    }
-  };
-
   const handleSubmit = async () => {
-    if (!formData.name || !formData.role || !formData.specialization) {
-      showSnackbar('Please fill in all required fields', 'error');
+    if (
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !formData.role ||
+      !formData.specialization
+    ) {
+      showSnackbar("Please fill in all required fields", "error");
       return;
     }
-    if (!formData.email || !formData.email.includes('@')) {
-      showSnackbar('Please enter a valid email address', 'error');
+    if (!formData.email || !formData.email.includes("@")) {
+      showSnackbar("Please enter a valid email address", "error");
       return;
     }
-    if (modalMode === 'add') {
-      const { error } = await createStaff(formData);
-      if (error) showSnackbar(error, 'error');
+    const builtName = formatNameForStorage(lastName, firstName, middleName);
+    const payload: StaffFormData = { ...formData, name: builtName };
+    if (modalMode === "add") {
+      const { error } = await createStaff(payload);
+      if (error) showSnackbar(error, "error");
       else {
-        showSnackbar('Staff member added successfully', 'success');
+        showSnackbar("Staff member added successfully", "success");
         fetchStaff();
         setOpenModal(false);
       }
     } else {
-      const { error } = await updateStaff(selectedStaffId, formData);
-      if (error) showSnackbar(error, 'error');
+      const { error } = await updateStaff(selectedStaffId, payload);
+      if (error) showSnackbar(error, "error");
       else {
-        showSnackbar('Staff member updated successfully', 'success');
+        showSnackbar("Staff member updated successfully", "success");
         fetchStaff();
         setOpenModal(false);
       }
@@ -248,8 +596,8 @@ function StaffTab() {
 
   const handleDelete = (id: string, name: string) => {
     const targetStaff = staffData.find((s) => s.id === id);
-    if (targetStaff?.user_role === 'admin') {
-      showSnackbar('Admin accounts cannot be deleted.', 'error');
+    if (targetStaff?.user_role === "admin") {
+      showSnackbar("Admin accounts cannot be deleted.", "error");
       return;
     }
     setDeleteConfirm({ open: true, id, name });
@@ -257,24 +605,23 @@ function StaffTab() {
 
   const handleConfirmDelete = async () => {
     const { id } = deleteConfirm;
-    setDeleteConfirm({ open: false, id: '', name: '' });
+    setDeleteConfirm({ open: false, id: "", name: "" });
     setStaffData((prev) => prev.filter((s) => s.id !== id));
     const { error } = await deleteStaff(id);
     if (error) {
-      showSnackbar(error, 'error');
+      showSnackbar(error, "error");
       fetchStaff();
-    } else showSnackbar('Staff member deleted successfully', 'success');
+    } else showSnackbar("Staff member deleted successfully", "success");
   };
-
 
   if (loading)
     return (
       <Box
         sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '400px',
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "400px",
         }}
       >
         <CircularProgress />
@@ -283,13 +630,14 @@ function StaffTab() {
 
   return (
     <>
+      {/* Search + Action row */}
       <Box
         sx={{
-          display: 'flex',
-          gap: '12px',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          mb: 2,
+          display: "flex",
+          gap: "8px",
+          alignItems: "center",
+          mb: 1.5,
+          flexWrap: "nowrap",
         }}
       >
         <TextField
@@ -298,322 +646,333 @@ function StaffTab() {
           onChange={(e) => setSearchQuery(e.target.value)}
           size="small"
           sx={{
-            flex: '1 1 180px',
-            minWidth: '150px',
-            maxWidth: '280px',
-            backgroundColor: 'white',
-            borderRadius: '6px',
-            '& .MuiOutlinedInput-root': { borderRadius: '6px' },
+            flex: 1,
+            minWidth: 0,
+            backgroundColor: "white",
+            borderRadius: "6px",
+            "& .MuiOutlinedInput-root": { borderRadius: "6px" },
           }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <FiSearch style={{ color: '#6b7280', fontSize: '16px' }} />
+                <FiSearch style={{ color: "#6b7280", fontSize: "16px" }} />
               </InputAdornment>
             ),
           }}
         />
-        <FormControl
-          size="small"
-          sx={{
-            minWidth: 120,
-            maxWidth: 160,
-            flex: '0 1 auto',
-            backgroundColor: 'white',
-            borderRadius: '6px',
-          }}
-        >
-          <Select
-            value={specializationFilter}
-            onChange={(e) => setSpecializationFilter(e.target.value)}
-            displayEmpty
-            sx={{ borderRadius: '6px', fontSize: '14px' }}
+        {isMobile && (
+          <IconButton
+            size="small"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            sx={{
+              border: "1px solid #e5e7eb",
+              borderRadius: "6px",
+              backgroundColor: filtersOpen ? "#eff6ff" : "white",
+              color: filtersOpen ? "#2563eb" : "#6b7280",
+              width: 36,
+              height: 36,
+            }}
           >
-            <MenuItem value="all">All Specializations</MenuItem>
-            {allSpecializations.map((s) => (
-              <MenuItem key={s} value={s}>
-                {s}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl
-          size="small"
-          sx={{
-            minWidth: 100,
-            maxWidth: 140,
-            flex: '0 1 auto',
-            backgroundColor: 'white',
-            borderRadius: '6px',
-            mr: '12px',
-          }}
-        >
-          <Select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            displayEmpty
-            sx={{ borderRadius: '6px', fontSize: '14px' }}
-          >
-            <MenuItem value="all">All Status</MenuItem>
-            <MenuItem value="Active">Active</MenuItem>
-            <MenuItem value="Inactive">Inactive</MenuItem>
-          </Select>
-        </FormControl>
+            <FiFilter size={16} />
+          </IconButton>
+        )}
         <Button
-          onClick={() => handleOpenModal('add')}
+          onClick={() => handleOpenModal("add")}
           variant="contained"
+          size={isMobile ? "small" : "medium"}
           sx={{
-            textTransform: 'none',
-            backgroundColor: '#2563EB',
+            textTransform: "none",
+            backgroundColor: "#2563EB",
             fontWeight: 600,
-            fontSize: '14px',
-            ml: 'auto',
-            '&:hover': { backgroundColor: '#1d4ed8' },
+            fontSize: "13px",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+            "&:hover": { backgroundColor: "#1d4ed8" },
           }}
         >
-          + Add Staff
-        </Button>
-        <Button
-          onClick={() => handleOpenModal('edit')}
-          variant="outlined"
-          sx={{
-            textTransform: 'none',
-            borderColor: '#d1d5db',
-            color: '#4b5563',
-            fontWeight: 600,
-            fontSize: '14px',
-            '&:hover': { borderColor: '#9ca3af', backgroundColor: '#f9fafb' },
-          }}
-        >
-          Edit Staff
+          {isMobile ? "+ Add" : "+ Add Staff"}
         </Button>
       </Box>
 
-      <TableContainer
-        component={Paper}
-        sx={{
-          borderRadius: '8px',
-          boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-          border: '1px solid #e5e7eb',
-          overflowX: 'auto',
-          maxHeight: '460px',
-          overflow: 'auto',
-        }}
-      >
-        <Table stickyHeader sx={{ tableLayout: 'fixed', width: '100%' }}>
-          <TableHead>
-            <TableRow>
-              {[
-                'ID',
-                'Name',
-                'Role',
-                'Specialization',
-                'Department',
-                'Email',
-                'Status / Duty',
-                'Actions',
-              ].map((h, i) => (
-                <TableCell
-                  key={h}
-                  sx={{
-                    fontWeight: 600,
-                    color: '#374151',
-                    fontSize: '12px',
-                    padding: '10px 8px',
-                    width: [
-                      '8%',
-                      '20%',
-                      '15%',
-                      '15%',
-                      '15%',
-                      '20%',
-                      '12%',
-                      '10%',
-                    ][i],
-                    textAlign: h === 'Actions' ? 'center' : 'left',
-                  }}
-                >
-                  {h}
-                </TableCell>
+      {/* Collapsible filters on mobile, always visible on desktop */}
+      <Collapse in={!isMobile || filtersOpen}>
+        <Box sx={{ display: "flex", gap: "8px", flexWrap: "wrap", mb: 2 }}>
+          <FormControl
+            size="small"
+            sx={{
+              minWidth: 140,
+              flex: isMobile ? "1 1 calc(50% - 4px)" : "0 1 auto",
+              backgroundColor: "white",
+              borderRadius: "6px",
+            }}
+          >
+            <Select
+              value={specializationFilter}
+              onChange={(e) => setSpecializationFilter(e.target.value)}
+              displayEmpty
+              sx={{ borderRadius: "6px", fontSize: "13px" }}
+            >
+              <MenuItem value="all">All Specializations</MenuItem>
+              {allSpecializations.map((s) => (
+                <MenuItem key={s} value={s}>
+                  {s}
+                </MenuItem>
               ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredStaff.map((staff) => (
-              <TableRow
-                key={staff.id}
-                sx={{
-                  '&:hover': { backgroundColor: '#f9fafb' },
-                  borderBottom: '1px solid #f3f4f6',
-                }}
-              >
-                <TableCell
+            </Select>
+          </FormControl>
+          <FormControl
+            size="small"
+            sx={{
+              minWidth: 110,
+              flex: isMobile ? "1 1 calc(50% - 4px)" : "0 1 auto",
+              backgroundColor: "white",
+              borderRadius: "6px",
+            }}
+          >
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              displayEmpty
+              sx={{ borderRadius: "6px", fontSize: "13px" }}
+            >
+              <MenuItem value="all">All Status</MenuItem>
+              <MenuItem value="Active">Active</MenuItem>
+              <MenuItem value="Inactive">Inactive</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+      </Collapse>
+
+      {/* Mobile: card list — Desktop: table */}
+      {isMobile ? (
+        <Box>
+          {filteredStaff.map((staff) => (
+            <StaffMobileCard
+              key={staff.id}
+              staff={staff}
+              onView={() => setViewModal({ open: true, staff })}
+              onDelete={() =>
+                handleDelete(staff.id, formatNameForDisplay(staff.name))
+              }
+            />
+          ))}
+          {filteredStaff.length === 0 && (
+            <Box
+              sx={{
+                textAlign: "center",
+                py: 6,
+                color: "#9ca3af",
+                fontSize: "14px",
+              }}
+            >
+              No staff members found
+            </Box>
+          )}
+        </Box>
+      ) : (
+        <TableContainer
+          component={Paper}
+          sx={{
+            borderRadius: "8px",
+            boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+            border: "1px solid #e5e7eb",
+            maxHeight: "460px",
+            overflow: "auto",
+          }}
+        >
+          <Table stickyHeader sx={{ tableLayout: "fixed", width: "100%" }}>
+            <TableHead>
+              <TableRow>
+                {["ID", "Name", "Role", "Status / Duty", "Actions"].map(
+                  (h, i) => (
+                    <TableCell
+                      key={h}
+                      sx={{
+                        fontWeight: 600,
+                        color: "#374151",
+                        fontSize: "12px",
+                        padding: "10px 8px",
+                        width: ["15%", "20%", "15%", "12%", "10%"][i],
+                        textAlign: h === "Actions" ? "center" : "left",
+                      }}
+                    >
+                      {h}
+                    </TableCell>
+                  ),
+                )}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredStaff.map((staff) => (
+                <TableRow
+                  key={staff.id}
                   sx={{
-                    color: '#6b7280',
-                    fontSize: '11px',
-                    padding: '10px 8px',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
+                    "&:hover": { backgroundColor: "#f9fafb" },
+                    borderBottom: "1px solid #f3f4f6",
                   }}
                 >
-                  {staff.id.substring(0, 8)}...
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: '#1f2937',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    padding: '10px 8px',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {staff.name}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: '#6b7280',
-                    fontSize: '12px',
-                    padding: '10px 8px',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {staff.role}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: '#6b7280',
-                    fontSize: '12px',
-                    padding: '10px 8px',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {staff.specialization || 'N/A'}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: '#6b7280',
-                    fontSize: '12px',
-                    padding: '10px 8px',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {staff.department || 'N/A'}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: '#6b7280',
-                    fontSize: '11px',
-                    padding: '10px 8px',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {staff.email || 'N/A'}
-                </TableCell>
-                <TableCell sx={{ padding: '10px 8px' }}>
-                  <Box
+                  <TableCell
                     sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '2px',
+                      color: "#6b7280",
+                      fontSize: "11px",
+                      padding: "10px 8px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
                     }}
                   >
+                    {staff.staffid ?? staff.id.substring(0, 8) + "..."}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: "#1f2937",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      padding: "10px 8px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {formatNameForDisplay(staff.name)}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: "#6b7280",
+                      fontSize: "12px",
+                      padding: "10px 8px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {staff.role}
+                  </TableCell>
+                  <TableCell sx={{ padding: "10px 8px" }}>
                     <Box
-                      sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "2px",
+                      }}
                     >
                       <Box
                         sx={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: '50%',
-                          backgroundColor: getStatusColor(staff.status),
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span
-                        style={{
-                          color: '#6b7280',
-                          fontSize: '11px',
-                          whiteSpace: 'nowrap',
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
                         }}
                       >
-                        {staff.status}
-                      </span>
-                    </Box>
-                    <Box
-                      sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                    >
+                        <Box
+                          sx={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            backgroundColor: getStatusColor(staff.status),
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span
+                          style={{
+                            color: "#6b7280",
+                            fontSize: "11px",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {staff.status}
+                        </span>
+                      </Box>
                       <Box
                         sx={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: '50%',
-                          backgroundColor: getDutyStatusColor(
-                            staff.duty_status,
-                          ),
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span
-                        style={{
-                          color: '#6b7280',
-                          fontSize: '11px',
-                          whiteSpace: 'nowrap',
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
                         }}
                       >
-                        {staff.duty_status || 'Off Duty'}
-                      </span>
+                        <Box
+                          sx={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            backgroundColor: getDutyStatusColor(
+                              staff.duty_status,
+                            ),
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span
+                          style={{
+                            color: "#6b7280",
+                            fontSize: "11px",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {staff.duty_status || "Off Duty"}
+                        </span>
+                      </Box>
                     </Box>
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ padding: '10px 8px', textAlign: 'center' }}>
-                  <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                    {staff.user_role !== 'admin' ? (
+                  </TableCell>
+                  <TableCell sx={{ padding: "10px 8px", textAlign: "center" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 0.5,
+                        justifyContent: "center",
+                      }}
+                    >
                       <IconButton
                         size="small"
-                        onClick={() => handleDelete(staff.id, staff.name)}
+                        onClick={() => setViewModal({ open: true, staff })}
                         sx={{
-                          color: '#ef4444',
-                          '&:hover': { backgroundColor: '#fee2e2' },
+                          color: "#3b82f6",
+                          "&:hover": { backgroundColor: "#dbeafe" },
                         }}
+                        title="View Staff Info"
                       >
-                        <FiTrash2 size={14} />
+                        <FiEye size={14} />
                       </IconButton>
-                    ) : (
-                      <span style={{ color: '#d1d5db', fontSize: '11px' }}>
-                        —
-                      </span>
-                    )}
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
-            {filteredStaff.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={8}
-                  align="center"
-                  sx={{ py: 4, color: '#9ca3af' }}
-                >
-                  No staff members found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                      {staff.user_role !== "admin" ? (
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            handleDelete(
+                              staff.id,
+                              formatNameForDisplay(staff.name),
+                            )
+                          }
+                          sx={{
+                            color: "#ef4444",
+                            "&:hover": { backgroundColor: "#fee2e2" },
+                          }}
+                        >
+                          <FiTrash2 size={14} />
+                        </IconButton>
+                      ) : (
+                        <span style={{ color: "#d1d5db", fontSize: "11px" }}>
+                          —
+                        </span>
+                      )}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredStaff.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={8}
+                    align="center"
+                    sx={{ py: 4, color: "#9ca3af" }}
+                  >
+                    No staff members found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
-      {/* Add/Edit Modal */}
+      {/* Add / Edit Modal */}
       <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
@@ -621,95 +980,103 @@ function StaffTab() {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '12px',
-            margin: '16px',
-            width: 'calc(100% - 32px)',
-            maxWidth: '500px',
+            borderRadius: "12px",
+            margin: "16px",
+            width: "calc(100% - 32px)",
+            maxWidth: "500px",
           },
         }}
       >
         <DialogTitle
           sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             pb: 2,
-            fontSize: '18px',
+            fontSize: "18px",
             fontWeight: 600,
-            color: '#1f2937',
+            color: "#1f2937",
           }}
         >
-          {modalMode === 'add' ? 'Add New Staff' : 'Edit Staff'}
+          {modalMode === "add" ? "Add New Staff" : "Edit Staff"}
           <IconButton onClick={() => setOpenModal(false)} size="small">
             <FiX />
           </IconButton>
         </DialogTitle>
         <DialogContent dividers sx={{ py: 3 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            {modalMode === 'edit' && (
-              <Box>
-                {fieldLabel('Select Staff to Edit')}
-                <FormControl fullWidth size="small">
-                  <Select
-                    value={selectedStaffId}
-                    onChange={(e) => handleStaffSelection(e.target.value)}
-                    displayEmpty
-                    sx={{ borderRadius: '6px' }}
-                  >
-                    <MenuItem value="" disabled>
-                      <em>Choose a staff member</em>
-                    </MenuItem>
-                    {staffData.map((s) => (
-                      <MenuItem key={s.id} value={s.id}>
-                        {s.name} - {s.role}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-            )}
-            {[
-              {
-                label: 'Full Name',
-                key: 'name',
-                type: 'text',
-                placeholder: 'Enter full name',
-              },
-              {
-                label: 'Email',
-                key: 'email',
-                type: 'email',
-                placeholder: 'staff@clinika.com',
-                disableOnEdit: true,
-              },
-              {
-                label: 'Phone (Optional)',
-                key: 'phone',
-                type: 'tel',
-                placeholder: '555-0000',
-              },
-            ].map(({ label, key, type, placeholder, disableOnEdit }) => (
-              <Box key={key}>
-                {fieldLabel(label)}
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                flexDirection: { xs: "column", sm: "row" },
+              }}
+            >
+              <Box sx={{ flex: 1 }}>
+                {fieldLabel("Last Name", true)}
                 <TextField
                   fullWidth
                   size="small"
-                  type={type}
-                  placeholder={placeholder}
-                  value={formData[key as keyof StaffFormData]}
-                  onChange={(e) =>
-                    setFormData({ ...formData, [key]: e.target.value })
-                  }
-                  disabled={
-                    (modalMode === 'edit' && !selectedStaffId) ||
-                    (modalMode === 'edit' && !!disableOnEdit)
-                  }
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                  placeholder="e.g. Dela Cruz"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
                 />
               </Box>
-            ))}
+              <Box sx={{ flex: 1 }}>
+                {fieldLabel("First Name", true)}
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="e.g. Juan"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+                />
+              </Box>
+            </Box>
             <Box>
-              {fieldLabel('Role')}
+              {fieldLabel("Middle Name (Optional)")}
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="e.g. Santos"
+                value={middleName}
+                onChange={(e) => setMiddleName(e.target.value)}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+              />
+            </Box>
+            <Box>
+              {fieldLabel("Email", true)}
+              <TextField
+                fullWidth
+                size="small"
+                type="email"
+                placeholder="staff@clinika.com"
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+                disabled={modalMode === "edit"}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+              />
+            </Box>
+            <Box>
+              {fieldLabel("Phone (Optional)")}
+              <TextField
+                fullWidth
+                size="small"
+                type="tel"
+                placeholder="555-0000"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+              />
+            </Box>
+            <Box>
+              {fieldLabel("Role", true)}
               <FormControl fullWidth size="small">
                 <Select
                   value={formData.role}
@@ -717,11 +1084,10 @@ function StaffTab() {
                     setFormData({ ...formData, role: e.target.value })
                   }
                   displayEmpty
-                  disabled={modalMode === 'edit' && !selectedStaffId}
-                  sx={{ borderRadius: '6px' }}
+                  sx={{ borderRadius: "6px" }}
                 >
                   <MenuItem value="">Select role</MenuItem>
-                  {['Doctor', 'Nurse', 'Receptionist'].map((o) => (
+                  {["Doctor", "Nurse", "Receptionist"].map((o) => (
                     <MenuItem key={o} value={o}>
                       {o}
                     </MenuItem>
@@ -729,85 +1095,71 @@ function StaffTab() {
                 </Select>
               </FormControl>
             </Box>
-            <Box>
-              {fieldLabel('Department')}
-              <FormControl fullWidth size="small">
-                <Select
-                  value={formData.department}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      department: e.target.value,
-                      specialization: '',
-                    })
-                  }
-                  displayEmpty
-                  disabled={modalMode === 'edit' && !selectedStaffId}
-                  sx={{ borderRadius: '6px' }}
-                >
-                  <MenuItem value="">Select department</MenuItem>
-                  {departments.map((d) => (
-                    <MenuItem key={d} value={d}>
-                      {d}
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                flexDirection: { xs: "column", sm: "row" },
+              }}
+            >
+              <Box sx={{ flex: 1 }}>
+                {fieldLabel("Department")}
+                <FormControl fullWidth size="small">
+                  <Select
+                    value={formData.department}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        department: e.target.value,
+                        specialization: "",
+                      })
+                    }
+                    displayEmpty
+                    sx={{ borderRadius: "6px" }}
+                  >
+                    <MenuItem value="">Select department</MenuItem>
+                    {departments.map((d) => (
+                      <MenuItem key={d} value={d}>
+                        {d}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                {fieldLabel("Specialization", true)}
+                <FormControl fullWidth size="small">
+                  <Select
+                    value={formData.specialization}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        specialization: e.target.value,
+                      })
+                    }
+                    displayEmpty
+                    sx={{ borderRadius: "6px" }}
+                  >
+                    <MenuItem value="">
+                      {formData.department
+                        ? "Select specialization"
+                        : "Select department first"}
                     </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-            <Box>
-              {fieldLabel('Specialization')}
-              <FormControl fullWidth size="small">
-                <Select
-                  value={formData.specialization}
-                  onChange={(e) =>
-                    setFormData({ ...formData, specialization: e.target.value })
-                  }
-                  displayEmpty
-                  sx={{ borderRadius: '6px' }}
-                >
-                  <MenuItem value="">
-                    {formData.department
-                      ? 'Select specialization'
-                      : 'Select department first'}
-                  </MenuItem>
-                  {filteredSpecializations.map((s) => (
-                    <MenuItem key={s} value={s}>
-                      {s}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-            <Box>
-              {fieldLabel('Status')}
-              <FormControl fullWidth size="small">
-                <Select
-                  value={formData.status}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      status: e.target.value as 'Active' | 'Inactive',
-                    })
-                  }
-                  displayEmpty
-                  disabled={modalMode === 'edit' && !selectedStaffId}
-                  sx={{ borderRadius: '6px' }}
-                >
-                  <MenuItem value="">Select status</MenuItem>
-                  {['Active', 'Inactive'].map((o) => (
-                    <MenuItem key={o} value={o}>
-                      {o}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                    {filteredSpecializations.map((s) => (
+                      <MenuItem key={s} value={s}>
+                        {s}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
             </Box>
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
             onClick={() => setOpenModal(false)}
-            sx={{ textTransform: 'none', color: '#6b7280' }}
+            sx={{ textTransform: "none", color: "#6b7280" }}
           >
             Cancel
           </Button>
@@ -815,13 +1167,13 @@ function StaffTab() {
             onClick={handleSubmit}
             variant="contained"
             sx={{
-              textTransform: 'none',
-              backgroundColor: '#2563EB',
+              textTransform: "none",
+              backgroundColor: "#2563EB",
               fontWeight: 600,
-              '&:hover': { backgroundColor: '#1d4ed8' },
+              "&:hover": { backgroundColor: "#1d4ed8" },
             }}
           >
-            {modalMode === 'add' ? 'Add Staff' : 'Save Changes'}
+            {modalMode === "add" ? "Add Staff" : "Save Changes"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -830,16 +1182,307 @@ function StaffTab() {
         open={deleteConfirm.open}
         name={deleteConfirm.name}
         title="Delete Staff Member"
-        onClose={() => setDeleteConfirm({ open: false, id: '', name: '' })}
+        onClose={() => setDeleteConfirm({ open: false, id: "", name: "" })}
         onConfirm={handleConfirmDelete}
       />
 
-      {/* QR Code Modal */}
+      {/* Staff Info Card Modal */}
+      <Dialog
+        open={viewModal.open}
+        onClose={() => setViewModal({ open: false, staff: null })}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "20px",
+            maxWidth: "360px",
+            overflow: "hidden",
+            margin: "16px",
+            width: "calc(100% - 32px)",
+          },
+        }}
+      >
+        {viewModal.staff && (
+          <>
+            <Box sx={{ position: "absolute", top: 8, right: 8, zIndex: 1 }}>
+              <IconButton
+                onClick={() => setViewModal({ open: false, staff: null })}
+                size="small"
+              >
+                <FiX size={18} color="#374151" />
+              </IconButton>
+            </Box>
+            <DialogContent sx={{ px: 3, pt: 1, pb: 0 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  mb: 2,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 92,
+                    height: 92,
+                    borderRadius: "50%",
+                    border: "3px solid #e0eaff",
+                    mb: 1.5,
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    backgroundColor: "#dbeafe",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {viewModal.staff?.avatar_url ? (
+                    <img
+                      src={viewModal.staff?.avatar_url}
+                      alt={formatNameForDisplay(viewModal.staff.name)}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    <span
+                      style={{
+                        fontSize: "36px",
+                        fontWeight: 700,
+                        color: "#2563eb",
+                      }}
+                    >
+                      {getAvatarInitial(viewModal.staff.name)}
+                    </span>
+                  )}
+                </Box>
+                <Typography
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: "18px",
+                    color: "#111827",
+                    lineHeight: 1.2,
+                    textAlign: "center",
+                  }}
+                >
+                  {formatNameForDisplay(viewModal.staff.name)}
+                </Typography>
+                <Typography
+                  sx={{ fontSize: "13px", color: "#6b7280", mt: 0.3 }}
+                >
+                  {viewModal.staff.role}
+                </Typography>
+                <Box
+                  sx={{
+                    mt: 1.2,
+                    px: 2,
+                    py: 0.4,
+                    borderRadius: "20px",
+                    backgroundColor:
+                      viewModal.staff.status === "Active"
+                        ? "#10b981"
+                        : "#6b7280",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.6,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      backgroundColor: "white",
+                    }}
+                  />
+                  <Typography
+                    sx={{ fontSize: "12px", fontWeight: 600, color: "white" }}
+                  >
+                    {viewModal.staff.status}
+                  </Typography>
+                </Box>
+              </Box>
+              <Box
+                sx={{
+                  height: "1px",
+                  backgroundColor: "#f3f4f6",
+                  mx: -3,
+                  mb: 2,
+                }}
+              />
+              {[
+                {
+                  label: "Staff ID",
+                  value: viewModal.staff.staffid ?? viewModal.staff.id,
+                },
+                { label: "Email", value: viewModal.staff.email || "—" },
+                {
+                  label: "Specialization",
+                  value: viewModal.staff.specialization || "—",
+                },
+                {
+                  label: "Department",
+                  value: viewModal.staff.department || "—",
+                },
+              ].map(({ label, value }) => (
+                <Box key={label} sx={{ mb: 1.5 }}>
+                  <Typography
+                    sx={{
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      color: "#9ca3af",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      mb: 0.2,
+                    }}
+                  >
+                    {label}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontSize: "13px",
+                      color: "#374151",
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    {value}
+                  </Typography>
+                </Box>
+              ))}
+              <Box
+                sx={{
+                  height: "1px",
+                  backgroundColor: "#f3f4f6",
+                  mx: -3,
+                  mb: 2,
+                }}
+              />
+              <Box sx={{ mb: 2 }}>
+                <Typography
+                  sx={{ fontSize: "12px", color: "#6b7280", mb: 0.5 }}
+                >
+                  Last attendance:{" "}
+                  <span style={{ color: "#374151", fontWeight: 500 }}>
+                    {viewModal.staff.duty_status === "On Duty"
+                      ? "Currently on duty"
+                      : "N/A"}
+                  </span>
+                </Typography>
+                <Typography sx={{ fontSize: "12px", color: "#6b7280" }}>
+                  Duty status:{" "}
+                  <span style={{ color: "#374151", fontWeight: 500 }}>
+                    {viewModal.staff.duty_status || "Off Duty"}
+                  </span>
+                </Typography>
+              </Box>
+            </DialogContent>
+            <Box
+              sx={{ display: "flex", borderTop: "1px solid #f3f4f6", mt: 1 }}
+            >
+              <Button
+                onClick={() => {
+                  const staff = viewModal.staff!;
+                  const parsed = parseStoredName(staff.name);
+                  setViewModal({ open: false, staff: null });
+                  setModalMode("edit");
+                  setSelectedStaffId(staff.id);
+                  setLastName(parsed.lastName);
+                  setFirstName(parsed.firstName);
+                  setMiddleName(parsed.middleName);
+                  setFormData({
+                    name: staff.name,
+                    role: staff.role,
+                    specialization: staff.specialization || "",
+                    department: staff.department || "",
+                    status: (staff.status as "Active" | "Inactive") || "Active",
+                    email: staff.email || "",
+                    phone: staff.phone || "",
+                  });
+                  setOpenModal(true);
+                }}
+                sx={{
+                  flex: 1,
+                  py: 1.5,
+                  textTransform: "none",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#2563eb",
+                  backgroundColor: "white",
+                  borderRadius: 0,
+                  borderRight: "1px solid #f3f4f6",
+                  "&:hover": { backgroundColor: "#eff6ff" },
+                }}
+              >
+                Edit
+              </Button>
+              <Button
+                onClick={async () => {
+                  const staff = viewModal.staff!;
+                  const newStatus =
+                    staff.status === "Active" ? "Inactive" : "Active";
+                  const updatedStaff = { ...staff, status: newStatus };
+                  setViewModal({ open: true, staff: updatedStaff });
+                  setStaffData((prev) =>
+                    prev.map((s) =>
+                      s.id === staff.id ? { ...s, status: newStatus } : s,
+                    ),
+                  );
+                  const { error } = await updateStaff(staff.id, {
+                    name: staff.name,
+                    role: staff.role,
+                    specialization: staff.specialization || "",
+                    department: staff.department || "",
+                    status: newStatus as "Active" | "Inactive",
+                    email: staff.email || "",
+                    phone: staff.phone || "",
+                  });
+                  if (error) {
+                    setViewModal({ open: true, staff });
+                    setStaffData((prev) =>
+                      prev.map((s) =>
+                        s.id === staff.id ? { ...s, status: staff.status } : s,
+                      ),
+                    );
+                    showSnackbar(error, "error");
+                  } else
+                    showSnackbar(
+                      `Staff member ${newStatus === "Active" ? "activated" : "deactivated"} successfully`,
+                      "success",
+                    );
+                }}
+                sx={{
+                  flex: 1,
+                  py: 1.5,
+                  textTransform: "none",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color:
+                    viewModal.staff!.status === "Active"
+                      ? "#ef4444"
+                      : "#10b981",
+                  backgroundColor: "white",
+                  borderRadius: 0,
+                  "&:hover": {
+                    backgroundColor:
+                      viewModal.staff!.status === "Active"
+                        ? "#fef2f2"
+                        : "#f0fdf4",
+                  },
+                }}
+              >
+                {viewModal.staff!.status === "Active"
+                  ? "Deactivate"
+                  : "Activate"}
+              </Button>
+            </Box>
+          </>
+        )}
+      </Dialog>
 
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
+      <AppSnackbar
+        snackbar={snackbar}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
       />
     </>
@@ -849,6 +1492,10 @@ function StaffTab() {
 // ─── Services Tab ─────────────────────────────────────────────────────────────
 function ServicesTab() {
   const { isAdmin } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const [services, setServices] = useState<Service[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [allSpecializations, setAllSpecializations] = useState<string[]>([]);
@@ -856,26 +1503,26 @@ function ServicesTab() {
     string[]
   >([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState('all');
-  const [specializationFilter, setSpecializationFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [specializationFilter, setSpecializationFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [openModal, setOpenModal] = useState(false);
-  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [formData, setFormData] = useState<ServiceFormData>(EMPTY_SERVICE_FORM);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     open: boolean;
     id: string;
     name: string;
-  }>({ open: false, id: '', name: '' });
+  }>({ open: false, id: "", name: "" });
   const [snackbar, setSnackbar] = useState({
     open: false,
-    message: '',
-    severity: 'success' as 'success' | 'error',
+    message: "",
+    severity: "success" as "success" | "error",
   });
 
-  const showSnackbar = (message: string, severity: 'success' | 'error') =>
+  const showSnackbar = (message: string, severity: "success" | "error") =>
     setSnackbar({ open: true, message, severity });
 
   const fetchServices = useCallback(async () => {
@@ -890,12 +1537,12 @@ function ServicesTab() {
         getAllDepartments(),
         getSpecializations(),
       ]);
-      if (svcErr) showSnackbar(svcErr, 'error');
+      if (svcErr) showSnackbar(svcErr, "error");
       else setServices(svcRes || []);
       setDepartments(deptRes || []);
       setAllSpecializations(specRes || []);
     } catch {
-      showSnackbar('Failed to load services', 'error');
+      showSnackbar("Failed to load services", "error");
     } finally {
       setLoading(false);
     }
@@ -917,7 +1564,7 @@ function ServicesTab() {
 
   if (!isAdmin)
     return (
-      <Box sx={{ textAlign: 'center', py: 6, color: '#9ca3af' }}>
+      <Box sx={{ textAlign: "center", py: 6, color: "#9ca3af" }}>
         You don't have permission to view this section.
       </Box>
     );
@@ -925,10 +1572,10 @@ function ServicesTab() {
     return (
       <Box
         sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '400px',
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "400px",
         }}
       >
         <CircularProgress />
@@ -938,63 +1585,63 @@ function ServicesTab() {
   const filtered = services.filter((s) => {
     const matchesSearch =
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (s.department ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (s.specialization ?? '')
+      (s.department ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.specialization ?? "")
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
     const matchesDept =
-      departmentFilter === 'all' || s.department === departmentFilter;
+      departmentFilter === "all" || s.department === departmentFilter;
     const matchesSpec =
-      specializationFilter === 'all' ||
+      specializationFilter === "all" ||
       s.specialization === specializationFilter;
-    const matchesStatus = statusFilter === 'all' || s.status === statusFilter;
+    const matchesStatus = statusFilter === "all" || s.status === statusFilter;
     return matchesSearch && matchesDept && matchesSpec && matchesStatus;
   });
 
   const openAddModal = () => {
-    setModalMode('add');
+    setModalMode("add");
     setFormData(EMPTY_SERVICE_FORM);
     setEditingService(null);
     setOpenModal(true);
   };
   const openEditModal = (service: Service) => {
-    setModalMode('edit');
+    setModalMode("edit");
     setEditingService(service);
     setFormData({
       name: service.name,
-      department: service.department || '',
-      specialization: service.specialization || '',
+      department: service.department || "",
+      specialization: service.specialization || "",
       duration: service.duration,
       price: service.price,
       downpayment: service.downpayment,
       status: service.status,
-      description: service.description || '',
+      description: service.description || "",
     });
     setOpenModal(true);
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.duration) {
-      showSnackbar('Please fill in all required fields', 'error');
+    if (!formData.name.trim() || !formData.duration.trim()) {
+      showSnackbar("Please fill in all required fields", "error");
       return;
     }
     if (formData.price < 0) {
-      showSnackbar('Price must be a positive number', 'error');
+      showSnackbar("Price must be a positive number", "error");
       return;
     }
-    if (modalMode === 'add') {
+    if (modalMode === "add") {
       const { error } = await createService(formData);
-      if (error) showSnackbar(error, 'error');
+      if (error) showSnackbar(error, "error");
       else {
-        showSnackbar('Service added successfully', 'success');
+        showSnackbar("Service added successfully", "success");
         fetchServices();
         setOpenModal(false);
       }
     } else if (editingService) {
       const { error } = await updateService(editingService.id, formData);
-      if (error) showSnackbar(error, 'error');
+      if (error) showSnackbar(error, "error");
       else {
-        showSnackbar('Service updated successfully', 'success');
+        showSnackbar("Service updated successfully", "success");
         fetchServices();
         setOpenModal(false);
       }
@@ -1003,27 +1650,24 @@ function ServicesTab() {
 
   const handleConfirmDelete = async () => {
     const { id } = deleteConfirm;
-    setDeleteConfirm({ open: false, id: '', name: '' });
+    setDeleteConfirm({ open: false, id: "", name: "" });
     setServices((prev) => prev.filter((s) => s.id !== id));
     const { error } = await deleteService(id);
     if (error) {
-      showSnackbar(error, 'error');
+      showSnackbar(error, "error");
       fetchServices();
-    } else showSnackbar('Service deleted successfully', 'success');
+    } else showSnackbar("Service deleted successfully", "success");
   };
-
-  const getServiceStatusColor = (status: string) =>
-    status === 'Available' ? '#10b981' : '#6b7280';
 
   return (
     <>
       <Box
         sx={{
-          display: 'flex',
-          gap: '12px',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          mb: 2,
+          display: "flex",
+          gap: "8px",
+          alignItems: "center",
+          mb: 1.5,
+          flexWrap: "nowrap",
         }}
       >
         <TextField
@@ -1032,333 +1676,384 @@ function ServicesTab() {
           onChange={(e) => setSearchQuery(e.target.value)}
           size="small"
           sx={{
-            flex: '1 1 180px',
-            minWidth: '150px',
-            maxWidth: '200px',
-            backgroundColor: 'white',
-            borderRadius: '6px',
-            '& .MuiOutlinedInput-root': { borderRadius: '6px' },
+            flex: 1,
+            minWidth: 0,
+            backgroundColor: "white",
+            borderRadius: "6px",
+            "& .MuiOutlinedInput-root": { borderRadius: "6px" },
           }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <FiSearch style={{ color: '#6b7280', fontSize: '16px' }} />
+                <FiSearch style={{ color: "#6b7280", fontSize: "16px" }} />
               </InputAdornment>
             ),
           }}
         />
-        <FormControl
-          size="small"
-          sx={{
-            minWidth: 120,
-            maxWidth: 150,
-            flex: '0 1 auto',
-            backgroundColor: 'white',
-            borderRadius: '6px',
-          }}
-        >
-          <Select
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            displayEmpty
-            sx={{ borderRadius: '6px', fontSize: '14px' }}
+        {isMobile && (
+          <IconButton
+            size="small"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            sx={{
+              border: "1px solid #e5e7eb",
+              borderRadius: "6px",
+              backgroundColor: filtersOpen ? "#eff6ff" : "white",
+              color: filtersOpen ? "#2563eb" : "#6b7280",
+              width: 36,
+              height: 36,
+            }}
           >
-            <MenuItem value="all">All Departments</MenuItem>
-            {departments.map((d) => (
-              <MenuItem key={d} value={d}>
-                {d}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl
-          size="small"
-          sx={{
-            minWidth: 130,
-            maxWidth: 160,
-            flex: '0 1 auto',
-            backgroundColor: 'white',
-            borderRadius: '6px',
-          }}
-        >
-          <Select
-            value={specializationFilter}
-            onChange={(e) => setSpecializationFilter(e.target.value)}
-            displayEmpty
-            sx={{ borderRadius: '6px', fontSize: '14px' }}
-          >
-            <MenuItem value="all">All Specializations</MenuItem>
-            {allSpecializations.map((s) => (
-              <MenuItem key={s} value={s}>
-                {s}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl
-          size="small"
-          sx={{
-            minWidth: 100,
-            maxWidth: 130,
-            flex: '0 1 auto',
-            backgroundColor: 'white',
-            borderRadius: '6px',
-            mr: '12px',
-          }}
-        >
-          <Select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            displayEmpty
-            sx={{ borderRadius: '6px', fontSize: '14px' }}
-          >
-            <MenuItem value="all">All Status</MenuItem>
-            <MenuItem value="Available">Available</MenuItem>
-            <MenuItem value="Unavailable">Unavailable</MenuItem>
-          </Select>
-        </FormControl>
+            <FiFilter size={16} />
+          </IconButton>
+        )}
         <Button
           onClick={openAddModal}
           variant="contained"
+          size={isMobile ? "small" : "medium"}
           sx={{
-            textTransform: 'none',
-            backgroundColor: '#2563EB',
+            textTransform: "none",
+            backgroundColor: "#2563EB",
             fontWeight: 600,
-            fontSize: '14px',
-            ml: 'auto',
-            '&:hover': { backgroundColor: '#1d4ed8' },
+            fontSize: "13px",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+            "&:hover": { backgroundColor: "#1d4ed8" },
           }}
         >
-          + Add Service
+          {isMobile ? "+ Add" : "+ Add Service"}
         </Button>
       </Box>
 
-      <TableContainer
-        component={Paper}
-        sx={{
-          borderRadius: '8px',
-          boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-          border: '1px solid #e5e7eb',
-          overflowX: 'auto',
-          maxHeight: '460px',
-          overflow: 'auto',
-        }}
-      >
-        <Table stickyHeader sx={{ tableLayout: 'fixed', width: '100%' }}>
-          <TableHead>
-            <TableRow>
-              {[
-                { label: 'Name', w: '20%' },
-                { label: 'Department', w: '12%' },
-                { label: 'Specialization', w: '12%' },
-                { label: 'Duration', w: '9%' },
-                { label: 'Price (₱)', w: '9%' },
-                { label: 'Downpayment (₱)', w: '11%' },
-                { label: 'Description', w: '13%' },
-                { label: 'Status', w: '7%' },
-                { label: 'Actions', w: '7%', center: true },
-              ].map(({ label, w, center }) => (
-                <TableCell
-                  key={label}
-                  sx={{
-                    fontWeight: 600,
-                    color: '#374151',
-                    fontSize: '12px',
-                    padding: '12px 8px',
-                    width: w,
-                    textAlign: center ? 'center' : 'left',
-                  }}
-                >
-                  {label}
-                </TableCell>
+      <Collapse in={!isMobile || filtersOpen}>
+        <Box sx={{ display: "flex", gap: "8px", flexWrap: "wrap", mb: 2 }}>
+          <FormControl
+            size="small"
+            sx={{
+              minWidth: 130,
+              flex: isMobile ? "1 1 calc(50% - 4px)" : "0 1 auto",
+              backgroundColor: "white",
+              borderRadius: "6px",
+            }}
+          >
+            <Select
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              displayEmpty
+              sx={{ borderRadius: "6px", fontSize: "13px" }}
+            >
+              <MenuItem value="all">All Departments</MenuItem>
+              {departments.map((d) => (
+                <MenuItem key={d} value={d}>
+                  {d}
+                </MenuItem>
               ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filtered.map((service) => (
-              <TableRow
-                key={service.id}
-                sx={{
-                  '&:hover': { backgroundColor: '#f9fafb' },
-                  borderBottom: '1px solid #f3f4f6',
-                }}
-              >
-                <TableCell
-                  sx={{
-                    color: '#1f2937',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    padding: '10px 8px',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {service.name}
-                </TableCell>
-                <TableCell sx={{ padding: '10px 8px' }}>
-                  {service.department ? (
-                    <Box
-                      sx={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        backgroundColor: '#eff6ff',
-                        color: '#2563eb',
-                        borderRadius: '4px',
-                        px: '6px',
-                        py: '2px',
-                        fontSize: '11px',
-                        fontWeight: 500,
-                      }}
-                    >
-                      {service.department}
-                    </Box>
-                  ) : (
-                    <span style={{ color: '#9ca3af', fontSize: '11px' }}>
-                      All
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell sx={{ padding: '10px 8px' }}>
-                  {service.specialization ? (
-                    <Box
-                      sx={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        backgroundColor: '#f0fdf4',
-                        color: '#16a34a',
-                        borderRadius: '4px',
-                        px: '6px',
-                        py: '2px',
-                        fontSize: '11px',
-                        fontWeight: 500,
-                      }}
-                    >
-                      {service.specialization}
-                    </Box>
-                  ) : (
-                    <span style={{ color: '#9ca3af', fontSize: '11px' }}>
-                      All
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: '#6b7280',
-                    fontSize: '12px',
-                    padding: '10px 8px',
-                  }}
-                >
-                  {service.duration}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: '#1f2937',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    padding: '10px 8px',
-                  }}
-                >
-                  ₱{service.price.toLocaleString()}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: '#1f2937',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    padding: '10px 8px',
-                  }}
-                >
-                  ₱{service.downpayment.toLocaleString()}
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: '#6b7280',
-                    fontSize: '11px',
-                    padding: '10px 8px',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {service.description || '—'}
-                </TableCell>
-                <TableCell sx={{ padding: '10px 8px' }}>
-                  <Box
-                    sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <Box
-                      sx={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: '50%',
-                        backgroundColor: getServiceStatusColor(service.status),
-                        flexShrink: 0,
-                      }}
-                    />
-                    <span
-                      style={{
-                        color: '#6b7280',
-                        fontSize: '11px',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {service.status}
-                    </span>
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ padding: '10px 8px', textAlign: 'center' }}>
-                  <Box
+            </Select>
+          </FormControl>
+          <FormControl
+            size="small"
+            sx={{
+              minWidth: 140,
+              flex: isMobile ? "1 1 calc(50% - 4px)" : "0 1 auto",
+              backgroundColor: "white",
+              borderRadius: "6px",
+            }}
+          >
+            <Select
+              value={specializationFilter}
+              onChange={(e) => setSpecializationFilter(e.target.value)}
+              displayEmpty
+              sx={{ borderRadius: "6px", fontSize: "13px" }}
+            >
+              <MenuItem value="all">All Specializations</MenuItem>
+              {allSpecializations.map((s) => (
+                <MenuItem key={s} value={s}>
+                  {s}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl
+            size="small"
+            sx={{
+              minWidth: 110,
+              flex: isMobile ? "1 1 calc(50% - 4px)" : "0 1 auto",
+              backgroundColor: "white",
+              borderRadius: "6px",
+            }}
+          >
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              displayEmpty
+              sx={{ borderRadius: "6px", fontSize: "13px" }}
+            >
+              <MenuItem value="all">All Status</MenuItem>
+              <MenuItem value="Available">Available</MenuItem>
+              <MenuItem value="Unavailable">Unavailable</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+      </Collapse>
+
+      {isMobile ? (
+        <Box>
+          {filtered.map((service) => (
+            <ServiceMobileCard
+              key={service.id}
+              service={service}
+              onEdit={() => openEditModal(service)}
+              onDelete={() =>
+                setDeleteConfirm({
+                  open: true,
+                  id: service.id,
+                  name: service.name,
+                })
+              }
+            />
+          ))}
+          {filtered.length === 0 && (
+            <Box
+              sx={{
+                textAlign: "center",
+                py: 6,
+                color: "#9ca3af",
+                fontSize: "14px",
+              }}
+            >
+              No services found
+            </Box>
+          )}
+        </Box>
+      ) : (
+        <TableContainer
+          component={Paper}
+          sx={{
+            borderRadius: "8px",
+            boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+            border: "1px solid #e5e7eb",
+            maxHeight: "460px",
+            overflow: "auto",
+          }}
+        >
+          <Table stickyHeader sx={{ tableLayout: "fixed", width: "100%" }}>
+            <TableHead>
+              <TableRow>
+                {[
+                  { label: "Name", w: "20%" },
+                  { label: "Department", w: "12%" },
+                  { label: "Specialization", w: "12%" },
+                  { label: "Duration", w: "9%" },
+                  { label: "Price (₱)", w: "9%" },
+                  { label: "Downpayment (₱)", w: "11%" },
+                  { label: "Description", w: "13%" },
+                  { label: "Status", w: "7%" },
+                  { label: "Actions", w: "7%", center: true },
+                ].map(({ label, w, center }) => (
+                  <TableCell
+                    key={label}
                     sx={{
-                      display: 'flex',
-                      justifyContent: 'center',
-                      gap: '4px',
+                      fontWeight: 600,
+                      color: "#374151",
+                      fontSize: "12px",
+                      padding: "12px 8px",
+                      width: w,
+                      textAlign: center ? "center" : "left",
                     }}
                   >
-                    <IconButton
-                      size="small"
-                      onClick={() => openEditModal(service)}
-                      sx={{
-                        color: '#2563eb',
-                        '&:hover': { backgroundColor: '#eff6ff' },
-                      }}
-                    >
-                      <FiEdit2 size={13} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() =>
-                        setDeleteConfirm({
-                          open: true,
-                          id: service.id,
-                          name: service.name,
-                        })
-                      }
-                      sx={{
-                        color: '#ef4444',
-                        '&:hover': { backgroundColor: '#fee2e2' },
-                      }}
-                    >
-                      <FiTrash2 size={13} />
-                    </IconButton>
-                  </Box>
-                </TableCell>
+                    {label}
+                  </TableCell>
+                ))}
               </TableRow>
-            ))}
-            {filtered.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={9}
-                  align="center"
-                  sx={{ py: 4, color: '#9ca3af' }}
+            </TableHead>
+            <TableBody>
+              {filtered.map((service) => (
+                <TableRow
+                  key={service.id}
+                  sx={{
+                    "&:hover": { backgroundColor: "#f9fafb" },
+                    borderBottom: "1px solid #f3f4f6",
+                  }}
                 >
-                  No services found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                  <TableCell
+                    sx={{
+                      color: "#1f2937",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      padding: "10px 8px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {service.name}
+                  </TableCell>
+                  <TableCell sx={{ padding: "10px 8px" }}>
+                    {service.department ? (
+                      <Box
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          backgroundColor: "#eff6ff",
+                          color: "#2563eb",
+                          borderRadius: "4px",
+                          px: "6px",
+                          py: "2px",
+                          fontSize: "11px",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {service.department}
+                      </Box>
+                    ) : (
+                      <span style={{ color: "#9ca3af", fontSize: "11px" }}>
+                        All
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell sx={{ padding: "10px 8px" }}>
+                    {service.specialization ? (
+                      <Box
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          backgroundColor: "#f0fdf4",
+                          color: "#16a34a",
+                          borderRadius: "4px",
+                          px: "6px",
+                          py: "2px",
+                          fontSize: "11px",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {service.specialization}
+                      </Box>
+                    ) : (
+                      <span style={{ color: "#9ca3af", fontSize: "11px" }}>
+                        All
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: "#6b7280",
+                      fontSize: "12px",
+                      padding: "10px 8px",
+                    }}
+                  >
+                    {service.duration}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: "#1f2937",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      padding: "10px 8px",
+                    }}
+                  >
+                    ₱{service.price.toLocaleString()}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: "#1f2937",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      padding: "10px 8px",
+                    }}
+                  >
+                    ₱{service.downpayment.toLocaleString()}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: "#6b7280",
+                      fontSize: "11px",
+                      padding: "10px 8px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {service.description || "—"}
+                  </TableCell>
+                  <TableCell sx={{ padding: "10px 8px" }}>
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: "4px" }}
+                    >
+                      <Box
+                        sx={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          backgroundColor:
+                            service.status === "Available"
+                              ? "#10b981"
+                              : "#6b7280",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span
+                        style={{
+                          color: "#6b7280",
+                          fontSize: "11px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {service.status}
+                      </span>
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={{ padding: "10px 8px", textAlign: "center" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <IconButton
+                        size="small"
+                        onClick={() => openEditModal(service)}
+                        sx={{
+                          color: "#2563eb",
+                          "&:hover": { backgroundColor: "#eff6ff" },
+                        }}
+                      >
+                        <FiEdit2 size={13} />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          setDeleteConfirm({
+                            open: true,
+                            id: service.id,
+                            name: service.name,
+                          })
+                        }
+                        sx={{
+                          color: "#ef4444",
+                          "&:hover": { backgroundColor: "#fee2e2" },
+                        }}
+                      >
+                        <FiTrash2 size={13} />
+                      </IconButton>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={9}
+                    align="center"
+                    sx={{ py: 4, color: "#9ca3af" }}
+                  >
+                    No services found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       {/* Add / Edit Service Modal */}
       <Dialog
@@ -1368,33 +2063,33 @@ function ServicesTab() {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '12px',
-            margin: '16px',
-            width: 'calc(100% - 32px)',
-            maxWidth: '500px',
+            borderRadius: "12px",
+            margin: "16px",
+            width: "calc(100% - 32px)",
+            maxWidth: "500px",
           },
         }}
       >
         <DialogTitle
           sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             pb: 2,
-            fontSize: '18px',
+            fontSize: "18px",
             fontWeight: 600,
-            color: '#1f2937',
+            color: "#1f2937",
           }}
         >
-          {modalMode === 'add' ? 'Add New Service' : 'Edit Service'}
+          {modalMode === "add" ? "Add New Service" : "Edit Service"}
           <IconButton onClick={() => setOpenModal(false)} size="small">
             <FiX />
           </IconButton>
         </DialogTitle>
         <DialogContent dividers sx={{ py: 3 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
             <Box>
-              {fieldLabel('Service Name', true)}
+              {fieldLabel("Service Name", true)}
               <TextField
                 fullWidth
                 size="small"
@@ -1403,24 +2098,30 @@ function ServicesTab() {
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
               />
             </Box>
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                flexDirection: { xs: "column", sm: "row" },
+              }}
+            >
               <Box sx={{ flex: 1 }}>
-                {fieldLabel('Department')}
+                {fieldLabel("Department")}
                 <FormControl fullWidth size="small">
                   <Select
-                    value={formData.department ?? ''}
+                    value={formData.department ?? ""}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
                         department: e.target.value,
-                        specialization: '',
+                        specialization: "",
                       })
                     }
                     displayEmpty
-                    sx={{ borderRadius: '6px' }}
+                    sx={{ borderRadius: "6px" }}
                   >
                     <MenuItem value="">All departments</MenuItem>
                     {departments.map((d) => (
@@ -1432,14 +2133,14 @@ function ServicesTab() {
                 </FormControl>
               </Box>
               <Box sx={{ flex: 1 }}>
-                {fieldLabel('Specialization')}
+                {fieldLabel("Specialization")}
                 <FormControl
                   fullWidth
                   size="small"
                   disabled={!formData.department}
                 >
                   <Select
-                    value={formData.specialization ?? ''}
+                    value={formData.specialization ?? ""}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
@@ -1447,7 +2148,7 @@ function ServicesTab() {
                       })
                     }
                     displayEmpty
-                    sx={{ borderRadius: '6px' }}
+                    sx={{ borderRadius: "6px" }}
                   >
                     <MenuItem value="">All specializations</MenuItem>
                     {filteredSpecializations.map((s) => (
@@ -1459,9 +2160,15 @@ function ServicesTab() {
                 </FormControl>
               </Box>
             </Box>
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                flexDirection: { xs: "column", sm: "row" },
+              }}
+            >
               <Box sx={{ flex: 1 }}>
-                {fieldLabel('Duration', true)}
+                {fieldLabel("Duration", true)}
                 <TextField
                   fullWidth
                   size="small"
@@ -1470,11 +2177,11 @@ function ServicesTab() {
                   onChange={(e) =>
                     setFormData({ ...formData, duration: e.target.value })
                   }
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
                 />
               </Box>
               <Box sx={{ flex: 1 }}>
-                {fieldLabel('Price (₱)', true)}
+                {fieldLabel("Price (₱)", true)}
                 <TextField
                   fullWidth
                   size="small"
@@ -1487,11 +2194,11 @@ function ServicesTab() {
                       price: parseFloat(e.target.value) || 0,
                     })
                   }
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
                 />
               </Box>
               <Box sx={{ flex: 1 }}>
-                {fieldLabel('Downpayment (₱)', true)}
+                {fieldLabel("Downpayment (₱)", true)}
                 <TextField
                   fullWidth
                   size="small"
@@ -1504,22 +2211,22 @@ function ServicesTab() {
                       downpayment: parseFloat(e.target.value) || 0,
                     })
                   }
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
                 />
               </Box>
             </Box>
             <Box>
-              {fieldLabel('Status')}
+              {fieldLabel("Status")}
               <FormControl fullWidth size="small">
                 <Select
                   value={formData.status}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      status: e.target.value as 'Available' | 'Unavailable',
+                      status: e.target.value as "Available" | "Unavailable",
                     })
                   }
-                  sx={{ borderRadius: '6px' }}
+                  sx={{ borderRadius: "6px" }}
                 >
                   <MenuItem value="Available">Available</MenuItem>
                   <MenuItem value="Unavailable">Unavailable</MenuItem>
@@ -1527,7 +2234,7 @@ function ServicesTab() {
               </FormControl>
             </Box>
             <Box>
-              {fieldLabel('Description (Optional)')}
+              {fieldLabel("Description (Optional)")}
               <TextField
                 fullWidth
                 size="small"
@@ -1538,7 +2245,7 @@ function ServicesTab() {
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
               />
             </Box>
           </Box>
@@ -1546,7 +2253,7 @@ function ServicesTab() {
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
             onClick={() => setOpenModal(false)}
-            sx={{ textTransform: 'none', color: '#6b7280' }}
+            sx={{ textTransform: "none", color: "#6b7280" }}
           >
             Cancel
           </Button>
@@ -1554,13 +2261,13 @@ function ServicesTab() {
             onClick={handleSubmit}
             variant="contained"
             sx={{
-              textTransform: 'none',
-              backgroundColor: '#2563EB',
+              textTransform: "none",
+              backgroundColor: "#2563EB",
               fontWeight: 600,
-              '&:hover': { backgroundColor: '#1d4ed8' },
+              "&:hover": { backgroundColor: "#1d4ed8" },
             }}
           >
-            {modalMode === 'add' ? 'Add Service' : 'Save Changes'}
+            {modalMode === "add" ? "Add Service" : "Save Changes"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1569,10 +2276,9 @@ function ServicesTab() {
         open={deleteConfirm.open}
         name={deleteConfirm.name}
         title="Delete Service"
-        onClose={() => setDeleteConfirm({ open: false, id: '', name: '' })}
+        onClose={() => setDeleteConfirm({ open: false, id: "", name: "" })}
         onConfirm={handleConfirmDelete}
       />
-
       <AppSnackbar
         snackbar={snackbar}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
@@ -1586,33 +2292,33 @@ function DepartmentsTab() {
   const { isAdmin } = useAuth();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [openModal, setOpenModal] = useState(false);
-  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [editingDept, setEditingDept] = useState<Department | null>(null);
-  const [deptName, setDeptName] = useState('');
+  const [deptName, setDeptName] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<{
     open: boolean;
     id: string;
     name: string;
-  }>({ open: false, id: '', name: '' });
+  }>({ open: false, id: "", name: "" });
   const [snackbar, setSnackbar] = useState({
     open: false,
-    message: '',
-    severity: 'success' as 'success' | 'error',
+    message: "",
+    severity: "success" as "success" | "error",
   });
 
-  const showSnackbar = (message: string, severity: 'success' | 'error') =>
+  const showSnackbar = (message: string, severity: "success" | "error") =>
     setSnackbar({ open: true, message, severity });
 
   const fetchDepartments = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await getAllDepartmentsWithIds();
-      if (error) showSnackbar(error, 'error');
+      if (error) showSnackbar(error, "error");
       else setDepartments(data || []);
     } catch {
-      showSnackbar('Failed to load departments', 'error');
+      showSnackbar("Failed to load departments", "error");
     } finally {
       setLoading(false);
     }
@@ -1624,7 +2330,7 @@ function DepartmentsTab() {
 
   if (!isAdmin)
     return (
-      <Box sx={{ textAlign: 'center', py: 6, color: '#9ca3af' }}>
+      <Box sx={{ textAlign: "center", py: 6, color: "#9ca3af" }}>
         You don't have permission to view this section.
       </Box>
     );
@@ -1632,10 +2338,10 @@ function DepartmentsTab() {
     return (
       <Box
         sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '400px',
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "400px",
         }}
       >
         <CircularProgress />
@@ -1647,13 +2353,13 @@ function DepartmentsTab() {
   );
 
   const openAddModal = () => {
-    setModalMode('add');
-    setDeptName('');
+    setModalMode("add");
+    setDeptName("");
     setEditingDept(null);
     setOpenModal(true);
   };
   const openEditModal = (dept: Department) => {
-    setModalMode('edit');
+    setModalMode("edit");
     setEditingDept(dept);
     setDeptName(dept.name);
     setOpenModal(true);
@@ -1661,22 +2367,22 @@ function DepartmentsTab() {
 
   const handleSubmit = async () => {
     if (!deptName.trim()) {
-      showSnackbar('Department name is required', 'error');
+      showSnackbar("Department name is required", "error");
       return;
     }
-    if (modalMode === 'add') {
+    if (modalMode === "add") {
       const { error } = await createDepartment(deptName.trim());
-      if (error) showSnackbar(error, 'error');
+      if (error) showSnackbar(error, "error");
       else {
-        showSnackbar('Department added successfully', 'success');
+        showSnackbar("Department added successfully", "success");
         fetchDepartments();
         setOpenModal(false);
       }
     } else if (editingDept) {
       const { error } = await updateDepartment(editingDept.id, deptName.trim());
-      if (error) showSnackbar(error, 'error');
+      if (error) showSnackbar(error, "error");
       else {
-        showSnackbar('Department updated successfully', 'success');
+        showSnackbar("Department updated successfully", "success");
         fetchDepartments();
         setOpenModal(false);
       }
@@ -1685,43 +2391,34 @@ function DepartmentsTab() {
 
   const handleConfirmDelete = async () => {
     const { id } = deleteConfirm;
-    setDeleteConfirm({ open: false, id: '', name: '' });
+    setDeleteConfirm({ open: false, id: "", name: "" });
     setDepartments((prev) => prev.filter((d) => d.id !== id));
     const { error } = await deleteDepartment(id);
     if (error) {
-      showSnackbar(error, 'error');
+      showSnackbar(error, "error");
       fetchDepartments();
-    } else showSnackbar('Department deleted successfully', 'success');
+    } else showSnackbar("Department deleted successfully", "success");
   };
 
   return (
     <>
-      <Box
-        sx={{
-          display: 'flex',
-          gap: '12px',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          mb: 2,
-        }}
-      >
+      <Box sx={{ display: "flex", gap: "8px", alignItems: "center", mb: 2 }}>
         <TextField
           placeholder="Search departments..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           size="small"
           sx={{
-            flex: '1 1 180px',
-            minWidth: '150px',
-            maxWidth: '280px',
-            backgroundColor: 'white',
-            borderRadius: '6px',
-            '& .MuiOutlinedInput-root': { borderRadius: '6px' },
+            flex: 1,
+            minWidth: 0,
+            backgroundColor: "white",
+            borderRadius: "6px",
+            "& .MuiOutlinedInput-root": { borderRadius: "6px" },
           }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <FiSearch style={{ color: '#6b7280', fontSize: '16px' }} />
+                <FiSearch style={{ color: "#6b7280", fontSize: "16px" }} />
               </InputAdornment>
             ),
           }}
@@ -1730,12 +2427,13 @@ function DepartmentsTab() {
           onClick={openAddModal}
           variant="contained"
           sx={{
-            textTransform: 'none',
-            backgroundColor: '#2563EB',
+            textTransform: "none",
+            backgroundColor: "#2563EB",
             fontWeight: 600,
-            fontSize: '14px',
-            ml: 'auto',
-            '&:hover': { backgroundColor: '#1d4ed8' },
+            fontSize: "13px",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+            "&:hover": { backgroundColor: "#1d4ed8" },
           }}
         >
           + Add Department
@@ -1745,31 +2443,30 @@ function DepartmentsTab() {
       <TableContainer
         component={Paper}
         sx={{
-          borderRadius: '8px',
-          boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-          border: '1px solid #e5e7eb',
-          overflowX: 'auto',
-          maxHeight: '460px',
-          overflow: 'auto',
+          borderRadius: "8px",
+          boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+          border: "1px solid #e5e7eb",
+          maxHeight: "460px",
+          overflow: "auto",
         }}
       >
-        <Table stickyHeader sx={{ tableLayout: 'fixed', width: '100%' }}>
+        <Table stickyHeader sx={{ tableLayout: "fixed", width: "100%" }}>
           <TableHead>
             <TableRow>
               {[
-                { label: '#', w: '6%' },
-                { label: 'Department Name', w: '80%' },
-                { label: 'Actions', w: '14%', center: true },
+                { label: "#", w: "6%" },
+                { label: "Department Name", w: "80%" },
+                { label: "Actions", w: "14%", center: true },
               ].map(({ label, w, center }) => (
                 <TableCell
                   key={label}
                   sx={{
                     fontWeight: 600,
-                    color: '#374151',
-                    fontSize: '12px',
-                    padding: '10px 8px',
+                    color: "#374151",
+                    fontSize: "12px",
+                    padding: "10px 8px",
                     width: w,
-                    textAlign: center ? 'center' : 'left',
+                    textAlign: center ? "center" : "left",
                   }}
                 >
                   {label}
@@ -1782,57 +2479,57 @@ function DepartmentsTab() {
               <TableRow
                 key={dept.id}
                 sx={{
-                  '&:hover': { backgroundColor: '#f9fafb' },
-                  borderBottom: '1px solid #f3f4f6',
+                  "&:hover": { backgroundColor: "#f9fafb" },
+                  borderBottom: "1px solid #f3f4f6",
                 }}
               >
                 <TableCell
                   sx={{
-                    color: '#9ca3af',
-                    fontSize: '12px',
-                    padding: '10px 8px',
+                    color: "#9ca3af",
+                    fontSize: "12px",
+                    padding: "10px 8px",
                   }}
                 >
                   {index + 1}
                 </TableCell>
                 <TableCell
                   sx={{
-                    color: '#1f2937',
-                    fontSize: '13px',
+                    color: "#1f2937",
+                    fontSize: "13px",
                     fontWeight: 500,
-                    padding: '10px 8px',
+                    padding: "10px 8px",
                   }}
                 >
                   <Box
                     sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      backgroundColor: '#eff6ff',
-                      color: '#2563eb',
-                      borderRadius: '4px',
-                      px: '8px',
-                      py: '3px',
-                      fontSize: '12px',
+                      display: "inline-flex",
+                      alignItems: "center",
+                      backgroundColor: "#eff6ff",
+                      color: "#2563eb",
+                      borderRadius: "4px",
+                      px: "8px",
+                      py: "3px",
+                      fontSize: "12px",
                       fontWeight: 500,
                     }}
                   >
                     {dept.name}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ padding: '10px 8px', textAlign: 'center' }}>
+                <TableCell sx={{ padding: "10px 8px", textAlign: "center" }}>
                   <Box
                     sx={{
-                      display: 'flex',
-                      justifyContent: 'center',
-                      gap: '4px',
+                      display: "flex",
+                      justifyContent: "center",
+                      gap: "4px",
                     }}
                   >
                     <IconButton
                       size="small"
                       onClick={() => openEditModal(dept)}
                       sx={{
-                        color: '#2563eb',
-                        '&:hover': { backgroundColor: '#eff6ff' },
+                        color: "#2563eb",
+                        "&:hover": { backgroundColor: "#eff6ff" },
                       }}
                     >
                       <FiEdit2 size={13} />
@@ -1847,8 +2544,8 @@ function DepartmentsTab() {
                         })
                       }
                       sx={{
-                        color: '#ef4444',
-                        '&:hover': { backgroundColor: '#fee2e2' },
+                        color: "#ef4444",
+                        "&:hover": { backgroundColor: "#fee2e2" },
                       }}
                     >
                       <FiTrash2 size={13} />
@@ -1862,7 +2559,7 @@ function DepartmentsTab() {
                 <TableCell
                   colSpan={3}
                   align="center"
-                  sx={{ py: 4, color: '#9ca3af' }}
+                  sx={{ py: 4, color: "#9ca3af" }}
                 >
                   No departments found
                 </TableCell>
@@ -1872,7 +2569,6 @@ function DepartmentsTab() {
         </Table>
       </TableContainer>
 
-      {/* Add / Edit Department Modal */}
       <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
@@ -1880,32 +2576,32 @@ function DepartmentsTab() {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '12px',
-            margin: '16px',
-            width: 'calc(100% - 32px)',
-            maxWidth: '400px',
+            borderRadius: "12px",
+            margin: "16px",
+            width: "calc(100% - 32px)",
+            maxWidth: "400px",
           },
         }}
       >
         <DialogTitle
           sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             pb: 2,
-            fontSize: '18px',
+            fontSize: "18px",
             fontWeight: 600,
-            color: '#1f2937',
+            color: "#1f2937",
           }}
         >
-          {modalMode === 'add' ? 'Add Department' : 'Edit Department'}
+          {modalMode === "add" ? "Add Department" : "Edit Department"}
           <IconButton onClick={() => setOpenModal(false)} size="small">
             <FiX />
           </IconButton>
         </DialogTitle>
         <DialogContent dividers sx={{ py: 3 }}>
           <Box>
-            {fieldLabel('Department Name', true)}
+            {fieldLabel("Department Name", true)}
             <TextField
               fullWidth
               size="small"
@@ -1913,17 +2609,17 @@ function DepartmentsTab() {
               value={deptName}
               onChange={(e) => setDeptName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSubmit();
+                if (e.key === "Enter") handleSubmit();
               }}
               autoFocus
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
             />
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
             onClick={() => setOpenModal(false)}
-            sx={{ textTransform: 'none', color: '#6b7280' }}
+            sx={{ textTransform: "none", color: "#6b7280" }}
           >
             Cancel
           </Button>
@@ -1931,13 +2627,13 @@ function DepartmentsTab() {
             onClick={handleSubmit}
             variant="contained"
             sx={{
-              textTransform: 'none',
-              backgroundColor: '#2563EB',
+              textTransform: "none",
+              backgroundColor: "#2563EB",
               fontWeight: 600,
-              '&:hover': { backgroundColor: '#1d4ed8' },
+              "&:hover": { backgroundColor: "#1d4ed8" },
             }}
           >
-            {modalMode === 'add' ? 'Add Department' : 'Save Changes'}
+            {modalMode === "add" ? "Add Department" : "Save Changes"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1946,10 +2642,9 @@ function DepartmentsTab() {
         open={deleteConfirm.open}
         name={deleteConfirm.name}
         title="Delete Department"
-        onClose={() => setDeleteConfirm({ open: false, id: '', name: '' })}
+        onClose={() => setDeleteConfirm({ open: false, id: "", name: "" })}
         onConfirm={handleConfirmDelete}
       />
-
       <AppSnackbar
         snackbar={snackbar}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
@@ -1966,30 +2661,30 @@ function SpecializationsTab() {
   >([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
   const [openModal, setOpenModal] = useState(false);
-  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [editingSpec, setEditingSpec] = useState<SpecializationRecord | null>(
     null,
   );
   const [formData, setFormData] = useState<SpecializationFormData>({
-    name: '',
-    department_id: '',
-    department_name: '',
+    name: "",
+    department_id: "",
+    department_name: "",
   });
   const [deleteConfirm, setDeleteConfirm] = useState<{
     open: boolean;
     id: string;
     name: string;
-  }>({ open: false, id: '', name: '' });
+  }>({ open: false, id: "", name: "" });
   const [snackbar, setSnackbar] = useState({
     open: false,
-    message: '',
-    severity: 'success' as 'success' | 'error',
+    message: "",
+    severity: "success" as "success" | "error",
   });
 
-  const showSnackbar = (message: string, severity: 'success' | 'error') =>
+  const showSnackbar = (message: string, severity: "success" | "error") =>
     setSnackbar({ open: true, message, severity });
 
   const fetchData = useCallback(async () => {
@@ -2000,11 +2695,11 @@ function SpecializationsTab() {
           getAllSpecializationsWithIds(),
           getAllDepartmentsWithIds(),
         ]);
-      if (specErr) showSnackbar(specErr, 'error');
+      if (specErr) showSnackbar(specErr, "error");
       else setSpecializations(specRes || []);
       setDepartments(deptRes || []);
     } catch {
-      showSnackbar('Failed to load specializations', 'error');
+      showSnackbar("Failed to load specializations", "error");
     } finally {
       setLoading(false);
     }
@@ -2016,7 +2711,7 @@ function SpecializationsTab() {
 
   if (!isAdmin)
     return (
-      <Box sx={{ textAlign: 'center', py: 6, color: '#9ca3af' }}>
+      <Box sx={{ textAlign: "center", py: 6, color: "#9ca3af" }}>
         You don't have permission to view this section.
       </Box>
     );
@@ -2024,10 +2719,10 @@ function SpecializationsTab() {
     return (
       <Box
         sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '400px',
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "400px",
         }}
       >
         <CircularProgress />
@@ -2039,18 +2734,18 @@ function SpecializationsTab() {
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.department.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDept =
-      departmentFilter === 'all' || s.department_id === departmentFilter;
+      departmentFilter === "all" || s.department_id === departmentFilter;
     return matchesSearch && matchesDept;
   });
 
   const openAddModal = () => {
-    setModalMode('add');
-    setFormData({ name: '', department_id: '', department_name: '' });
+    setModalMode("add");
+    setFormData({ name: "", department_id: "", department_name: "" });
     setEditingSpec(null);
     setOpenModal(true);
   };
   const openEditModal = (spec: SpecializationRecord) => {
-    setModalMode('edit');
+    setModalMode("edit");
     setEditingSpec(spec);
     setFormData({
       name: spec.name,
@@ -2062,26 +2757,26 @@ function SpecializationsTab() {
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
-      showSnackbar('Specialization name is required', 'error');
+      showSnackbar("Specialization name is required", "error");
       return;
     }
     if (!formData.department_id) {
-      showSnackbar('Please select a department', 'error');
+      showSnackbar("Please select a department", "error");
       return;
     }
-    if (modalMode === 'add') {
+    if (modalMode === "add") {
       const { error } = await createSpecialization(formData);
-      if (error) showSnackbar(error, 'error');
+      if (error) showSnackbar(error, "error");
       else {
-        showSnackbar('Specialization added successfully', 'success');
+        showSnackbar("Specialization added successfully", "success");
         fetchData();
         setOpenModal(false);
       }
     } else if (editingSpec) {
       const { error } = await updateSpecialization(editingSpec.id, formData);
-      if (error) showSnackbar(error, 'error');
+      if (error) showSnackbar(error, "error");
       else {
-        showSnackbar('Specialization updated successfully', 'success');
+        showSnackbar("Specialization updated successfully", "success");
         fetchData();
         setOpenModal(false);
       }
@@ -2090,24 +2785,24 @@ function SpecializationsTab() {
 
   const handleConfirmDelete = async () => {
     const { id } = deleteConfirm;
-    setDeleteConfirm({ open: false, id: '', name: '' });
+    setDeleteConfirm({ open: false, id: "", name: "" });
     setSpecializations((prev) => prev.filter((s) => s.id !== id));
     const { error } = await deleteSpecialization(id);
     if (error) {
-      showSnackbar(error, 'error');
+      showSnackbar(error, "error");
       fetchData();
-    } else showSnackbar('Specialization deleted successfully', 'success');
+    } else showSnackbar("Specialization deleted successfully", "success");
   };
 
   return (
     <>
       <Box
         sx={{
-          display: 'flex',
-          gap: '12px',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          mb: 2,
+          display: "flex",
+          gap: "8px",
+          alignItems: "center",
+          mb: 1.5,
+          flexWrap: "nowrap",
         }}
       >
         <TextField
@@ -2116,17 +2811,16 @@ function SpecializationsTab() {
           onChange={(e) => setSearchQuery(e.target.value)}
           size="small"
           sx={{
-            flex: '1 1 180px',
-            minWidth: '150px',
-            maxWidth: '280px',
-            backgroundColor: 'white',
-            borderRadius: '6px',
-            '& .MuiOutlinedInput-root': { borderRadius: '6px' },
+            flex: 1,
+            minWidth: 0,
+            backgroundColor: "white",
+            borderRadius: "6px",
+            "& .MuiOutlinedInput-root": { borderRadius: "6px" },
           }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <FiSearch style={{ color: '#6b7280', fontSize: '16px' }} />
+                <FiSearch style={{ color: "#6b7280", fontSize: "16px" }} />
               </InputAdornment>
             ),
           }}
@@ -2134,19 +2828,17 @@ function SpecializationsTab() {
         <FormControl
           size="small"
           sx={{
-            minWidth: 120,
-            maxWidth: 160,
-            flex: '0 1 auto',
-            backgroundColor: 'white',
-            borderRadius: '6px',
-            mr: '12px',
+            minWidth: 130,
+            backgroundColor: "white",
+            borderRadius: "6px",
+            flexShrink: 0,
           }}
         >
           <Select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
             displayEmpty
-            sx={{ borderRadius: '6px', fontSize: '14px' }}
+            sx={{ borderRadius: "6px", fontSize: "13px" }}
           >
             <MenuItem value="all">All Departments</MenuItem>
             {departments.map((d) => (
@@ -2160,47 +2852,47 @@ function SpecializationsTab() {
           onClick={openAddModal}
           variant="contained"
           sx={{
-            textTransform: 'none',
-            backgroundColor: '#2563EB',
+            textTransform: "none",
+            backgroundColor: "#2563EB",
             fontWeight: 600,
-            fontSize: '14px',
-            ml: 'auto',
-            '&:hover': { backgroundColor: '#1d4ed8' },
+            fontSize: "13px",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+            "&:hover": { backgroundColor: "#1d4ed8" },
           }}
         >
-          + Add Specialization
+          + Add
         </Button>
       </Box>
 
       <TableContainer
         component={Paper}
         sx={{
-          borderRadius: '8px',
-          boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-          border: '1px solid #e5e7eb',
-          overflowX: 'auto',
-          maxHeight: '460px',
-          overflow: 'auto',
+          borderRadius: "8px",
+          boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+          border: "1px solid #e5e7eb",
+          maxHeight: "460px",
+          overflow: "auto",
         }}
       >
-        <Table stickyHeader sx={{ tableLayout: 'fixed', width: '100%' }}>
+        <Table stickyHeader sx={{ tableLayout: "fixed", width: "100%" }}>
           <TableHead>
             <TableRow>
               {[
-                { label: '#', w: '6%' },
-                { label: 'Specialization Name', w: '45%' },
-                { label: 'Department', w: '35%' },
-                { label: 'Actions', w: '14%', center: true },
+                { label: "#", w: "6%" },
+                { label: "Specialization Name", w: "45%" },
+                { label: "Department", w: "35%" },
+                { label: "Actions", w: "14%", center: true },
               ].map(({ label, w, center }) => (
                 <TableCell
                   key={label}
                   sx={{
                     fontWeight: 600,
-                    color: '#374151',
-                    fontSize: '12px',
-                    padding: '10px 8px',
+                    color: "#374151",
+                    fontSize: "12px",
+                    padding: "10px 8px",
                     width: w,
-                    textAlign: center ? 'center' : 'left',
+                    textAlign: center ? "center" : "left",
                   }}
                 >
                   {label}
@@ -2213,74 +2905,74 @@ function SpecializationsTab() {
               <TableRow
                 key={spec.id}
                 sx={{
-                  '&:hover': { backgroundColor: '#f9fafb' },
-                  borderBottom: '1px solid #f3f4f6',
+                  "&:hover": { backgroundColor: "#f9fafb" },
+                  borderBottom: "1px solid #f3f4f6",
                 }}
               >
                 <TableCell
                   sx={{
-                    color: '#9ca3af',
-                    fontSize: '12px',
-                    padding: '10px 8px',
+                    color: "#9ca3af",
+                    fontSize: "12px",
+                    padding: "10px 8px",
                   }}
                 >
                   {index + 1}
                 </TableCell>
                 <TableCell
                   sx={{
-                    color: '#1f2937',
-                    fontSize: '13px',
+                    color: "#1f2937",
+                    fontSize: "13px",
                     fontWeight: 500,
-                    padding: '10px 8px',
+                    padding: "10px 8px",
                   }}
                 >
                   <Box
                     sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      backgroundColor: '#f0fdf4',
-                      color: '#16a34a',
-                      borderRadius: '4px',
-                      px: '8px',
-                      py: '3px',
-                      fontSize: '12px',
+                      display: "inline-flex",
+                      alignItems: "center",
+                      backgroundColor: "#f0fdf4",
+                      color: "#16a34a",
+                      borderRadius: "4px",
+                      px: "8px",
+                      py: "3px",
+                      fontSize: "12px",
                       fontWeight: 500,
                     }}
                   >
                     {spec.name}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ padding: '10px 8px' }}>
+                <TableCell sx={{ padding: "10px 8px" }}>
                   <Box
                     sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      backgroundColor: '#eff6ff',
-                      color: '#2563eb',
-                      borderRadius: '4px',
-                      px: '8px',
-                      py: '3px',
-                      fontSize: '12px',
+                      display: "inline-flex",
+                      alignItems: "center",
+                      backgroundColor: "#eff6ff",
+                      color: "#2563eb",
+                      borderRadius: "4px",
+                      px: "8px",
+                      py: "3px",
+                      fontSize: "12px",
                       fontWeight: 500,
                     }}
                   >
                     {spec.department}
                   </Box>
                 </TableCell>
-                <TableCell sx={{ padding: '10px 8px', textAlign: 'center' }}>
+                <TableCell sx={{ padding: "10px 8px", textAlign: "center" }}>
                   <Box
                     sx={{
-                      display: 'flex',
-                      justifyContent: 'center',
-                      gap: '4px',
+                      display: "flex",
+                      justifyContent: "center",
+                      gap: "4px",
                     }}
                   >
                     <IconButton
                       size="small"
                       onClick={() => openEditModal(spec)}
                       sx={{
-                        color: '#2563eb',
-                        '&:hover': { backgroundColor: '#eff6ff' },
+                        color: "#2563eb",
+                        "&:hover": { backgroundColor: "#eff6ff" },
                       }}
                     >
                       <FiEdit2 size={13} />
@@ -2295,8 +2987,8 @@ function SpecializationsTab() {
                         })
                       }
                       sx={{
-                        color: '#ef4444',
-                        '&:hover': { backgroundColor: '#fee2e2' },
+                        color: "#ef4444",
+                        "&:hover": { backgroundColor: "#fee2e2" },
                       }}
                     >
                       <FiTrash2 size={13} />
@@ -2310,7 +3002,7 @@ function SpecializationsTab() {
                 <TableCell
                   colSpan={4}
                   align="center"
-                  sx={{ py: 4, color: '#9ca3af' }}
+                  sx={{ py: 4, color: "#9ca3af" }}
                 >
                   No specializations found
                 </TableCell>
@@ -2320,7 +3012,6 @@ function SpecializationsTab() {
         </Table>
       </TableContainer>
 
-      {/* Add / Edit Specialization Modal */}
       <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
@@ -2328,33 +3019,33 @@ function SpecializationsTab() {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '12px',
-            margin: '16px',
-            width: 'calc(100% - 32px)',
-            maxWidth: '400px',
+            borderRadius: "12px",
+            margin: "16px",
+            width: "calc(100% - 32px)",
+            maxWidth: "400px",
           },
         }}
       >
         <DialogTitle
           sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             pb: 2,
-            fontSize: '18px',
+            fontSize: "18px",
             fontWeight: 600,
-            color: '#1f2937',
+            color: "#1f2937",
           }}
         >
-          {modalMode === 'add' ? 'Add Specialization' : 'Edit Specialization'}
+          {modalMode === "add" ? "Add Specialization" : "Edit Specialization"}
           <IconButton onClick={() => setOpenModal(false)} size="small">
             <FiX />
           </IconButton>
         </DialogTitle>
         <DialogContent dividers sx={{ py: 3 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
             <Box>
-              {fieldLabel('Specialization Name', true)}
+              {fieldLabel("Specialization Name", true)}
               <TextField
                 fullWidth
                 size="small"
@@ -2364,11 +3055,11 @@ function SpecializationsTab() {
                   setFormData({ ...formData, name: e.target.value })
                 }
                 autoFocus
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
               />
             </Box>
             <Box>
-              {fieldLabel('Department', true)}
+              {fieldLabel("Department", true)}
               <FormControl fullWidth size="small">
                 <Select
                   value={formData.department_id}
@@ -2379,11 +3070,11 @@ function SpecializationsTab() {
                     setFormData({
                       ...formData,
                       department_id: e.target.value,
-                      department_name: selected?.name ?? '',
+                      department_name: selected?.name ?? "",
                     });
                   }}
                   displayEmpty
-                  sx={{ borderRadius: '6px' }}
+                  sx={{ borderRadius: "6px" }}
                 >
                   <MenuItem value="">Select department</MenuItem>
                   {departments.map((d) => (
@@ -2399,7 +3090,7 @@ function SpecializationsTab() {
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
             onClick={() => setOpenModal(false)}
-            sx={{ textTransform: 'none', color: '#6b7280' }}
+            sx={{ textTransform: "none", color: "#6b7280" }}
           >
             Cancel
           </Button>
@@ -2407,13 +3098,13 @@ function SpecializationsTab() {
             onClick={handleSubmit}
             variant="contained"
             sx={{
-              textTransform: 'none',
-              backgroundColor: '#2563EB',
+              textTransform: "none",
+              backgroundColor: "#2563EB",
               fontWeight: 600,
-              '&:hover': { backgroundColor: '#1d4ed8' },
+              "&:hover": { backgroundColor: "#1d4ed8" },
             }}
           >
-            {modalMode === 'add' ? 'Add Specialization' : 'Save Changes'}
+            {modalMode === "add" ? "Add Specialization" : "Save Changes"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2422,10 +3113,9 @@ function SpecializationsTab() {
         open={deleteConfirm.open}
         name={deleteConfirm.name}
         title="Delete Specialization"
-        onClose={() => setDeleteConfirm({ open: false, id: '', name: '' })}
+        onClose={() => setDeleteConfirm({ open: false, id: "", name: "" })}
         onConfirm={handleConfirmDelete}
       />
-
       <AppSnackbar
         snackbar={snackbar}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
@@ -2454,16 +3144,22 @@ function DeleteConfirmDialog({
       onClose={onClose}
       maxWidth="xs"
       fullWidth
-      PaperProps={{ sx: { borderRadius: '12px' } }}
+      PaperProps={{
+        sx: {
+          borderRadius: "12px",
+          margin: "16px",
+          width: "calc(100% - 32px)",
+        },
+      }}
     >
       <DialogTitle
         sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          fontSize: '18px',
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          fontSize: "18px",
           fontWeight: 600,
-          color: '#1f2937',
+          color: "#1f2937",
           pb: 1,
         }}
       >
@@ -2473,16 +3169,16 @@ function DeleteConfirmDialog({
         </IconButton>
       </DialogTitle>
       <DialogContent sx={{ pt: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: -2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: -2 }}>
           <Box
             sx={{
               width: 40,
               height: 40,
-              borderRadius: '50%',
-              backgroundColor: '#fee2e2',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              borderRadius: "50%",
+              backgroundColor: "#fee2e2",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               flexShrink: 0,
             }}
           >
@@ -2492,15 +3188,15 @@ function DeleteConfirmDialog({
             <p
               style={{
                 margin: 0,
-                fontSize: '14px',
-                color: '#1f2937',
+                fontSize: "14px",
+                color: "#1f2937",
                 fontWeight: 500,
               }}
             >
               Are you sure you want to delete <strong>{name}</strong>?
             </p>
             <p
-              style={{ margin: '4px 0 0', fontSize: '13px', color: '#6b7280' }}
+              style={{ margin: "4px 0 0", fontSize: "13px", color: "#6b7280" }}
             >
               This action cannot be undone.
             </p>
@@ -2510,7 +3206,7 @@ function DeleteConfirmDialog({
       <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
         <Button
           onClick={onClose}
-          sx={{ textTransform: 'none', color: '#6b7280' }}
+          sx={{ textTransform: "none", color: "#6b7280" }}
         >
           Cancel
         </Button>
@@ -2518,10 +3214,10 @@ function DeleteConfirmDialog({
           onClick={onConfirm}
           variant="contained"
           sx={{
-            textTransform: 'none',
-            backgroundColor: '#ef4444',
+            textTransform: "none",
+            backgroundColor: "#ef4444",
             fontWeight: 600,
-            '&:hover': { backgroundColor: '#dc2626' },
+            "&:hover": { backgroundColor: "#dc2626" },
           }}
         >
           Delete
@@ -2535,7 +3231,7 @@ function AppSnackbar({
   snackbar,
   onClose,
 }: {
-  snackbar: { open: boolean; message: string; severity: 'success' | 'error' };
+  snackbar: { open: boolean; message: string; severity: "success" | "error" };
   onClose: () => void;
 }) {
   return (
@@ -2543,12 +3239,12 @@ function AppSnackbar({
       open={snackbar.open}
       autoHideDuration={4000}
       onClose={onClose}
-      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
     >
       <Alert
         onClose={onClose}
         severity={snackbar.severity}
-        sx={{ width: '100%' }}
+        sx={{ width: "100%" }}
       >
         {snackbar.message}
       </Alert>
@@ -2556,46 +3252,47 @@ function AppSnackbar({
   );
 }
 
-// ─── Root Component ───────────────────────────────────────────────────────────
 const TAB_LABELS = [
-  'Staff Information',
-  'Services',
-  'Departments',
-  'Specializations',
+  "Staff Information",
+  "Services",
+  "Departments",
+  "Specializations",
 ];
 const TAB_TITLES = [
-  'Staff Profile',
-  'Services',
-  'Departments',
-  'Specializations',
+  "Staff Profile",
+  "Services",
+  "Departments",
+  "Specializations",
 ];
 
 function StaffInformation() {
   const [activeTab, setActiveTab] = useState(0);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   return (
     <div
       style={{
-        padding: '24px',
-        width: '100%',
-        maxWidth: '1400px',
-        margin: '0 auto',
-        boxSizing: 'border-box',
+        padding: isMobile ? "12px" : "24px",
+        width: "100%",
+        maxWidth: "1400px",
+        margin: "0 auto",
+        boxSizing: "border-box",
       }}
     >
       <Box
         sx={{
-          backgroundColor: '#f8f9fa',
-          borderRadius: '8px',
-          padding: { xs: '16px', sm: '20px', md: '24px' },
+          backgroundColor: "#f8f9fa",
+          borderRadius: "8px",
+          padding: { xs: "12px", sm: "20px", md: "24px" },
         }}
       >
         <h2
           style={{
-            margin: '0 0 16px 0',
-            fontSize: 'clamp(18px, 4vw, 24px)',
+            margin: "0 0 16px 0",
+            fontSize: "clamp(16px, 4vw, 24px)",
             fontWeight: 600,
-            color: '#1f2937',
+            color: "#1f2937",
           }}
         >
           {TAB_TITLES[activeTab]}
@@ -2603,24 +3300,27 @@ function StaffInformation() {
         <Tabs
           value={activeTab}
           onChange={(_, val) => setActiveTab(val)}
+          variant={isMobile ? "scrollable" : "standard"}
+          scrollButtons={isMobile ? "auto" : false}
+          allowScrollButtonsMobile
           sx={{
             mb: 3,
-            borderBottom: '1px solid #e5e7eb',
-            minHeight: '40px',
-            '& .MuiTabs-indicator': {
-              backgroundColor: '#2563EB',
-              height: '2px',
+            borderBottom: "1px solid #e5e7eb",
+            minHeight: "40px",
+            "& .MuiTabs-indicator": {
+              backgroundColor: "#2563EB",
+              height: "2px",
             },
-            '& .MuiTab-root': {
-              textTransform: 'none',
+            "& .MuiTab-root": {
+              textTransform: "none",
               fontWeight: 600,
-              fontSize: '14px',
-              minHeight: '40px',
-              padding: '8px 16px',
-              color: '#6b7280',
-              outline: 'none',
-              '&:focus-visible': { outline: 'none' },
-              '&.Mui-selected': { color: '#2563EB' },
+              fontSize: { xs: "12px", sm: "14px" },
+              minHeight: "40px",
+              padding: { xs: "8px 10px", sm: "8px 16px" },
+              color: "#6b7280",
+              outline: "none",
+              "&:focus-visible": { outline: "none" },
+              "&.Mui-selected": { color: "#2563EB" },
             },
           }}
         >

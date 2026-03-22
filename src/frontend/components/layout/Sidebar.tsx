@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React from "react";
+import { NavLink } from "react-router-dom";
 import {
   FiUsers,
   FiClock,
@@ -7,9 +7,9 @@ import {
   FiCalendar,
   FiClipboard,
   FiHome,
-} from 'react-icons/fi';
-import '../../styles/Sidebar.css';
-import { useAuth } from '../../../contexts/AuthContext';
+} from "react-icons/fi";
+import "../../styles/Sidebar.css";
+import { useAuth } from "../../../contexts/AuthContext";
 
 type MenuItem = {
   label: string;
@@ -19,22 +19,22 @@ type MenuItem = {
 };
 
 const allMenuItems: MenuItem[] = [
-  { label: 'Overview', path: 'overview', icon: <FiHome />, adminOnly: true },
+  { label: "Overview", path: "overview", icon: <FiHome />, adminOnly: true },
   {
-    label: 'Staff & Services',
-    path: 'staffnservices',
+    label: "Staff & Services",
+    path: "staffnservices",
     icon: <FiUsers />,
     adminOnly: true,
   },
-  { label: 'Attendance', path: 'attendance', icon: <FiClock /> },
+  { label: "Attendance", path: "attendance", icon: <FiClock /> },
   {
-    label: 'Analytics',
-    path: 'analytics',
+    label: "Analytics",
+    path: "analytics",
     icon: <FiBarChart2 />,
     adminOnly: true,
   },
-  { label: 'Appointments', path: 'appointments', icon: <FiClipboard /> },
-  { label: 'Schedule', path: 'schedule', icon: <FiCalendar /> },
+  { label: "Walk Ins", path: "appointments", icon: <FiClipboard /> },
+  { label: "Schedule", path: "schedule", icon: <FiCalendar /> },
 ];
 
 const Sidebar: React.FC<{ isMobile?: boolean; onClose?: () => void }> = ({
@@ -43,9 +43,7 @@ const Sidebar: React.FC<{ isMobile?: boolean; onClose?: () => void }> = ({
 }) => {
   const { isAdmin } = useAuth();
 
-  const menuItems = allMenuItems.filter(
-    (item) => !item.adminOnly || isAdmin
-  );
+  const menuItems = allMenuItems.filter((item) => !item.adminOnly || isAdmin);
 
   const handleMenuItemClick = () => {
     if (isMobile && onClose) {
@@ -61,7 +59,7 @@ const Sidebar: React.FC<{ isMobile?: boolean; onClose?: () => void }> = ({
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              isActive ? 'menuItem active' : 'menuItem'
+              isActive ? "menuItem active" : "menuItem"
             }
             onClick={handleMenuItemClick}
           >

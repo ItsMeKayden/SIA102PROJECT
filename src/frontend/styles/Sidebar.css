@@ -6,6 +6,8 @@
   border-right: 1px solid #ddd;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .logo {
@@ -41,7 +43,7 @@
 
 .menuItem:hover {
   background-color: #e6efff;
-  color: #1e5eff;
+  color: #0d47a1;
 }
 
 .active {

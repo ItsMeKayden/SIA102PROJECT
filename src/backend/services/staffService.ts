@@ -1,11 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
-import { supabase, handleSupabaseError } from '../../lib/supabase-client';
+import { createClient } from "@supabase/supabase-js";
+import { supabase, handleSupabaseError } from "../../lib/supabase-client";
 import type {
   Staff,
   StaffInsert,
   StaffUpdate,
   StaffFormData,
-} from '../../types';
+} from "../../types";
 
 export interface Service {
   serviceID: string;
@@ -26,21 +26,21 @@ export interface ServiceFormData {
   duration: string;
   price: number;
   downpayment: number;
-  status: 'Available' | 'Unavailable';
+  status: "Available" | "Unavailable";
   description: string;
 }
 
 const supabaseUrl =
   import.meta.env.VITE_SUPABASE_URL ||
-  'https://wwcbujfwzxcmyzzkwdav.supabase.co';
+  "https://wwcbujfwzxcmyzzkwdav.supabase.co";
 const supabaseAnonKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3Y2J1amZ3enhjbXl6emt3ZGF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1Njg0MTgsImV4cCI6MjA4OTE0NDQxOH0.hNJA299svpfxUu7iFo05W7Mj7tnyebKzt3bvU4_b2JM';
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3Y2J1amZ3enhjbXl6emt3ZGF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1Njg0MTgsImV4cCI6MjA4OTE0NDQxOH0.hNJA299svpfxUu7iFo05W7Mj7tnyebKzt3bvU4_b2JM";
 const supabaseSignUp = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
-    storageKey: 'sb-signup-temp',
+    storageKey: "sb-signup-temp",
   },
 });
 
@@ -50,9 +50,9 @@ export const getAllStaff = async (): Promise<{
 }> => {
   try {
     const { data, error } = await supabase
-      .from('staff')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .from("staff")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
 
@@ -67,9 +67,9 @@ export const getStaffById = async (
 ): Promise<{ data: Staff | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('staff')
-      .select('*')
-      .eq('id', id)
+      .from("staff")
+      .select("*")
+      .eq("id", id)
       .single();
 
     if (error) throw error;
@@ -85,10 +85,10 @@ export const getStaffByDepartment = async (
 ): Promise<{ data: Staff[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('staff')
-      .select('*')
-      .eq('department', department)
-      .order('name');
+      .from("staff")
+      .select("*")
+      .eq("department", department)
+      .order("name");
 
     if (error) throw error;
 
@@ -103,10 +103,10 @@ export const getStaffByStatus = async (
 ): Promise<{ data: Staff[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('staff')
-      .select('*')
-      .eq('status', status)
-      .order('name');
+      .from("staff")
+      .select("*")
+      .eq("status", status)
+      .order("name");
 
     if (error) throw error;
 
@@ -123,7 +123,7 @@ export const createStaff = async (
     const { data: authData, error: authError } =
       await supabaseSignUp.auth.signUp({
         email: staffData.email,
-        password: 'clinika123',
+        password: "clinika123",
       });
 
     if (authError) {
@@ -134,7 +134,7 @@ export const createStaff = async (
     }
 
     if (!authData.user) {
-      return { data: null, error: 'Failed to create user account' };
+      return { data: null, error: "Failed to create user account" };
     }
 
     const insertData: StaffInsert = {
@@ -142,23 +142,23 @@ export const createStaff = async (
       email: staffData.email,
       role: staffData.role,
       specialization: staffData.specialization || null,
-      department: staffData.department || null, // ← added
+      department: staffData.department || null,
       status: staffData.status,
       phone: staffData.phone || null,
       user_id: authData.user.id,
-      user_role: 'staff',
-      duty_status: 'Off Duty',
+      user_role: "staff",
+      duty_status: "Off Duty",
     };
 
     const { data, error } = await supabase
-      .from('staff')
+      .from("staff")
       .insert(insertData)
       .select()
       .single();
 
     if (error) {
       console.error(
-        'Staff record creation failed after auth user was created:',
+        "Staff record creation failed after auth user was created:",
         error,
       );
       throw error;
@@ -170,9 +170,10 @@ export const createStaff = async (
   }
 };
 
+// avatar_url is optional — only included when explicitly passed
 export const updateStaff = async (
   id: string,
-  staffData: StaffFormData,
+  staffData: StaffFormData & { avatar_url?: string },
 ): Promise<{ data: Staff | null; error: string | null }> => {
   try {
     const updateData: StaffUpdate = {
@@ -180,16 +181,20 @@ export const updateStaff = async (
       email: staffData.email,
       role: staffData.role,
       specialization: staffData.specialization || null,
-      department: staffData.department || null, // ← added
+      department: staffData.department || null,
       status: staffData.status,
       phone: staffData.phone || null,
       updated_at: new Date().toISOString(),
+      // Only include avatar_url in the update if it was explicitly provided
+      ...(staffData.avatar_url !== undefined && {
+        avatar_url: staffData.avatar_url,
+      }),
     };
 
     const { data, error } = await supabase
-      .from('staff')
+      .from("staff")
       .update(updateData)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -206,30 +211,30 @@ export const deleteStaff = async (
 ): Promise<{ error: string | null }> => {
   try {
     const { data: staffRecord, error: fetchError } = await supabase
-      .from('staff')
-      .select('user_id')
-      .eq('id', id)
+      .from("staff")
+      .select("user_id")
+      .eq("id", id)
       .single();
 
     if (fetchError) throw fetchError;
 
     const { error: deleteError } = await supabase
-      .from('staff')
+      .from("staff")
       .delete()
-      .eq('id', id);
+      .eq("id", id);
 
     if (deleteError) throw deleteError;
 
     if (staffRecord?.user_id) {
       const { error: authDeleteError } = await supabase.rpc(
-        'delete_auth_user',
+        "delete_auth_user",
         {
           target_user_id: staffRecord.user_id,
         },
       );
       if (authDeleteError) {
         console.error(
-          'Auth user deletion failed (staff record was already deleted):',
+          "Auth user deletion failed (staff record was already deleted):",
           authDeleteError,
         );
       }
@@ -246,12 +251,12 @@ export const searchStaff = async (
 ): Promise<{ data: Staff[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('staff')
-      .select('*')
+      .from("staff")
+      .select("*")
       .or(
         `name.ilike.%${query}%,role.ilike.%${query}%,department.ilike.%${query}%`,
       )
-      .order('name');
+      .order("name");
 
     if (error) throw error;
 
@@ -267,9 +272,9 @@ export const updateDutyStatus = async (
 ): Promise<{ data: Staff | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
-      .from('staff')
+      .from("staff")
       .update({ duty_status: dutyStatus, updated_at: new Date().toISOString() })
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -292,21 +297,21 @@ export const getStaffCountByStatus = async (): Promise<{
 }> => {
   try {
     const { data: allStaff, error } = await supabase
-      .from('staff')
-      .select('status');
+      .from("staff")
+      .select("status");
 
     if (error) throw error;
 
     const counts = {
       total: allStaff?.length || 0,
       onDuty:
-        allStaff?.filter((s: { status: string }) => s.status === 'On Duty')
+        allStaff?.filter((s: { status: string }) => s.status === "On Duty")
           .length || 0,
       offDuty:
-        allStaff?.filter((s: { status: string }) => s.status === 'Off Duty')
+        allStaff?.filter((s: { status: string }) => s.status === "Off Duty")
           .length || 0,
       onLeave:
-        allStaff?.filter((s: { status: string }) => s.status === 'On Leave')
+        allStaff?.filter((s: { status: string }) => s.status === "On Leave")
           .length || 0,
     };
 

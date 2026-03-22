@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import type { MouseEvent } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import type { MouseEvent } from "react";
+import { Outlet, useNavigate } from "react-router-dom";
 import {
   Menu,
   MenuItem,
@@ -10,6 +10,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogActions,
   Box,
   Typography,
   Chip,
@@ -22,7 +23,8 @@ import {
   useTheme,
   Avatar,
   Divider,
-} from '@mui/material';
+  TextField,
+} from "@mui/material";
 import {
   FiBell,
   FiInfo,
@@ -35,38 +37,72 @@ import {
   FiLogOut,
   FiLogIn,
   FiKey,
+  FiUser,
+  FiCamera,
   FiMenu,
-} from 'react-icons/fi';
+} from "react-icons/fi";
 import {
   getAllNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,
   deleteNotification,
   getUnreadNotificationCount,
-} from './backend/services/notificationService';
-import { useAuth } from './contexts/AuthContext';
-import Sidebar from './frontend/components/layout/Sidebar';
+} from "./backend/services/notificationService";
+import { updateStaff } from "./backend/services/staffService";
+import { supabase } from "./lib/supabase-client";
+import { useAuth } from "./contexts/AuthContext";
+import Sidebar from "./frontend/components/layout/Sidebar";
+import { LoginModal } from "./frontend/components/auth/LoginModal";
+import { ChangePasswordModal } from "./frontend/components/auth/ChangePasswordModal";
+import logo from "./assets/logo.png";
 
-import { LoginModal } from './frontend/components/auth/LoginModal';
-import { ChangePasswordModal } from './frontend/components/auth/ChangePasswordModal';
-import logo from './assets/logo.png';
+const fieldLabel = (text: string, required = false) => (
+  <label
+    style={{
+      display: "block",
+      marginBottom: "6px",
+      fontSize: "13px",
+      fontWeight: 500,
+      color: "#374151",
+    }}
+  >
+    {text}
+    {required && " *"}
+  </label>
+);
 
 const Layout = () => {
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { user, staffProfile, signOut, isAdmin } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [editProfileLoading, setEditProfileLoading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [editProfileForm, setEditProfileForm] = useState({
+    name: "",
+    phone: "",
+  });
+
+  // ── Mobile sidebar state ──
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Navigation menu state
+  // Close sidebar when switching to desktop
+  useEffect(() => {
+    if (!isMobile) {
+      // Defer state update to avoid synchronous setState in effect warning
+      queueMicrotask(() => setSidebarOpen(false));
+    }
+  }, [isMobile]);
+
   const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(
     null,
   );
 
-  // Notification state
   interface Notification {
     id: string;
     type: string;
@@ -78,48 +114,29 @@ const Layout = () => {
   }
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
-
   const [notificationModalOpen, setNotificationModalOpen] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [filter, setFilter] = useState<"all" | "unread">("all");
   const [snackbar, setSnackbar] = useState({
     open: false,
-    message: '',
-    severity: 'success' as 'success' | 'error',
+    message: "",
+    severity: "success" as "success" | "error",
   });
 
-  // Fetch unread notification count
   useEffect(() => {
     const fetchUnreadCount = async () => {
-      // Admins see all unread notifications, staff see only their own
-      const staffIdForQuery = isAdmin ? undefined : staffProfile?.id;
-      const { data } = await getUnreadNotificationCount(staffIdForQuery);
-      if (data !== null && data !== undefined) {
-        setUnreadCount(data);
-      }
+      const { data } = await getUnreadNotificationCount();
+      if (data !== null && data !== undefined) setUnreadCount(data);
     };
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
-    // Only fetch when we have a staffProfile
-    if (staffProfile?.id) {
-      fetchUnreadCount();
-
-      // Refresh every 30 seconds
-      const interval = setInterval(fetchUnreadCount, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [staffProfile?.id, isAdmin]);
-
-  // Auto-show login modal if user is not authenticated
   useEffect(() => {
-    // schedule opening on next tick so that state update isn't synchronous within the effect
-    if (!user) {
-      setTimeout(() => {
-        setShowLoginModal(true);
-      }, 0);
-    }
+    if (!user) setTimeout(() => setShowLoginModal(true), 0);
   }, [user]);
 
-  // Fetch notifications when modal opens
   const fetchNotifications = async () => {
     setNotificationsLoading(true);
     // Admins see all notifications, staff see only their own
@@ -151,6 +168,9 @@ const Layout = () => {
     setNotificationsLoading(false);
   };
 
+  const showSnackbar = (message: string, severity: "success" | "error") =>
+    setSnackbar({ open: true, message, severity });
+
   const handleNotificationClick = () => {
     setNotificationModalOpen(true);
     fetchNotifications();
@@ -158,38 +178,29 @@ const Layout = () => {
 
   const handleCloseNotificationModal = () => {
     setNotificationModalOpen(false);
-    setFilter('all');
-  };
-
-  const showSnackbar = (message: string, severity: 'success' | 'error') => {
-    setSnackbar({ open: true, message, severity });
+    setFilter("all");
   };
 
   const handleMarkAsRead = async (id: string) => {
     const { error } = await markNotificationAsRead(id);
-    if (error) {
-      showSnackbar(error, 'error');
-    } else {
-      fetchNotifications();
-    }
+    if (error) showSnackbar(error, "error");
+    else fetchNotifications();
   };
 
   const handleMarkAllAsRead = async () => {
     const { error } = await markAllNotificationsAsRead();
-    if (error) {
-      showSnackbar(error, 'error');
-    } else {
-      showSnackbar('All notifications marked as read', 'success');
+    if (error) showSnackbar(error, "error");
+    else {
+      showSnackbar("All notifications marked as read", "success");
       fetchNotifications();
     }
   };
 
   const handleDelete = async (id: string) => {
     const { error } = await deleteNotification(id);
-    if (error) {
-      showSnackbar(error, 'error');
-    } else {
-      showSnackbar('Notification deleted', 'success');
+    if (error) showSnackbar(error, "error");
+    else {
+      showSnackbar("Notification deleted", "success");
       fetchNotifications();
     }
   };
@@ -201,136 +212,189 @@ const Layout = () => {
       error: <FiXCircle size={20} />,
       success: <FiCheckCircle size={20} />,
     };
-    return icons[type as keyof typeof icons] || icons['info'];
+    return icons[type as keyof typeof icons] || icons["info"];
   };
 
   const getColor = (type: string) => {
     const colors = {
-      info: { bg: '#dbeafe', text: '#1e40af', border: '#3b82f6' },
-      warning: { bg: '#fef3c7', text: '#92400e', border: '#f59e0b' },
-      error: { bg: '#fee2e2', text: '#991b1b', border: '#ef4444' },
-      success: { bg: '#d1fae5', text: '#065f46', border: '#10b981' },
+      info: { bg: "#dbeafe", text: "#1e40af", border: "#3b82f6" },
+      warning: { bg: "#fef3c7", text: "#92400e", border: "#f59e0b" },
+      error: { bg: "#fee2e2", text: "#991b1b", border: "#ef4444" },
+      success: { bg: "#d1fae5", text: "#065f46", border: "#10b981" },
     };
-    return colors[type as keyof typeof colors] || colors['info'];
+    return colors[type as keyof typeof colors] || colors["info"];
   };
 
-  const handleUserMenuClick = (event: MouseEvent<HTMLElement>) => {
+  const handleUserMenuClick = (event: MouseEvent<HTMLElement>) =>
     setUserMenuAnchorEl(event.currentTarget);
-  };
-
-  const handleUserMenuClose = () => {
-    setUserMenuAnchorEl(null);
-  };
+  const handleUserMenuClose = () => setUserMenuAnchorEl(null);
 
   const handleSignOut = async () => {
     await signOut();
     handleUserMenuClose();
-    navigate('/');
+    navigate("/");
   };
-
   const handleChangePassword = () => {
     setShowChangePasswordModal(true);
     handleUserMenuClose();
   };
 
-  const handleLogin = () => {
-    setShowLoginModal(true);
+  const handleOpenEditProfile = () => {
+    setEditProfileForm({
+      name: staffProfile?.name || "",
+      phone: staffProfile?.phone || "",
+    });
+    setAvatarPreview(null);
+    setAvatarFile(null);
+    setShowEditProfileModal(true);
+    handleUserMenuClose();
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showSnackbar("Image must be under 2MB", "error");
+      return;
+    }
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
+
+  const handleSaveProfile = async () => {
+    if (!staffProfile?.id) return;
+    if (!editProfileForm.name.trim()) {
+      showSnackbar("Name is required", "error");
+      return;
+    }
+    setEditProfileLoading(true);
+    let avatarUrl = staffProfile?.avatar_url || "";
+    if (avatarFile) {
+      const fileExt = avatarFile.name.split(".").pop();
+      const filePath = `${staffProfile.id}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, avatarFile, { upsert: true });
+      if (uploadError) {
+        showSnackbar(`Avatar upload failed: ${uploadError.message}`, "error");
+        setEditProfileLoading(false);
+        return;
+      }
+      const { data: urlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+      avatarUrl = urlData.publicUrl;
+    }
+    const { error } = await updateStaff(staffProfile.id, {
+      name: editProfileForm.name.trim(),
+      role: staffProfile.role || "",
+      specialization: staffProfile.specialization || "",
+      department: staffProfile.department || "",
+      status: (staffProfile.status as "Active" | "Inactive") || "Active",
+      email: staffProfile.email || "",
+      phone: editProfileForm.phone.trim() || "",
+      avatar_url: avatarUrl,
+    });
+    setEditProfileLoading(false);
+    if (error) {
+      showSnackbar(error, "error");
+    } else {
+      showSnackbar("Profile updated successfully", "success");
+      setShowEditProfileModal(false);
+      setAvatarFile(null);
+      setAvatarPreview(null);
+    }
   };
 
   const filteredNotifications =
-    filter === 'unread'
+    filter === "unread"
       ? notifications.filter((n) => !n.is_read)
       : notifications;
 
   return (
     <div
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        width: '100%',
-        maxWidth: '100vw',
-        overflow: 'hidden',
-        position: 'relative',
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        width: "100%",
+        maxWidth: "100vw",
+        overflow: "hidden",
+        position: "relative",
       }}
     >
       {/* Navigation Bar */}
       <nav
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          width: '100%',
-          maxWidth: '100%',
-          backgroundColor: '#fff',
-          borderBottom: '1px solid #e5e7eb',
-          padding: isMobile ? '12px 16px' : '14px 24px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          boxSizing: 'border-box',
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: "100%",
+          maxWidth: "100%",
+          backgroundColor: "#fff",
+          borderBottom: "1px solid #e5e7eb",
+          padding: isMobile ? "12px 16px" : "14px 24px",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+          boxSizing: "border-box",
           flexShrink: 0,
-          gap: '16px',
+          gap: "16px",
           zIndex: 1000,
-          position: 'relative',
+          position: "relative",
         }}
       >
-        {/* Left Section - Logo & Hamburger Menu */}
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
             flexShrink: 0,
           }}
         >
-          {/* Hamburger Menu - Mobile Only */}
+          {/* Hamburger — mobile only */}
           {isMobile && (
             <IconButton
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={() => setSidebarOpen(true)}
               size="small"
               sx={{
-                color: '#374151',
-                '&:hover': { backgroundColor: '#f3f4f6' },
+                color: "#374151",
+                mr: 0.5,
+                "&:hover": { backgroundColor: "#f3f4f6" },
               }}
+              aria-label="Open menu"
             >
-              <FiMenu size={20} />
+              <FiMenu size={22} />
             </IconButton>
           )}
-
           <img
             src={logo}
             alt="Logo"
-            style={{ height: '32px', width: 'auto' }}
+            style={{ height: "32px", width: "auto" }}
           />
         </div>
 
-        {/* Right Section - Notification Bell & User Menu */}
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginLeft: 'auto',
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            marginLeft: "auto",
             flexShrink: 0,
           }}
         >
-          {/* Notification Bell */}
           <IconButton
             onClick={handleNotificationClick}
             size="small"
-            sx={{
-              color: '#374151',
-              '&:hover': { backgroundColor: '#f3f4f6' },
-            }}
+            sx={{ color: "#374151", "&:hover": { backgroundColor: "#f3f4f6" } }}
           >
             <Badge
               badgeContent={unreadCount}
               color="error"
               sx={{
-                '& .MuiBadge-badge': {
-                  fontSize: '10px',
-                  height: '18px',
-                  minWidth: '18px',
-                  padding: '0 5px',
+                "& .MuiBadge-badge": {
+                  fontSize: "10px",
+                  height: "18px",
+                  minWidth: "18px",
+                  padding: "0 5px",
                   fontWeight: 600,
                 },
               }}
@@ -339,35 +403,35 @@ const Layout = () => {
             </Badge>
           </IconButton>
 
-          {/* User Menu */}
           {user ? (
             <IconButton
               onClick={handleUserMenuClick}
               size="small"
               sx={{
-                color: '#374151',
-                '&:hover': { backgroundColor: '#f3f4f6' },
+                color: "#374151",
+                "&:hover": { backgroundColor: "#f3f4f6" },
               }}
             >
               <Avatar
+                src={staffProfile?.avatar_url || undefined}
                 sx={{
                   width: 32,
                   height: 32,
-                  bgcolor: isAdmin ? '#3b82f6' : '#10b981',
-                  fontSize: '14px',
+                  bgcolor: isAdmin ? "#3b82f6" : "#10b981",
+                  fontSize: "14px",
                   fontWeight: 600,
                 }}
               >
-                {staffProfile?.name?.charAt(0).toUpperCase() || 'U'}
+                {staffProfile?.name?.charAt(0).toUpperCase() || "U"}
               </Avatar>
             </IconButton>
           ) : (
             <IconButton
-              onClick={handleLogin}
+              onClick={() => setShowLoginModal(true)}
               size="small"
               sx={{
-                color: '#374151',
-                '&:hover': { backgroundColor: '#f3f4f6' },
+                color: "#374151",
+                "&:hover": { backgroundColor: "#f3f4f6" },
               }}
             >
               <FiLogIn size={20} />
@@ -380,47 +444,41 @@ const Layout = () => {
           anchorEl={userMenuAnchorEl}
           open={Boolean(userMenuAnchorEl)}
           onClose={handleUserMenuClose}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'right',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+          transformOrigin={{ vertical: "top", horizontal: "right" }}
           slotProps={{
             paper: {
               sx: {
-                minWidth: '220px',
+                minWidth: "220px",
                 mt: 1,
                 boxShadow:
-                  '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
-                borderRadius: '8px',
+                  "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)",
+                borderRadius: "8px",
               },
             },
           }}
         >
           {user && staffProfile && (
             <>
-              <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #e5e7eb' }}>
+              <Box sx={{ px: 2, py: 1.5, borderBottom: "1px solid #e5e7eb" }}>
                 <Typography
                   variant="subtitle2"
-                  sx={{ fontWeight: 600, color: '#1f2937' }}
+                  sx={{ fontWeight: 600, color: "#1f2937" }}
                 >
                   {staffProfile.name}
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#6b7280' }}>
+                <Typography variant="caption" sx={{ color: "#6b7280" }}>
                   {staffProfile.email}
                 </Typography>
                 <Box sx={{ mt: 0.5 }}>
                   <Chip
-                    label={isAdmin ? 'Admin' : 'Staff'}
+                    label={isAdmin ? "Admin" : "Staff"}
                     size="small"
                     sx={{
-                      height: '20px',
-                      fontSize: '11px',
-                      backgroundColor: isAdmin ? '#dbeafe' : '#dcfce7',
-                      color: isAdmin ? '#1e40af' : '#065f46',
+                      height: "20px",
+                      fontSize: "11px",
+                      backgroundColor: isAdmin ? "#dbeafe" : "#dcfce7",
+                      color: isAdmin ? "#1e40af" : "#065f46",
                       fontWeight: 600,
                     }}
                   />
@@ -428,101 +486,341 @@ const Layout = () => {
               </Box>
               <Divider />
               <MenuItem
-                onClick={handleChangePassword}
+                onClick={handleOpenEditProfile}
                 sx={{
-                  fontSize: '14px',
-                  padding: '10px 16px',
-                  gap: '12px',
-                  '&:hover': {
-                    backgroundColor: '#f3f4f6',
-                  },
+                  fontSize: "14px",
+                  padding: "10px 16px",
+                  gap: "12px",
+                  "&:hover": { backgroundColor: "#f3f4f6" },
                 }}
               >
-                <FiKey size={18} />
-                Change Password
+                <FiUser size={18} /> Edit Profile
+              </MenuItem>
+              <MenuItem
+                onClick={handleChangePassword}
+                sx={{
+                  fontSize: "14px",
+                  padding: "10px 16px",
+                  gap: "12px",
+                  "&:hover": { backgroundColor: "#f3f4f6" },
+                }}
+              >
+                <FiKey size={18} /> Change Password
               </MenuItem>
               <Divider />
               <MenuItem
                 onClick={handleSignOut}
                 sx={{
-                  fontSize: '14px',
-                  padding: '10px 16px',
-                  gap: '12px',
-                  color: '#dc2626',
-                  '&:hover': {
-                    backgroundColor: '#fef2f2',
-                  },
+                  fontSize: "14px",
+                  padding: "10px 16px",
+                  gap: "12px",
+                  color: "#dc2626",
+                  "&:hover": { backgroundColor: "#fef2f2" },
                 }}
               >
-                <FiLogOut size={18} />
-                Sign Out
+                <FiLogOut size={18} /> Sign Out
               </MenuItem>
             </>
           )}
         </Menu>
       </nav>
 
-      {/* Login Modal */}
       <LoginModal
         open={showLoginModal}
         onClose={() => setShowLoginModal(false)}
       />
-
-      {/* Change Password Modal */}
       <ChangePasswordModal
         open={showChangePasswordModal}
         onClose={() => setShowChangePasswordModal(false)}
       />
 
-      {/* Main Content with Sidebar */}
-      <div style={{ display: 'flex', flex: 1, height: '100%', position: 'relative' }}>
-        {/* Mobile Backdrop */}
-        {isMobile && sidebarOpen && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              zIndex: 999,
-            }}
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        {/* Sidebar */}
-        <div
-          style={{
-            position: isMobile ? 'fixed' : 'relative',
-            left: 0,
-            top: isMobile ? '56px' : 0,
-            height: isMobile ? 'calc(100vh - 56px)' : '100%',
-            width: '250px',
-            zIndex: isMobile ? 1000 : 'auto',
-            transform: isMobile && !sidebarOpen ? 'translateX(-100%)' : 'translateX(0)',
-            transition: 'transform 0.3s ease-in-out',
-            backgroundColor: '#fff',
-            borderRight: '1px solid #e5e7eb',
-            overflow: 'hidden',
+      {/* Edit Profile Modal */}
+      <Dialog
+        open={showEditProfileModal}
+        onClose={() => setShowEditProfileModal(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "16px",
+            maxWidth: "420px",
+            margin: "16px",
+            width: "calc(100% - 32px)",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontSize: "18px",
+            fontWeight: 600,
+            color: "#1f2937",
+            pb: 2,
           }}
         >
-          <Sidebar isMobile={isMobile} onClose={() => setSidebarOpen(false)} />
-        </div>
+          Edit Profile
+          <IconButton
+            onClick={() => setShowEditProfileModal(false)}
+            size="small"
+          >
+            <FiX />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ py: 3 }}>
+          {staffProfile && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              <Box
+                sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1 }}
+              >
+                <Box sx={{ position: "relative", flexShrink: 0 }}>
+                  <Avatar
+                    src={
+                      avatarPreview ||
+                      staffProfile?.avatar_url ||
+                      undefined
+                    }
+                    sx={{
+                      width: 72,
+                      height: 72,
+                      bgcolor: isAdmin ? "#3b82f6" : "#10b981",
+                      fontSize: "28px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {editProfileForm.name.charAt(0).toUpperCase() || "U"}
+                  </Avatar>
+                  <label htmlFor="avatar-upload" style={{ cursor: "pointer" }}>
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        bottom: 0,
+                        right: 0,
+                        width: 24,
+                        height: 24,
+                        borderRadius: "50%",
+                        backgroundColor: "#2563eb",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "2px solid white",
+                        cursor: "pointer",
+                        "&:hover": { backgroundColor: "#1d4ed8" },
+                      }}
+                    >
+                      <FiCamera size={12} color="white" />
+                    </Box>
+                  </label>
+                  <input
+                    id="avatar-upload"
+                    type="file"
+                    accept="image/png, image/jpeg, image/webp"
+                    style={{ display: "none" }}
+                    onChange={handleAvatarChange}
+                  />
+                </Box>
+                <Box>
+                  <Typography
+                    sx={{ fontWeight: 600, fontSize: "15px", color: "#1f2937" }}
+                  >
+                    {editProfileForm.name || staffProfile.name}
+                  </Typography>
+                  <Typography sx={{ fontSize: "12px", color: "#6b7280" }}>
+                    {staffProfile.role} ·{" "}
+                    {staffProfile.department || "No department"}
+                  </Typography>
+                  <Typography
+                    sx={{ fontSize: "11px", color: "#9ca3af", mt: 0.3 }}
+                  >
+                    Click the camera icon to change photo
+                  </Typography>
+                </Box>
+              </Box>
+              <Box>
+                {fieldLabel("Email")}
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={staffProfile.email || ""}
+                  disabled
+                  sx={{
+                    "& .MuiOutlinedInput-root": { borderRadius: "6px" },
+                    "& .Mui-disabled": { backgroundColor: "#f9fafb" },
+                  }}
+                />
+              </Box>
+              <Box>
+                {fieldLabel("Staff ID")}
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={staffProfile?.staffid || staffProfile?.id}
+                  disabled
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "6px",
+                      fontFamily: "monospace",
+                    },
+                    "& .Mui-disabled": { backgroundColor: "#f9fafb" },
+                  }}
+                />
+              </Box>
+              <Box>
+                {fieldLabel("Role")}
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={staffProfile.role || ""}
+                  disabled
+                  sx={{
+                    "& .MuiOutlinedInput-root": { borderRadius: "6px" },
+                    "& .Mui-disabled": { backgroundColor: "#f9fafb" },
+                  }}
+                />
+              </Box>
+              <Divider />
+              <Box>
+                {fieldLabel("Full Name", true)}
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Enter your full name"
+                  value={editProfileForm.name}
+                  onChange={(e) =>
+                    setEditProfileForm({
+                      ...editProfileForm,
+                      name: e.target.value,
+                    })
+                  }
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+                />
+              </Box>
+              <Box>
+                {fieldLabel("Phone (Optional)")}
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="e.g. 09XX-XXX-XXXX"
+                  value={editProfileForm.phone}
+                  onChange={(e) =>
+                    setEditProfileForm({
+                      ...editProfileForm,
+                      phone: e.target.value,
+                    })
+                  }
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+                />
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+          <Button
+            onClick={() => setShowEditProfileModal(false)}
+            sx={{ textTransform: "none", color: "#6b7280" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveProfile}
+            variant="contained"
+            disabled={editProfileLoading}
+            sx={{
+              textTransform: "none",
+              backgroundColor: "#2563EB",
+              fontWeight: 600,
+              "&:hover": { backgroundColor: "#1d4ed8" },
+              minWidth: "100px",
+            }}
+          >
+            {editProfileLoading ? (
+              <CircularProgress size={18} sx={{ color: "white" }} />
+            ) : (
+              "Save Changes"
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Main Content with Sidebar */}
+      <div
+        style={{
+          display: "flex",
+          flex: 1,
+          height: "100%",
+          width: "100%",
+          overflow: "hidden",
+        }}
+      >
+        {/* Desktop sidebar — always visible */}
+        {!isMobile && <Sidebar />}
+
+        {/* Mobile sidebar — backdrop + drawer */}
+        {isMobile && (
+          <>
+            {/* Backdrop */}
+            <div
+              onClick={() => setSidebarOpen(false)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                backgroundColor: "rgba(0,0,0,0.4)",
+                zIndex: 1200,
+                opacity: sidebarOpen ? 1 : 0,
+                pointerEvents: sidebarOpen ? "auto" : "none",
+                transition: "opacity 0.25s ease",
+              }}
+            />
+            {/* Sidebar drawer */}
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                height: "100%",
+                zIndex: 1300,
+                transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+                transition: "transform 0.25s ease",
+              }}
+            >
+              {/* Close button inside drawer */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "12px",
+                  right: "12px",
+                  zIndex: 1,
+                }}
+              >
+                <IconButton
+                  size="small"
+                  onClick={() => setSidebarOpen(false)}
+                  sx={{
+                    backgroundColor: "#f3f4f6",
+                    "&:hover": { backgroundColor: "#e5e7eb" },
+                  }}
+                >
+                  <FiX size={16} />
+                </IconButton>
+              </div>
+              <Sidebar isMobile onClose={() => setSidebarOpen(false)} />
+            </div>
+          </>
+        )}
 
         <main
           style={{
             flex: 1,
-            padding: '0',
-            paddingBottom: '80px',
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            width: '100%',
-            maxWidth: '100%',
-            boxSizing: 'border-box',
-            backgroundColor: '#f3f4f6',
-            position: 'relative',
+            padding: "0",
+            paddingBottom: "80px",
+            overflowY: "auto",
+            overflowX: "hidden",
+            width: "100%",
+            maxWidth: "100%",
+            boxSizing: "border-box",
+            backgroundColor: "#f3f4f6",
+            position: "relative",
           }}
         >
           <Outlet />
@@ -539,26 +837,26 @@ const Layout = () => {
         slotProps={{
           paper: {
             sx: {
-              borderRadius: isMobile ? 0 : '12px',
-              maxHeight: isMobile ? '100vh' : '90vh',
-              display: 'flex',
-              flexDirection: 'column',
+              borderRadius: isMobile ? 0 : "12px",
+              maxHeight: isMobile ? "100vh" : "90vh",
+              display: "flex",
+              flexDirection: "column",
             },
           },
         }}
       >
         <DialogTitle
           sx={{
-            borderBottom: '1px solid #e5e7eb',
+            borderBottom: "1px solid #e5e7eb",
             pb: 2,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             flexShrink: 0,
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a202c' }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: "#1a202c" }}>
               Notifications
             </Typography>
             {unreadCount > 0 && (
@@ -566,8 +864,8 @@ const Layout = () => {
                 label={`${unreadCount} unread`}
                 size="small"
                 sx={{
-                  backgroundColor: '#ef4444',
-                  color: 'white',
+                  backgroundColor: "#ef4444",
+                  color: "white",
                   fontWeight: 600,
                 }}
               />
@@ -577,49 +875,47 @@ const Layout = () => {
             <FiX />
           </IconButton>
         </DialogTitle>
-
         <DialogContent
           sx={{
             p: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
           }}
         >
           <Box
             sx={{
               p: 3,
-              display: 'flex',
-              flexDirection: 'column',
+              display: "flex",
+              flexDirection: "column",
               flex: 1,
-              overflow: 'hidden',
+              overflow: "hidden",
             }}
           >
-            {/* Action Buttons */}
             <Box
               sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
                 mb: 2,
-                flexWrap: 'wrap',
+                flexWrap: "wrap",
                 gap: 1,
               }}
             >
-              <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box sx={{ display: "flex", gap: 1 }}>
                 <Button
-                  variant={filter === 'all' ? 'contained' : 'outlined'}
+                  variant={filter === "all" ? "contained" : "outlined"}
                   size="small"
-                  onClick={() => setFilter('all')}
-                  sx={{ textTransform: 'none' }}
+                  onClick={() => setFilter("all")}
+                  sx={{ textTransform: "none" }}
                 >
                   All ({notifications.length})
                 </Button>
                 <Button
-                  variant={filter === 'unread' ? 'contained' : 'outlined'}
+                  variant={filter === "unread" ? "contained" : "outlined"}
                   size="small"
-                  onClick={() => setFilter('unread')}
-                  sx={{ textTransform: 'none' }}
+                  onClick={() => setFilter("unread")}
+                  sx={{ textTransform: "none" }}
                 >
                   Unread ({unreadCount})
                 </Button>
@@ -630,20 +926,18 @@ const Layout = () => {
                   size="small"
                   startIcon={<FiCheck />}
                   onClick={handleMarkAllAsRead}
-                  sx={{ textTransform: 'none' }}
+                  sx={{ textTransform: "none" }}
                 >
                   Mark All as Read
                 </Button>
               )}
             </Box>
-
-            {/* Notifications List */}
             {notificationsLoading ? (
               <Box
                 sx={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
                   py: 8,
                 }}
               >
@@ -652,21 +946,21 @@ const Layout = () => {
             ) : (
               <Box
                 sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
+                  display: "flex",
+                  flexDirection: "column",
                   gap: 2,
-                  maxHeight: 'calc(80vh - 180px)',
-                  overflowY: 'auto',
+                  maxHeight: "calc(80vh - 180px)",
+                  overflowY: "auto",
                   pr: 0.5,
                 }}
               >
                 {filteredNotifications.length === 0 ? (
-                  <Card sx={{ textAlign: 'center', py: 6 }}>
+                  <Card sx={{ textAlign: "center", py: 6 }}>
                     <FiBell size={48} color="#9ca3af" />
-                    <Typography variant="h6" sx={{ mt: 2, color: '#6b7280' }}>
+                    <Typography variant="h6" sx={{ mt: 2, color: "#6b7280" }}>
                       No notifications
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#9ca3af' }}>
+                    <Typography variant="body2" sx={{ color: "#9ca3af" }}>
                       You're all caught up!
                     </Typography>
                   </Card>
@@ -679,63 +973,60 @@ const Layout = () => {
                         sx={{
                           borderLeft: `4px solid ${colors.border}`,
                           backgroundColor: notification.is_read
-                            ? '#ffffff'
-                            : '#fafafa',
-                          transition: 'all 0.2s',
+                            ? "#ffffff"
+                            : "#fafafa",
+                          transition: "all 0.2s",
                           flexShrink: 0,
-                          '&:hover': {
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                          "&:hover": {
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                           },
                         }}
                       >
                         <CardContent>
                           <Box
                             sx={{
-                              display: 'flex',
-                              alignItems: 'flex-start',
+                              display: "flex",
+                              alignItems: "flex-start",
                               gap: 2,
                             }}
                           >
-                            {/* Icon */}
                             <Box
                               sx={{
                                 width: 40,
                                 height: 40,
-                                borderRadius: '50%',
+                                borderRadius: "50%",
                                 backgroundColor: colors.bg,
                                 color: colors.text,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
                                 flexShrink: 0,
                               }}
                             >
                               {getIcon(notification.type)}
                             </Box>
-
-                            {/* Content */}
                             <Box sx={{ flex: 1, minWidth: 0 }}>
                               <Box
                                 sx={{
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'flex-start',
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "flex-start",
                                   mb: 0.5,
                                   gap: 1,
                                 }}
                               >
                                 <Typography
                                   variant="subtitle2"
-                                  sx={{ fontWeight: 600, color: '#1a202c' }}
+                                  sx={{ fontWeight: 600, color: "#1a202c" }}
                                 >
                                   {notification.title}
                                 </Typography>
                                 <Typography
                                   variant="caption"
                                   sx={{
-                                    color: '#9ca3af',
+                                    color: "#9ca3af",
                                     flexShrink: 0,
-                                    whiteSpace: 'nowrap',
+                                    whiteSpace: "nowrap",
                                   }}
                                 >
                                   {new Date(
@@ -746,23 +1037,21 @@ const Layout = () => {
                               <Typography
                                 variant="body2"
                                 sx={{
-                                  color: '#4b5563',
+                                  color: "#4b5563",
                                   mb: 1,
-                                  fontSize: '13px',
-                                  wordBreak: 'break-word',
-                                  overflowWrap: 'anywhere',
+                                  fontSize: "13px",
+                                  wordBreak: "break-word",
+                                  overflowWrap: "anywhere",
                                 }}
                               >
                                 {notification.message}
                               </Typography>
-
-                              {/* Actions */}
                               <Box
                                 sx={{
-                                  display: 'flex',
+                                  display: "flex",
                                   gap: 1,
                                   mt: 2,
-                                  flexWrap: 'wrap',
+                                  flexWrap: "wrap",
                                 }}
                               >
                                 {!notification.is_read && (
@@ -773,8 +1062,8 @@ const Layout = () => {
                                       handleMarkAsRead(notification.id)
                                     }
                                     sx={{
-                                      textTransform: 'none',
-                                      fontSize: '12px',
+                                      textTransform: "none",
+                                      fontSize: "12px",
                                       color: colors.text,
                                     }}
                                   >
@@ -785,8 +1074,8 @@ const Layout = () => {
                                   size="small"
                                   onClick={() => handleDelete(notification.id)}
                                   sx={{
-                                    color: '#ef4444',
-                                    '&:hover': { backgroundColor: '#fee2e2' },
+                                    color: "#ef4444",
+                                    "&:hover": { backgroundColor: "#fee2e2" },
                                   }}
                                 >
                                   <FiTrash2 size={14} />
@@ -805,12 +1094,11 @@ const Layout = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}

@@ -3,13 +3,6 @@ import '../styles/Pages.css';
 import {
   Box,
   Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   InputAdornment,
   CircularProgress,
@@ -29,15 +22,16 @@ import {
   Tooltip,
   Chip,
   Avatar,
+  Tabs,
+  Tab,
 } from '@mui/material';
-import { FiSearch, FiCalendar, FiPlus, FiTrash2, FiX, FiRefreshCw, FiAlertTriangle, FiAlertCircle, FiInfo, FiUsers, FiClock, FiList, FiUserCheck } from 'react-icons/fi';
+import { FiSearch, FiCalendar, FiPlus, FiRefreshCw, FiAlertTriangle, FiAlertCircle, FiInfo, FiUsers, FiClock, FiList, FiUserCheck, FiXCircle } from 'react-icons/fi';
 import {
   getAllSchedules,
   getSchedulesByStaffId,
   createSchedule,
   createScheduleBulk,
   clearWeeklySchedules,
-  deleteSchedule,
 } from '../../backend/services/scheduleService';
 import { getAllAppointments } from '../../backend/services/appointmentService';
 import { getAllStaff } from '../../backend/services/staffService';
@@ -53,6 +47,8 @@ function Schedule() {
   const [schedules, setSchedules] = useState<ScheduleWithStaff[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentTab, setCurrentTab] = useState(0);
+  const [fifteenDayStartDate, setFifteenDayStartDate] = useState<Date>(new Date());
   const [searchTerm, setSearchTerm] = useState('');
   const [openModal, setOpenModal] = useState(false);
   const [snackbar, setSnackbar] = useState({
@@ -174,7 +170,8 @@ function Schedule() {
     }
 
     let hasError = false;
-    for (const day of formData.days_of_week.sort()) {
+    const sortedDays = Array.from(formData.days_of_week).sort((a, b) => a - b);
+    for (const day of sortedDays) {
       const { error } = await createSchedule({
         staff_id: targetStaffId,
         day_of_week: day,
@@ -202,6 +199,122 @@ function Schedule() {
     }
   };
 
+  // Helper function: Calculate appointment counts by day of week
+  const getAppointmentCounts = async (days: number[]) => {
+    const appointmentCounts: Record<number, number> = days.reduce((acc, d) => ({ ...acc, [d]: 0 }), {});
+    const result = await getAllAppointments();
+    const appointments = result.data ?? [];
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+
+    for (const appt of appointments) {
+      const date = new Date(appt.appointment_date);
+      if (!Number.isNaN(date.getTime()) && date >= cutoff) {
+        const day = date.getDay();
+        if (days.includes(day)) {
+          appointmentCounts[day] = (appointmentCounts[day] ?? 0) + 1;
+        }
+      }
+    }
+    return appointmentCounts;
+  };
+
+  // Helper function: Calculate staff targets for each day
+  const calculateDayTargets = (
+    workDays: number[],
+    appointmentCounts: Record<number, number>,
+    activeStaffCount: number,
+    hasDoctor: boolean,
+  ) => {
+    const MIN_STAFF_PER_DAY = 2;
+    const MAX_STAFF_PER_DAY = 100;
+    const maxStaffPerDay = Math.min(activeStaffCount, MAX_STAFF_PER_DAY);
+    const minStaffPerDay = Math.min(MIN_STAFF_PER_DAY, activeStaffCount);
+
+    const maxCount = Math.max(...workDays.map((d) => appointmentCounts[d] || 0));
+    const dayTargets: Record<number, number> = {};
+
+    for (const day of workDays) {
+      const count = appointmentCounts[day] ?? 0;
+      let target = maxCount <= 0 ? minStaffPerDay : Math.round((count / maxCount) * maxStaffPerDay);
+      target = Math.max(minStaffPerDay, target);
+      dayTargets[day] = Math.min(target, maxStaffPerDay);
+    }
+
+    if (hasDoctor) {
+      for (const day of workDays) {
+        dayTargets[day] = Math.max(dayTargets[day], 1);
+      }
+    }
+    return dayTargets;
+  };
+
+  // Helper function:Build schedule inserts and day previews
+  const buildScheduleInserts = (
+    workDays: number[],
+    dayTargets: Record<number, number>,
+    activeStaff: Staff[],
+    doctors: Staff[],
+    groupedCurrent: Record<number, ScheduleWithStaff[]>,
+  ) => {
+    const scheduleInserts: PreviewData['scheduleInserts'] = [];
+    const dayPreviews: DayPreview[] = [];
+    let rotationIndex = 0;
+
+    for (const day of workDays) {
+      const targetCount = dayTargets[day];
+      const currentCount = groupedCurrent[day]?.length ?? 0;
+      const assigned: DayPreviewEntry[] = [];
+      const used = new Set<string>();
+
+      if (doctors.length > 0) {
+        const doc = doctors[day % doctors.length];
+        assigned.push({
+          staffId: doc.id,
+          name: doc.name,
+          role: doc.role,
+          specialization: doc.specialization,
+        });
+        used.add(doc.id);
+      }
+
+      while (assigned.length < targetCount && used.size < activeStaff.length) {
+        const candidate = activeStaff[rotationIndex % activeStaff.length];
+        rotationIndex += 1;
+        if (used.has(candidate.id)) continue;
+        used.add(candidate.id);
+        assigned.push({
+          staffId: candidate.id,
+          name: candidate.name,
+          role: candidate.role,
+          specialization: candidate.specialization,
+        });
+      }
+
+      const startTime = '08:00';
+      const endTime = '17:00';
+      for (const entry of assigned) {
+        scheduleInserts.push({
+          staff_id: entry.staffId,
+          day_of_week: day,
+          start_time: startTime,
+          end_time: endTime,
+          notes: 'Auto-generated schedule',
+          is_active: true,
+        });
+      }
+
+      dayPreviews.push({
+        day,
+        currentCount,
+        targetCount: assigned.length,
+        assigned,
+      });
+    }
+
+    return { scheduleInserts, dayPreviews };
+  };
+
   const handleGenerateSchedule = async () => {
     setGenerating(true);
 
@@ -218,64 +331,11 @@ function Schedule() {
         return;
       }
 
-      const appointmentResult = await getAllAppointments();
-      const appointments = appointmentResult.data ?? [];
-
       const workDays = [0, 1, 2, 3, 4, 5, 6];
-      const appointmentCounts: Record<number, number> = {
-        0: 0,
-        1: 0,
-        2: 0,
-        3: 0,
-        4: 0,
-        5: 0,
-        6: 0,
-      };
-
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 30);
-
-      for (const appt of appointments) {
-        const date = new Date(appt.appointment_date);
-        if (Number.isNaN(date.getTime())) continue;
-        if (date < cutoff) continue;
-        const day = date.getDay();
-        if (workDays.includes(day)) {
-          appointmentCounts[day] = (appointmentCounts[day] ?? 0) + 1;
-        }
-      }
-
-      const maxCount = Math.max(...workDays.map((d) => appointmentCounts[d] || 0));
-      const MIN_STAFF_PER_DAY = 2;
-      const MAX_STAFF_PER_DAY = 100;
-      const maxStaffPerDay = Math.min(activeStaff.length, MAX_STAFF_PER_DAY);
-      const minStaffPerDay = Math.min(MIN_STAFF_PER_DAY, activeStaff.length);
-
-      const dayTargets: Record<number, number> = {};
-      for (const day of workDays) {
-        const count = appointmentCounts[day] ?? 0;
-        let target = 0;
-
-        if (maxCount <= 0) {
-          target = minStaffPerDay;
-        } else {
-          // Scale staffing by relative appointment volume, but always stay within minimum/maximum bounds.
-          target = Math.round((count / maxCount) * maxStaffPerDay);
-          target = Math.max(minStaffPerDay, target);
-        }
-
-        dayTargets[day] = Math.min(target, maxStaffPerDay);
-      }
-
-      const doctors = activeStaff.filter((s) =>
-        /doctor|physician/i.test(s.role || ''),
-      );
+      const appointmentCounts = await getAppointmentCounts(workDays);
+      const doctors = activeStaff.filter((s) => /doctor|physician/i.test(s.role || ''));
       const hasDoctor = doctors.length > 0;
-      if (hasDoctor) {
-        for (const day of workDays) {
-          dayTargets[day] = Math.max(dayTargets[day], 1);
-        }
-      }
+      const dayTargets = calculateDayTargets(workDays, appointmentCounts, activeStaff.length, hasDoctor);
 
       const groupedCurrent: Record<number, ScheduleWithStaff[]> = {};
       schedules
@@ -287,62 +347,14 @@ function Schedule() {
           groupedCurrent[schedule.day_of_week].push(schedule);
         });
 
-      const scheduleInserts: PreviewData['scheduleInserts'] = [];
-      const dayPreviews: DayPreview[] = [];
       const staffIdsToClear = activeStaff.map((s) => s.id);
-
-      let rotationIndex = 0;
-      for (const day of workDays) {
-        const targetCount = dayTargets[day];
-        const currentCount = (groupedCurrent[day]?.length ?? 0);
-
-        const assigned: DayPreviewEntry[] = [];
-        const used = new Set<string>();
-
-        if (hasDoctor) {
-          const doc = doctors[day % doctors.length];
-          assigned.push({
-            staffId: doc.id,
-            name: doc.name,
-            role: doc.role,
-            specialization: doc.specialization,
-          });
-          used.add(doc.id);
-        }
-
-        while (assigned.length < targetCount && used.size < activeStaff.length) {
-          const candidate = activeStaff[rotationIndex % activeStaff.length];
-          rotationIndex += 1;
-          if (used.has(candidate.id)) continue;
-          used.add(candidate.id);
-          assigned.push({
-            staffId: candidate.id,
-            name: candidate.name,
-            role: candidate.role,
-            specialization: candidate.specialization,
-          });
-        }
-
-        const startTime = '08:00';
-        const endTime = '17:00';
-        for (const entry of assigned) {
-          scheduleInserts.push({
-            staff_id: entry.staffId,
-            day_of_week: day,
-            start_time: startTime,
-            end_time: endTime,
-            notes: 'Auto-generated schedule',
-            is_active: true,
-          });
-        }
-
-        dayPreviews.push({
-          day,
-          currentCount,
-          targetCount: assigned.length,
-          assigned,
-        });
-      }
+      const { scheduleInserts, dayPreviews } = buildScheduleInserts(
+        workDays,
+        dayTargets,
+        activeStaff,
+        doctors,
+        groupedCurrent,
+      );
 
       setPreviewData({
         staffIdsToClear,
@@ -380,20 +392,6 @@ function Schedule() {
     } finally {
       setApplying(false);
     }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!isAdmin) {
-      showSnackbar('Only administrators can delete schedules.', 'error');
-      return;
-    }
-
-    setSchedules((prev) => prev.filter((s) => s.id !== id));
-    const { error } = await deleteSchedule(id);
-    if (error) {
-      showSnackbar(error, 'error');
-      fetchData();
-    } else showSnackbar('Schedule removed', 'success');
   };
 
   // Calculate summary statistics
@@ -436,24 +434,7 @@ function Schedule() {
     },
   ];
 
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const weekDaysFull = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-  // Role → avatar colour palette
-  const roleColor = (role: string): { bg: string; text: string; border: string } => {
-    const r = role.toLowerCase();
-    if (r.includes('doctor') || r.includes('physician'))
-      return { bg: '#dbeafe', text: '#1d4ed8', border: '#93c5fd' };
-    if (r.includes('nurse'))
-      return { bg: '#fce7f3', text: '#be185d', border: '#f9a8d4' };
-    if (r.includes('admin'))
-      return { bg: '#ede9fe', text: '#6d28d9', border: '#c4b5fd' };
-    if (r.includes('receptionist') || r.includes('front'))
-      return { bg: '#fef3c7', text: '#b45309', border: '#fcd34d' };
-    if (r.includes('technician') || r.includes('tech'))
-      return { bg: '#d1fae5', text: '#065f46', border: '#6ee7b7' };
-    return { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' };
-  };
 
   const getInitials = (name: string) =>
     name
@@ -472,19 +453,12 @@ function Schedule() {
     message: string;
   }
 
-  const operationalAlerts = (() => {
+  // Helper functions for operationalAlerts
+  const getShortStaffedAlerts = (
+    workDays: number[],
+    workDaySchedules: ScheduleWithStaff[],
+  ): OperationalAlert[] => {
     const alerts: OperationalAlert[] = [];
-    const workDays = [0, 1, 2, 3, 4, 5, 6];
-    const activeSchedules = schedules.filter((s) => s.is_active);
-    const activeStaff = staff.filter((s) => s.status === 'Active');
-    const activeNonAdminStaff = activeStaff.filter(
-      (s) => !s.role?.toLowerCase().includes('admin'),
-    );
-    const workDaySchedules = activeSchedules.filter(
-      (s) => s.day_of_week >= 0 && s.day_of_week <= 6,
-    );
-
-    // 1. Short-staffed days (< 2 staff on a working day)
     for (const day of workDays) {
       const dayEntries = workDaySchedules.filter((s) => s.day_of_week === day);
       if (dayEntries.length === 0) {
@@ -503,8 +477,14 @@ function Schedule() {
         });
       }
     }
+    return alerts;
+  };
 
-    // 2. Overloaded days (> target)
+  const getOverloadedDayAlerts = (
+    workDays: number[],
+    workDaySchedules: ScheduleWithStaff[],
+  ): OperationalAlert[] => {
+    const alerts: OperationalAlert[] = [];
     const total = workDaySchedules.length;
     const target = total > 0 ? Math.ceil(total / workDays.length) : 0;
     for (const day of workDays) {
@@ -518,8 +498,11 @@ function Schedule() {
         });
       }
     }
+    return alerts;
+  };
 
-    // 3. Staff working too many days (all 5 working days = burnout risk)
+  const getStaffOverworkAlerts = (workDaySchedules: ScheduleWithStaff[]): OperationalAlert[] => {
+    const alerts: OperationalAlert[] = [];
     const staffDayCounts: Record<string, { name: string; count: number }> = {};
     for (const s of workDaySchedules) {
       if (!staffDayCounts[s.staff_id]) {
@@ -537,8 +520,14 @@ function Schedule() {
         });
       }
     }
+    return alerts;
+  };
 
-    // 4. No doctor on a working day
+  const getNoDoctorAlerts = (
+    workDays: number[],
+    workDaySchedules: ScheduleWithStaff[],
+  ): OperationalAlert[] => {
+    const alerts: OperationalAlert[] = [];
     for (const day of workDays) {
       const dayEntries = workDaySchedules.filter((s) => s.day_of_week === day);
       const hasDoctor = dayEntries.some(
@@ -554,20 +543,34 @@ function Schedule() {
         });
       }
     }
+    return alerts;
+  };
 
-    // 5. Active staff with no schedule at all
+  const getUnscheduledStaffAlerts = (
+    activeSchedules: ScheduleWithStaff[],
+    activeNonAdminStaff: Staff[],
+  ): OperationalAlert[] => {
+    const alerts: OperationalAlert[] = [];
     const scheduledStaffIds = new Set(activeSchedules.map((s) => s.staff_id));
     const unscheduled = activeNonAdminStaff.filter((s) => !scheduledStaffIds.has(s.id));
     if (unscheduled.length > 0) {
+      const names = unscheduled.slice(0, 3).map((s) => s.name).join(', ');
+      const suffix = unscheduled.length > 3 ? ', …' : '';
       alerts.push({
         id: 'unscheduled-staff',
         severity: 'info',
         title: 'Unscheduled active staff',
-        message: `${unscheduled.length} active staff member${unscheduled.length > 1 ? 's' : ''} (${unscheduled.slice(0, 3).map((s) => s.name).join(', ')}${unscheduled.length > 3 ? ', …' : ''}) have no schedule assigned.`,
+        message: `${unscheduled.length} active staff member${unscheduled.length > 1 ? 's' : ''} (${names}${suffix}) have no schedule assigned.`,
       });
     }
+    return alerts;
+  };
 
-    // 6. Duplicate specializations on same day with no opposing coverage
+  const getSpecializationGapAlerts = (
+    workDays: number[],
+    workDaySchedules: ScheduleWithStaff[],
+  ): OperationalAlert[] => {
+    const alerts: OperationalAlert[] = [];
     const allSpecs = new Set(
       staff
         .filter((s) => s.specialization)
@@ -584,14 +587,37 @@ function Schedule() {
       );
       const uncovered = workDays.filter((d) => !coveredDays.has(d));
       if (uncovered.length > 0 && uncovered.length <= 3) {
+        const dayNames = uncovered.map((d) => weekDaysFull[d]).join(', ');
         alerts.push({
           id: `spec-gap-${spec}`,
           severity: 'info',
           title: 'Specialization gap',
-          message: `No ${spec} specialist scheduled on ${uncovered.map((d) => weekDaysFull[d]).join(', ')}.`,
+          message: `No ${spec} specialist scheduled on ${dayNames}.`,
         });
       }
     }
+    return alerts;
+  };
+
+  const operationalAlerts = (() => {
+    const workDays = [0, 1, 2, 3, 4, 5, 6];
+    const activeSchedules = schedules.filter((s) => s.is_active);
+    const activeStaff = staff.filter((s) => s.status === 'Active');
+    const activeNonAdminStaff = activeStaff.filter(
+      (s) => !s.role?.toLowerCase().includes('admin'),
+    );
+    const workDaySchedules = activeSchedules.filter(
+      (s) => s.day_of_week >= 0 && s.day_of_week <= 6,
+    );
+
+    const alerts: OperationalAlert[] = [
+      ...getShortStaffedAlerts(workDays, workDaySchedules),
+      ...getOverloadedDayAlerts(workDays, workDaySchedules),
+      ...getStaffOverworkAlerts(workDaySchedules),
+      ...getNoDoctorAlerts(workDays, workDaySchedules),
+      ...getUnscheduledStaffAlerts(activeSchedules, activeNonAdminStaff),
+      ...getSpecializationGapAlerts(workDays, workDaySchedules),
+    ];
 
     return alerts;
   })();
@@ -629,21 +655,13 @@ function Schedule() {
     });
 
   // Filter schedules based on search
-  const filteredSchedules = searchTerm
-    ? schedules.filter(
-        (s) =>
-          s.staff?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          s.staff?.role.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
-    : schedules;
-
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(':');
-    const hour = Number.parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
+  // const filteredSchedules = searchTerm
+  //   ? schedules.filter(
+  //       (s) =>
+  //         s.staff?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //         s.staff?.role.toLowerCase().includes(searchTerm.toLowerCase()),
+  //     )
+  //   : schedules;
 
   if (loading) {
     return (
@@ -759,7 +777,17 @@ function Schedule() {
         </Box>
       </Box>
 
-      {/* Summary + Alerts side by side */}
+      {/* Tab Navigation */}
+      <Box sx={{ mb: 3 }}>
+        <Tabs value={currentTab} onChange={(_, newValue) => setCurrentTab(newValue)}>
+          <Tab label="Summary" />
+          <Tab label="All Schedules" />
+          {isAdmin && <Tab label="Alerts" />}
+        </Tabs>
+      </Box>
+
+      {/* Tab 0: Summary + Alerts side by side */}
+      {currentTab === 0 && (
       <Box sx={{ display: 'flex', gap: '20px', alignItems: 'stretch', mb: '24px' }}>
         {/* Schedule Summary — left */}
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -979,10 +1007,21 @@ function Schedule() {
                         {cfg.icon}
                       </Box>
                       <Box>
-                        <Typography sx={{ fontSize: '11px', fontWeight: 700, color: cfg.color, lineHeight: 1.3, mb: 0.25 }}>
-                          {alert.severity === 'critical' ? 'Critical' : alert.severity === 'warning' ? 'Warning' : 'Info'}:{' '}
-                          {alert.title}
-                        </Typography>
+                        {(() => {
+                          let severityLabel: string;
+                          if (alert.severity === 'critical') {
+                            severityLabel = 'Critical';
+                          } else if (alert.severity === 'warning') {
+                            severityLabel = 'Warning';
+                          } else {
+                            severityLabel = 'Info';
+                          }
+                          return (
+                            <Typography sx={{ fontSize: '11px', fontWeight: 700, color: cfg.color, lineHeight: 1.3, mb: 0.25 }}>
+                              {severityLabel}: {alert.title}
+                            </Typography>
+                          );
+                        })()}
                         <Typography sx={{ fontSize: '11px', color: cfg.color, lineHeight: 1.45, opacity: 0.9 }}>
                           {alert.message}
                         </Typography>
@@ -997,491 +1036,340 @@ function Schedule() {
         </Box>
         )}
       </Box>
+      )}
 
-      {/* Weekly Schedule */}
-      <Box sx={{ marginBottom: '28px' }}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            mb: 2,
-          }}
-        >
-          <FiCalendar style={{ color: '#6b7280', fontSize: 16 }} />
-          <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
-            Weekly Schedule
-          </Typography>
-          <Chip
-            label={`${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
-            size="small"
-            sx={{
-              ml: 1,
-              height: '20px',
-              fontSize: '10px',
-              backgroundColor: '#f3f4f6',
-              color: '#6b7280',
-              fontWeight: 600,
-            }}
-          />
-        </Box>
-
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7, 1fr)',
-            gap: '10px',
-          }}
-        >
-          {weekDays.map((day, idx) => {
-            const daySchedules = groupedSchedules[idx] || [];
-            const isToday = new Date().getDay() === idx;
-            const isSunday = idx === 0;
-            const colors = isToday
-              ? { header: '#2563eb', headerText: '#fff', border: '#2563eb', bg: '#eff6ff' }
-              : isSunday
-              ? { header: '#fee2e2', headerText: '#991b1b', border: '#fecaca', bg: '#fff' }
-              : { header: '#f9fafb', headerText: '#374151', border: '#e5e7eb', bg: '#fff' };
-
-            return (
-              <Box
-                key={day}
+      {/* Tab 1: 15-Day Calendar View */}
+      {currentTab === 1 && (
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <FiCalendar style={{ color: '#6b7280', fontSize: 18 }} />
+              <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>
+                15-Day Schedule
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <TextField
+                type="date"
+                value={fifteenDayStartDate.toISOString().split('T')[0]}
+                onChange={(e) => setFifteenDayStartDate(new Date(e.target.value))}
+                size="small"
                 sx={{
-                  border: `1.5px solid ${colors.border}`,
-                  borderRadius: '12px',
-                  overflow: 'hidden',
-                  backgroundColor: colors.bg,
-                  boxShadow: isToday
-                    ? '0 4px 14px rgba(37,99,235,0.15)'
-                    : '0 1px 4px rgba(0,0,0,0.05)',
-                  transition: 'box-shadow 0.2s',
-                  '&:hover': {
-                    boxShadow: isToday
-                      ? '0 6px 20px rgba(37,99,235,0.22)'
-                      : '0 4px 12px rgba(0,0,0,0.1)',
+                  width: '150px',
+                  backgroundColor: 'white',
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '6px',
                   },
                 }}
-              >
-                {/* Day header */}
-                <Box
-                  sx={{
-                    backgroundColor: colors.header,
-                    px: 1.2,
-                    py: 0.8,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <Box>
-                    <Typography
-                      sx={{
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        color: colors.headerText,
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      {day}
-                    </Typography>
-                    {isToday && (
-                      <Typography sx={{ fontSize: '8px', color: 'rgba(255,255,255,0.8)', fontWeight: 500 }}>
-                        Today
-                      </Typography>
-                    )}
-                  </Box>
+              />
+              <Chip
+                label={`${fifteenDayStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(fifteenDayStartDate.getTime() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                sx={{
+                  backgroundColor: '#eff6ff',
+                  color: '#1e40af',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                }}
+              />
+            </Box>
+          </Box>
+
+          {/* 15-Day Calendar Grid with 5 columns (3 rows) */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
+            {(() => {
+              const roleColors: Record<string, { bg: string; text: string; border: string; accent: string }> = {
+                Doctor: { bg: '#eff6ff', text: '#0c4a6e', border: '#0284c7', accent: '#dbeafe' },
+                Nurse: { bg: '#faf5ff', text: '#4c1d95', border: '#7c3aed', accent: '#ddd6fe' },
+                Technician: { bg: '#fdf2f8', text: '#831843', border: '#ec4899', accent: '#fce7f3' },
+                Staff: { bg: '#f5f3ff', text: '#312e81', border: '#6366f1', accent: '#e0e7ff' },
+              };
+
+              return Array.from({ length: 15 }).map((_, i) => {
+                const currentDate = new Date(fifteenDayStartDate);
+                currentDate.setDate(currentDate.getDate() + i);
+                const dateKey = currentDate.toISOString().split('T')[0];
+                const dayOfWeek = currentDate.getDay();
+                const daySchedules = schedules.filter((s) => s.day_of_week === dayOfWeek && s.is_active);
+                const isToday = new Date().toDateString() === currentDate.toDateString();
+                const isSunday = dayOfWeek === 0;
+                
+                // Compute header styling to reduce nested ternaries
+                let headerBgColor: string;
+                if (isToday) {
+                  headerBgColor = '#2563eb';
+                } else if (isSunday) {
+                  headerBgColor = '#fee2e2';
+                } else {
+                  headerBgColor = '#f9fafb';
+                }
+                
+                let headerTextColor: string;
+                if (isToday) {
+                  headerTextColor = '#fff';
+                } else if (isSunday) {
+                  headerTextColor = '#991b1b';
+                } else {
+                  headerTextColor = '#111827';
+                }
+
+                return (
                   <Box
+                    key={dateKey}
                     sx={{
-                      backgroundColor: isToday
-                        ? 'rgba(255,255,255,0.25)'
-                        : isSunday
-                        ? '#fecaca'
-                        : '#e5e7eb',
+                      border: isToday ? '2px solid #2563eb' : '1.5px solid #e5e7eb',
                       borderRadius: '10px',
-                      minWidth: '20px',
-                      height: '20px',
+                      backgroundColor: isToday ? '#eff6ff' : '#ffffff',
+                      overflow: 'hidden',
+                      boxShadow: isToday ? '0 4px 12px rgba(37, 99, 235, 0.15)' : '0 1px 3px rgba(0,0,0,0.05)',
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        transform: 'translateY(-2px)',
+                      },
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      px: 0.6,
+                      flexDirection: 'column',
                     }}
                   >
-                    <Typography
+                    {/* Date Header */}
+                    <Box
                       sx={{
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        color: isToday ? '#fff' : isSunday ? '#991b1b' : '#6b7280',
+                        backgroundColor: headerBgColor,
+                        px: 1.5,
+                        py: 1,
+                        borderBottom: '1px solid #e5e7eb',
                       }}
                     >
-                      {daySchedules.length}
-                    </Typography>
-                  </Box>
-                </Box>
+                      <Typography sx={{ fontSize: '10px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>
+                        {currentDate.toLocaleString('default', { weekday: 'short' })}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: '16px',
+                          fontWeight: 700,
+                          color: headerTextColor,
+                          mt: 0.3,
+                        }}
+                      >
+                        {currentDate.getDate()}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: '9px',
+                          color: isToday ? 'rgba(255,255,255,0.8)' : '#9ca3af',
+                          mt: 0.2,
+                        }}
+                      >
+                        {currentDate.toLocaleString('default', { month: 'short', year: 'numeric' })}
+                      </Typography>
+                    </Box>
 
-                {/* Staff cards */}
-                <Box
-                  sx={{
-                    p: '6px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '5px',
-                    minHeight: '120px',
-                  }}
-                >
-                  {daySchedules.length === 0 ? (
+                    {/* Staff List */}
                     <Box
                       sx={{
                         flex: 1,
+                        p: 1,
                         display: 'flex',
                         flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        pt: 2,
-                        pb: 1,
-                        gap: 0.5,
+                        gap: '6px',
+                        minHeight: '200px',
+                        overflowY: 'auto',
+                        '&::-webkit-scrollbar': {
+                          width: '4px',
+                        },
+                        '&::-webkit-scrollbar-track': {
+                          backgroundColor: '#f3f4f6',
+                          borderRadius: '4px',
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                          backgroundColor: '#d1d5db',
+                          borderRadius: '4px',
+                          '&:hover': {
+                            backgroundColor: '#9ca3af',
+                          },
+                        },
                       }}
                     >
-                      <Box
-                        sx={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: '50%',
-                          backgroundColor: '#f3f4f6',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <FiCalendar style={{ color: '#d1d5db', fontSize: 13 }} />
-                      </Box>
-                      <Typography sx={{ fontSize: '9px', color: '#d1d5db', textAlign: 'center' }}>
-                        No shifts
+                      {daySchedules.length === 0 ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+                          <Typography sx={{ fontSize: '12px', color: '#d1d5db', fontStyle: 'italic', textAlign: 'center' }}>
+                            No shifts
+                          </Typography>
+                        </Box>
+                      ) : (
+                        daySchedules.map((schedule) => {
+                          const role = schedule.staff?.role || 'Staff';
+                          const name = schedule.staff?.name || 'Unknown';
+                          const spec = schedule.staff?.specialization;
+                          const color = roleColors[role] || roleColors.Staff;
+                          const initials = getInitials(name);
+                          const startTime = schedule.start_time.slice(0, 5);
+                          const endTime = schedule.end_time.slice(0, 5);
+
+                          return (
+                            <Tooltip
+                              key={schedule.id}
+                              title={
+                                <Box sx={{ p: 0.75 }}>
+                                  <Typography sx={{ fontSize: '12px', fontWeight: 700 }}>{name}</Typography>
+                                  <Typography sx={{ fontSize: '11px', opacity: 0.85 }}>{role}</Typography>
+                                  {spec && <Typography sx={{ fontSize: '10px', opacity: 0.75 }}>{spec}</Typography>}
+                                  <Typography sx={{ fontSize: '10px', mt: 0.5 }}>
+                                    {startTime} – {endTime}
+                                  </Typography>
+                                  {schedule.notes && (
+                                    <Typography sx={{ fontSize: '9px', fontStyle: 'italic', mt: 0.5, opacity: 0.8 }}>
+                                      {schedule.notes}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              }
+                              arrow
+                              placement="top"
+                            >
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  backgroundColor: color.accent,
+                                  border: `1.5px solid ${color.border}`,
+                                  borderRadius: '6px',
+                                  px: 0.8,
+                                  py: 0.6,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s',
+                                  '&:hover': {
+                                    backgroundColor: color.bg,
+                                    boxShadow: `0 2px 8px ${color.border}40`,
+                                    transform: 'scale(1.02)',
+                                  },
+                                }}
+                              >
+                                <Avatar
+                                  sx={{
+                                    width: 20,
+                                    height: 20,
+                                    fontSize: '7px',
+                                    fontWeight: 700,
+                                    backgroundColor: color.border,
+                                    color: color.accent,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {initials}
+                                </Avatar>
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                  <Typography
+                                    sx={{
+                                      fontSize: '8px',
+                                      fontWeight: 600,
+                                      color: color.text,
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                    }}
+                                  >
+                                    {name}
+                                  </Typography>
+                                  <Typography
+                                    sx={{
+                                      fontSize: '6.5px',
+                                      color: color.text,
+                                      opacity: 0.8,
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {startTime}–{endTime}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </Tooltip>
+                          );
+                        })
+                      )}
+                    </Box>
+
+                    {/* Staff Count Footer */}
+                    <Box
+                      sx={{
+                        backgroundColor: '#f9fafb',
+                        px: 1.5,
+                        py: 0.8,
+                        borderTop: '1px solid #e5e7eb',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <Typography sx={{ fontSize: '10px', fontWeight: 600, color: '#6b7280' }}>
+                        {daySchedules.length} staff
                       </Typography>
                     </Box>
-                  ) : (
-    daySchedules.map((schedule: ScheduleWithStaff) => {
-                      const name = schedule.staff?.name || 'Unknown';
-                      const role = schedule.staff?.role || 'Staff';
-                      const spec = schedule.staff?.specialization;
-                      const color = roleColor(role);
-                      return (
-                        <Tooltip
-                          key={schedule.id}
-                          arrow
-                          placement="top"
-                          title={
-                            <Box sx={{ p: 0.5 }}>
-                              <Typography sx={{ fontSize: '12px', fontWeight: 700 }}>{name}</Typography>
-                              <Typography sx={{ fontSize: '11px', opacity: 0.85 }}>{role}</Typography>
-                              {spec && (
-                                <Typography sx={{ fontSize: '10px', opacity: 0.75 }}>{spec}</Typography>
-                              )}
-                              <Typography sx={{ fontSize: '10px', mt: 0.5, opacity: 0.9 }}>
-                                {formatTime(schedule.start_time)} – {formatTime(schedule.end_time)}
-                              </Typography>
-                              {schedule.notes && (
-                                <Typography sx={{ fontSize: '10px', opacity: 0.7, fontStyle: 'italic', mt: 0.3 }}>
-                                  {schedule.notes}
-                                </Typography>
-                              )}
-                            </Box>
-                          }
-                        >
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              backgroundColor: '#fff',
-                              border: `1px solid ${color.border}`,
-                              borderRadius: '8px',
-                              p: '5px 7px',
-                              cursor: 'default',
-                              transition: 'all 0.15s',
-                              '&:hover': {
-                                backgroundColor: color.bg,
-                                transform: 'translateY(-1px)',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                              },
-                            }}
-                          >
-                            <Avatar
-                              sx={{
-                                width: 24,
-                                height: 24,
-                                fontSize: '9px',
-                                fontWeight: 700,
-                                backgroundColor: color.bg,
-                                color: color.text,
-                                border: `1.5px solid ${color.border}`,
-                                flexShrink: 0,
-                              }}
-                            >
-                              {getInitials(name)}
-                            </Avatar>
-                            <Box sx={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
-                              <Typography
-                                sx={{
-                                  fontSize: '9px',
-                                  fontWeight: 700,
-                                  color: '#1f2937',
-                                  lineHeight: 1.2,
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                }}
-                              >
-                                {name}
-                              </Typography>
-                              <Typography
-                                sx={{
-                                  fontSize: '8px',
-                                  color: color.text,
-                                  fontWeight: 500,
-                                  lineHeight: 1.2,
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                }}
-                              >
-                                {spec ?? role}
-                              </Typography>
-                              <Typography
-                                sx={{
-                                  fontSize: '7.5px',
-                                  color: '#9ca3af',
-                                  lineHeight: 1.2,
-                                }}
-                              >
-                                {formatTime(schedule.start_time)}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Tooltip>
-                      );
-                    })
-                  )}
-                </Box>
-              </Box>
-            );
-          })}
+                  </Box>
+                );
+              });
+            })()}
+          </Box>
         </Box>
-      </Box>
+      )}
 
-      {/* All Schedules Table */}
-      <Box sx={{ width: '100%' }}>
-        <Typography
-          variant="h6"
-          sx={{
-            marginBottom: '14px',
-            color: '#374151',
-            fontSize: '14px',
-            fontWeight: 600,
-          }}
-        >
-          All Schedules
-        </Typography>
-        <TableContainer
-          component={Paper}
-          sx={{
-            borderRadius: '8px',
-            boxShadow: 'none',
-            border: '1px solid #e5e7eb',
-            width: '100%',
-            overflowX: 'auto',
-            maxHeight: '400px',
-            overflow: 'auto',
-          }}
-        >
-          <Table
-            size="small"
-            stickyHeader
-            sx={{ tableLayout: 'fixed', width: '100%' }}
+
+      {/* Tab 2: Alerts (Admin only) */}
+      {currentTab === 2 && isAdmin && (
+      <Box sx={{ marginBottom: '28px' }}>
+        {operationalAlerts.length === 0 ? (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              py: 2,
+              px: 2,
+              backgroundColor: '#d1fae5',
+              borderRadius: '8px',
+              border: '1px solid #a7f3d0',
+            }}
           >
-            <TableHead>
-              <TableRow sx={{ backgroundColor: '#f9fafb' }}>
-                <TableCell
+            <FiInfo size={16} color="#065f46" />
+            <Typography sx={{ fontSize: '13px', color: '#065f46', fontWeight: 500 }}>
+              All clear — no operational risks detected for the current schedule.
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
+            {operationalAlerts.map((alert) => {
+              const alertConfig: Record<AlertSeverity, { bg: string; border: string; icon: string }> = {
+                critical: { bg: '#fef2f2', border: '#fecaca', icon: '🚨' },
+                warning: { bg: '#fffbeb', border: '#fde68a', icon: '⚠️' },
+                info: { bg: '#ecf0ff', border: '#c7d2fe', icon: 'ℹ️' },
+              };
+              const cfg = alertConfig[alert.severity];
+              return (
+                <Box
+                  key={alert.id}
                   sx={{
-                    fontWeight: 600,
-                    color: '#374151',
-                    fontSize: '11px',
-                    width: '20%',
-                    padding: '8px 6px',
+                    border: `1.5px solid ${cfg.border}`,
+                    borderRadius: '8px',
+                    p: 2,
+                    backgroundColor: cfg.bg,
                   }}
                 >
-                  Staff
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 600,
-                    color: '#374151',
-                    fontSize: '11px',
-                    width: '15%',
-                    padding: '8px 6px',
-                  }}
-                >
-                  Role
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 600,
-                    color: '#374151',
-                    fontSize: '11px',
-                    width: '10%',
-                    padding: '8px 6px',
-                  }}
-                >
-                  Day
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 600,
-                    color: '#374151',
-                    fontSize: '11px',
-                    width: '25%',
-                    padding: '8px 6px',
-                  }}
-                >
-                  Time
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 600,
-                    color: '#374151',
-                    fontSize: '11px',
-                    width: '20%',
-                    padding: '8px 6px',
-                  }}
-                >
-                  Notes
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 600,
-                    color: '#374151',
-                    fontSize: '11px',
-                    width: '10%',
-                    padding: '8px 6px',
-                  }}
-                >
-                  Status
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 600,
-                    color: '#374151',
-                    fontSize: '11px',
-                    width: '6%',
-                    padding: '8px 6px',
-                  }}
-                ></TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredSchedules.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    align="center"
-                    sx={{ py: 4, color: '#9ca3af' }}
-                  >
-                    No schedules found. Create schedules to see them here.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredSchedules.map((schedule) => (
-                  <TableRow
-                    key={schedule.id}
-                    sx={{
-                      '&:hover': { backgroundColor: '#f9fafb' },
-                      borderBottom: '1px solid #f3f4f6',
-                    }}
-                  >
-                    <TableCell
-                      sx={{
-                        color: '#1f2937',
-                        fontWeight: 500,
-                        fontSize: '11px',
-                        padding: '8px 6px',
-                      }}
-                    >
-                      {schedule.staff?.name || 'Unknown'}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: '#6b7280',
-                        fontSize: '11px',
-                        padding: '8px 6px',
-                      }}
-                    >
-                      {schedule.staff?.role || 'N/A'}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: '#6b7280',
-                        fontSize: '11px',
-                        padding: '8px 6px',
-                      }}
-                    >
-                      {weekDays[schedule.day_of_week]}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: '#6b7280',
-                        fontSize: '11px',
-                        padding: '8px 6px',
-                      }}
-                    >
-                      {formatTime(schedule.start_time)} -{' '}
-                      {formatTime(schedule.end_time)}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: '#6b7280',
-                        fontSize: '10px',
-                        padding: '8px 6px',
-                      }}
-                    >
-                      {schedule.notes || '-'}
-                    </TableCell>
-                    <TableCell sx={{ padding: '8px 6px' }}>
-                      <Box
-                        sx={{
-                          display: 'inline-block',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          fontSize: '10px',
-                          fontWeight: 600,
-                          backgroundColor: schedule.is_active
-                            ? '#d1fae5'
-                            : '#fee2e2',
-                          color: schedule.is_active ? '#065f46' : '#991b1b',
-                        }}
-                      >
-                        {schedule.is_active ? 'Active' : 'Inactive'}
-                      </Box>
-                    </TableCell>
-                    <TableCell sx={{ padding: '8px 6px' }}>
-                      {isAdmin && (
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDelete(schedule.id)}
-                          sx={{
-                            color: '#ef4444',
-                            '&:hover': { backgroundColor: '#fee2e2' },
-                          }}
-                        >
-                          <FiTrash2 size={14} />
-                        </IconButton>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                    <Box sx={{ fontSize: '18px', flexShrink: 0, mt: 0 }}>{cfg.icon}</Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111827', mb: 0.5 }}>
+                        {alert.title}
+                      </Typography>
+                      <Typography sx={{ fontSize: '12px', color: '#4b5563', lineHeight: 1.5 }}>
+                        {alert.message}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+        )}
       </Box>
+      )}
 
       {/* Generate Schedule Preview Dialog */}
       <Dialog
@@ -1511,7 +1399,7 @@ function Schedule() {
             size="small"
             disabled={applying}
           >
-            <FiX />
+            <FiXCircle />
           </IconButton>
         </DialogTitle>
         <DialogContent dividers>
@@ -1692,7 +1580,7 @@ function Schedule() {
             Add Schedule
           </Typography>
           <IconButton onClick={() => setOpenModal(false)} size="small">
-            <FiX />
+            <FiXCircle />
           </IconButton>
         </DialogTitle>
         <DialogContent dividers>
