@@ -87,6 +87,8 @@ function Attendance() {
   const lastDateRef = useRef<string>(getTodayDateString());
   const [shiftSession, setShiftSession] = useState<'AM' | 'PM'>('AM');
   const [schedulesByStaffAndDay, setSchedulesByStaffAndDay] = useState<Map<string, Map<number, Schedule[]>>>(new Map());
+  const absentMarkingInProgressRef = useRef<Set<string>>(new Set()); // Track staff/date combos currently being marked absent
+  const attendanceDataJustFetchedRef = useRef<boolean>(false); // Flag to run absent marking only after fresh fetch
 
   // Fetch attendance data
   const fetchAttendanceData = useCallback(async () => {
@@ -204,6 +206,7 @@ function Attendance() {
       });
 
       setAttendanceData(completeRecords);
+      attendanceDataJustFetchedRef.current = true; // Mark that data was just fetched
       console.log('Set attendance data, count:', completeRecords.length);
 
       // Calculate stats for today only
@@ -442,7 +445,13 @@ function Attendance() {
   }, [selectedDate, attendanceData, userRole, shiftSession, schedulesByStaffAndDay]);
 
   // Update status to Absent for staff past their scheduled end time without clocking in
+  // Only run this after fresh attendance data is fetched to prevent duplicate marking
   useEffect(() => {
+    // Only proceed if we just fetched new data
+    if (!attendanceDataJustFetchedRef.current) return;
+    
+    attendanceDataJustFetchedRef.current = false; // Reset flag for next fetch
+    
     const updateAbsentStatus = async () => {
       const today = getTodayDateString();
       const currentTime = new Date().toTimeString().split(' ')[0];
@@ -460,18 +469,21 @@ function Attendance() {
         });
       }
 
-      const updatedRecords = [...attendanceData];
-      let hasChanges = false;
-      const staffMarkedAbsent: { staffId: string; date: string }[] = [];
-      const processedStaffDates = new Set<string>(); // Track which staff/date combos we've already processed
+      const staffToMarkAbsent: { staffId: string; date: string }[] = [];
+      const staffDateKey = (staffId: string, date: string) => `${staffId}-${date}`;
 
       // Check today's records with Pending status and no clock-in
-      for (const record of updatedRecords) {
+      for (const record of attendanceData) {
         if (record.date === today && record.status === 'Pending' && !record.time_in) {
           const todaySchedule = scheduleMap.get(record.staff_id);
-          const staffDateKey = `${record.staff_id}-${today}`; // Unique key for this staff/date combo
+          const key = staffDateKey(record.staff_id, today);
           
-          if (todaySchedule && todaySchedule.end_time && !processedStaffDates.has(staffDateKey)) {
+          // Skip if we're already in the process of marking this staff/date as absent
+          if (absentMarkingInProgressRef.current.has(key)) {
+            continue;
+          }
+          
+          if (todaySchedule && todaySchedule.end_time) {
             // Parse times for comparison
             const [schedEndHour, schedEndMin] = todaySchedule.end_time.split(':').map(Number);
             const [currentHour, currentMin] = currentTime.split(':').map(Number);
@@ -481,56 +493,20 @@ function Attendance() {
             
             // If current time is past scheduled end time, mark as Absent
             if (currentMinutes >= schedEndMinutes) {
-              const index = updatedRecords.findIndex(r => r.id === record.id);
-              if (index !== -1) {
-                updatedRecords[index] = {
-                  ...record,
-                  status: 'Absent',
-                };
-                staffMarkedAbsent.push({ staffId: record.staff_id, date: today });
-                processedStaffDates.add(staffDateKey); // Mark this staff/date as processed
-                hasChanges = true;
-              }
+              staffToMarkAbsent.push({ staffId: record.staff_id, date: today });
+              absentMarkingInProgressRef.current.add(key);
             }
           }
         }
       }
 
-      if (hasChanges) {
-        setAttendanceData(updatedRecords);
-        
-        // Save each absent record to database
-        for (const { staffId, date } of staffMarkedAbsent) {
-          await markStaffAbsent(staffId, date, 'Automatically marked as absent after scheduled end time');
-        }
-        
-        // Recalculate stats
-        const todayRecords = updatedRecords.filter((a: AttendanceType) => a.date === today);
-        if (todayRecords.length > 0) {
-          const present = todayRecords.filter(
-            (a: AttendanceType) => a.status === 'Present',
-          ).length;
-          const late = todayRecords.filter(
-            (a: AttendanceType) => a.status === 'Late',
-          ).length;
-          const absent = todayRecords.filter(
-            (a: AttendanceType) => a.status === 'Absent',
-          ).length;
-          const onCall = todayRecords.filter(
-            (a: AttendanceType) => a.status === 'On-Call',
-          ).length;
-
-          setStats({
-            present,
-            late,
-            absent,
-            onCall,
-          });
-        }
+      // Save each absent record to database without triggering state updates
+      for (const { staffId, date } of staffToMarkAbsent) {
+        await markStaffAbsent(staffId, date, 'Automatically marked as absent after scheduled end time');
       }
     };
 
-    // Run the update when attendance data changes
+    // Run the update only once after fresh data loads
     updateAbsentStatus();
   }, [attendanceData]);
 
@@ -628,6 +604,21 @@ function Attendance() {
       setSnackbar({
         open: true,
         message: 'Invalid QR code format. Could not extract staff ID.',
+        severity: 'error',
+      });
+      return;
+    }
+
+    // Check if staff is already marked as absent TODAY
+    const today = getTodayDateString();
+    const staffAbsentToday = attendanceData.some(
+      (record) => record.staff_id === staffId && record.date === today && record.status === 'Absent'
+    );
+
+    if (staffAbsentToday) {
+      setSnackbar({
+        open: true,
+        message: 'Staff is already marked as absent today. Cannot clock in/out.',
         severity: 'error',
       });
       return;

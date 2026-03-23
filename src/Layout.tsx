@@ -46,7 +46,6 @@ import {
   markNotificationAsRead,
   markAllNotificationsAsRead,
   deleteNotification,
-  getUnreadNotificationCount,
 } from "./backend/services/notificationService";
 import { updateStaff } from "./backend/services/staffService";
 import { supabase } from "./lib/supabase-client";
@@ -124,14 +123,32 @@ const Layout = () => {
   });
 
   useEffect(() => {
-    const fetchUnreadCount = async () => {
-      const { data } = await getUnreadNotificationCount();
-      if (data !== null && data !== undefined) setUnreadCount(data);
+    const fetchUnreadCountInitial = async () => {
+      const staffIdForQuery = isAdmin ? undefined : staffProfile?.id;
+      const notifData = await getAllNotifications(staffIdForQuery);
+      
+      // Filter and count unread notifications based on role
+      let filteredNotifications = notifData.data || [];
+      if (isAdmin) {
+        filteredNotifications = filteredNotifications.filter(
+          (notif) => notif.type === 'info'
+        );
+      } else if (staffProfile?.id) {
+        filteredNotifications = filteredNotifications.filter(
+          (notif) => notif.staff_id === staffProfile.id
+        );
+      }
+      
+      const unreadCount = filteredNotifications.filter((n) => !n.is_read).length;
+      setUnreadCount(unreadCount);
     };
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    
+    if (user && staffProfile) {
+      fetchUnreadCountInitial();
+      const interval = setInterval(fetchUnreadCountInitial, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user, staffProfile, isAdmin]);
 
   useEffect(() => {
     if (!user) setTimeout(() => setShowLoginModal(true), 0);
@@ -141,10 +158,7 @@ const Layout = () => {
     setNotificationsLoading(true);
     // Admins see all notifications, staff see only their own
     const staffIdForQuery = isAdmin ? undefined : staffProfile?.id;
-    const [notifData, countData] = await Promise.all([
-      getAllNotifications(staffIdForQuery),
-      getUnreadNotificationCount(staffIdForQuery),
-    ]);
+    const notifData = await getAllNotifications(staffIdForQuery);
 
     // Filter notifications based on user role:
     // - Admins see ONLY 'info' type notifications (staff activity, schedule assignments, etc.)
@@ -163,7 +177,10 @@ const Layout = () => {
     }
 
     if (filteredNotifications.length > 0) setNotifications(filteredNotifications);
-    if (typeof countData.data === 'number') setUnreadCount(countData.data);
+    
+    // Calculate unread count from the filtered notifications
+    const unreadFromFiltered = filteredNotifications.filter((n) => !n.is_read).length;
+    setUnreadCount(unreadFromFiltered);
 
     setNotificationsLoading(false);
   };
