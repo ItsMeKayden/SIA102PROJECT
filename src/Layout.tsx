@@ -148,7 +148,7 @@ const Layout = () => {
 
     // Filter notifications based on user role:
     // - Admins see ONLY 'info' type notifications (staff activity, schedule assignments, etc.)
-    // - Staff see ONLY 'success' type notifications targeted to them (personal confirmations)
+    // - Staff see all notification types targeted to them
     let filteredNotifications = notifData.data || [];
     if (isAdmin) {
       // Admin users: only show 'info' type notifications (exclude 'success' confirmations)
@@ -156,9 +156,9 @@ const Layout = () => {
         (notif) => notif.type === 'info'
       );
     } else if (staffProfile?.id) {
-      // Staff users: only show notifications targeted to them with 'success' type
+      // Staff users: show all notifications targeted to them
       filteredNotifications = filteredNotifications.filter(
-        (notif) => notif.staff_id === staffProfile.id && notif.type === 'success'
+        (notif) => notif.staff_id === staffProfile.id
       );
     }
 

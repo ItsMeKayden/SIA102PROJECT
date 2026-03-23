@@ -22,7 +22,6 @@ import {
   FiCheck
 } from 'react-icons/fi';
 import type { Notification as NotificationType } from '../../types';
-import { useAuth } from '../../contexts/AuthContext';
 import {
   getAllNotifications,
   markNotificationAsRead,
@@ -31,7 +30,6 @@ import {
 } from '../../backend/services/notificationService';
 
 function Notification() {
-  const { staffProfile, userRole } = useAuth();
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -41,19 +39,12 @@ function Notification() {
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const notifData = await getAllNotifications(staffProfile?.id);
+      const notifData = await getAllNotifications();
 
       if (notifData.data) {
-        let visibleNotifications = notifData.data;
-        
-        // If user is not admin, exclude admin-only notifications
-        if (userRole !== 'admin') {
-          visibleNotifications = visibleNotifications.filter((n: NotificationType) => n.staff_id !== null);
-        }
-        
         setNotifications(notifData.data);
-        // Calculate unread count based on visible notifications
-        const unreadNotifications = visibleNotifications.filter((n: NotificationType) => !n.is_read);
+        // Calculate unread count based on all notifications
+        const unreadNotifications = notifData.data.filter((n: NotificationType) => !n.is_read);
         setUnreadCount(unreadNotifications.length);
       }
     } catch (err) {
@@ -61,7 +52,7 @@ function Notification() {
     } finally {
       setLoading(false);
     }
-  }, [staffProfile?.id, userRole]);
+  }, []);
 
   useEffect(() => {
     fetchNotifications();
@@ -120,14 +111,9 @@ function Notification() {
     return colors[type as keyof typeof colors] || colors['info'];
   };
 
-  // Filter notifications based on user role and filter selection
+  // Filter notifications based on filter selection
   const getVisibleNotifications = () => {
     let visible = notifications;
-    
-    // If user is not admin, exclude admin-only notifications (those with staff_id = null)
-    if (userRole !== 'admin') {
-      visible = visible.filter((n: NotificationType) => n.staff_id !== null);
-    }
     
     // Apply read/unread filter
     if (filter === 'unread') {
@@ -140,13 +126,7 @@ function Notification() {
   const filteredNotifications = getVisibleNotifications();
   
   // Get all visible notifications (without unread filter) for the "All" button count
-  const allVisibleNotifications = (() => {
-    let visible = notifications;
-    if (userRole !== 'admin') {
-      visible = visible.filter((n: NotificationType) => n.staff_id !== null);
-    }
-    return visible;
-  })();
+  const allVisibleNotifications = notifications;
 
   if (loading) {
     return (
