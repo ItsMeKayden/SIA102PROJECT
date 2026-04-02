@@ -20,7 +20,7 @@ type MenuItem = {
 };
 
 const allMenuItems: MenuItem[] = [
-  { label: "Overview", path: "overview", icon: <FiHome />, adminOnly: true },
+  { label: "Overview", path: "overview", icon: <FiHome /> },
   {
     label: "Staff & Services",
     path: "staffnservices",

@@ -85,7 +85,7 @@ function App() {
                 <Route
                   path="overview"
                   element={
-                    <ProtectedRoute requireAdmin>
+                    <ProtectedRoute>
                       <Overview />
                     </ProtectedRoute>
                   }
