@@ -643,6 +643,14 @@ function buildOPDNotes(f: {
   return lines.length ? lines.join("\n") : null;
 }
 
+// Helper function to get full patient name from appointment record
+function getAppointmentPatientName(appt: Appointment): string {
+  const parts = [appt.first_name, appt.middle_name, appt.last_name]
+    .filter(Boolean)
+    .join(" ");
+  return parts || "Patient";
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 function Appointments() {
   const { isAdmin, staffProfile } = useAuth();
@@ -689,7 +697,7 @@ function Appointments() {
     patient_last_name: "",
     patient_first_name: "",
     patient_middle_name: "",
-    patient_contact: "",
+    patient_contact_number: "",
     patient_address: "",
     patient_dob: "",
     patient_age: "",
@@ -815,7 +823,7 @@ function Appointments() {
       if (!formData.patient_last_name) missing.push("Last name");
       if (!formData.patient_first_name) missing.push("First name");
       if (!formData.patient_middle_name) missing.push("Middle name");
-      if (!formData.patient_contact) missing.push("Mobile number");
+      if (!formData.patient_contact_number) missing.push("Mobile number");
       if (!formData.patient_dob) missing.push("Date of birth");
       if (!formData.patient_address) missing.push("Address");
       if (!formData.patient_age) missing.push("Age");
@@ -825,7 +833,7 @@ function Appointments() {
       if (!formData.patient_civil_status) missing.push("Civil status");
       if (missing.length > 0)
         return "Please fill in all required fields: " + missing.join(", ");
-      if (!isValidPHPhone(formData.patient_contact))
+      if (!isValidPHPhone(formData.patient_contact_number))
         return "Enter a valid PH number: 09XXXXXXXXX or +639XXXXXXXXX";
     }
     if (step === 2) {
@@ -889,8 +897,10 @@ function Appointments() {
     const status = isAdmin ? "Assigned" : "Pending";
 
     const { error } = await createAppointment({
-      patient_name,
-      patient_contact: formData.patient_contact || "N/A",
+      first_name: formData.patient_first_name,
+      middle_name: formData.patient_middle_name,
+      last_name: formData.patient_last_name,
+      patient_contact_number: formData.patient_contact_number || "N/A",
       doctor_id: isAdmin ? null : (staffProfile?.id ?? null),
       department: formData.department,
       specialization: formData.specialization || formData.department,
@@ -949,7 +959,7 @@ function Appointments() {
       patient_last_name: "",
       patient_first_name: "",
       patient_middle_name: "",
-      patient_contact: "",
+      patient_contact_number: "",
       patient_address: "",
       patient_dob: "",
       patient_age: "",
@@ -995,7 +1005,7 @@ function Appointments() {
           createNotification({
             staff_id: doc.id,
             title: "New Appointment Available — First to Accept",
-            message: `A new appointment is available in the ${appt.department} department for patient "${appt.patient_name}" on ${appt.appointment_date} at ${appt.appointment_time}. First doctor to accept will be assigned.`,
+            message: `A new appointment is available in the ${appt.department} department for patient "${getAppointmentPatientName(appt)}" on ${appt.appointment_date} at ${appt.appointment_time}. First doctor to accept will be assigned.`,
             type: "info",
           }),
         ),
@@ -1043,7 +1053,7 @@ function Appointments() {
           createNotification({
             staff_id: doc.id,
             title: "Appointment Claimed",
-            message: `The appointment for patient "${appt.patient_name}" on ${appt.appointment_date} at ${appt.appointment_time} has already been accepted by another doctor.`,
+            message: `The appointment for patient "${getAppointmentPatientName(appt)}" on ${appt.appointment_date} at ${appt.appointment_time} has already been accepted by another doctor.`,
             type: "info",
           }),
         ),
@@ -1437,7 +1447,7 @@ function Appointments() {
     const q = searchQuery.toLowerCase().trim();
     const matchesSearch =
       q === "" ||
-      appt.patient_name.toLowerCase().includes(q) ||
+      getAppointmentPatientName(appt).toLowerCase().includes(q) ||
       (doctor?.name ?? "").toLowerCase().includes(q) ||
       appt.appointment_date.includes(q) ||
       (appt.department ?? "").toLowerCase().includes(q);
@@ -1536,21 +1546,21 @@ function Appointments() {
             size="small"
             fullWidth
             placeholder="09XXXXXXXXX"
-            value={formData.patient_contact}
+            value={formData.patient_contact_number}
             onChange={(e) =>
               setFormData({
                 ...formData,
-                patient_contact: e.target.value.replace(/[^0-9+]/g, ""),
+                patient_contact_number: e.target.value.replace(/[^0-9+]/g, ""),
               })
             }
             inputProps={{ inputMode: "tel", maxLength: 13 }}
             error={
-              !!formData.patient_contact &&
-              !isValidPHPhone(formData.patient_contact)
+              !!formData.patient_contact_number &&
+              !isValidPHPhone(formData.patient_contact_number)
             }
             helperText={
-              formData.patient_contact &&
-              !isValidPHPhone(formData.patient_contact)
+              formData.patient_contact_number &&
+              !isValidPHPhone(formData.patient_contact_number)
                 ? "Format: 09XXXXXXXXX or +639XXXXXXXXX"
                 : ""
             }
@@ -2137,7 +2147,7 @@ function Appointments() {
             <ReviewField label="Full Name" value={patient_name} />
             <ReviewField
               label="Mobile Number"
-              value={formData.patient_contact}
+              value={formData.patient_contact_number}
             />
             <ReviewField label="Address" value={formData.patient_address} />
             <ReviewField
@@ -2369,7 +2379,7 @@ function Appointments() {
                         sx={{ "&:hover": { backgroundColor: "#fffbeb" } }}
                       >
                         <TableCell sx={{ fontSize: "12px" }}>
-                          {appt.patient_name}
+                          {getAppointmentPatientName(appt)}
                         </TableCell>
                         <TableCell sx={{ fontSize: "12px" }}>
                           {requestedBy ? (
@@ -2587,7 +2597,7 @@ function Appointments() {
                         sx={{ "&:hover": { backgroundColor: "#f5f3ff" } }}
                       >
                         <TableCell sx={{ fontSize: "12px" }}>
-                          {appt.patient_name}
+                          {getAppointmentPatientName(appt)}
                         </TableCell>
                         <TableCell sx={{ fontSize: "12px" }}>
                           <Chip
@@ -3051,7 +3061,7 @@ function Appointments() {
                       sx={{ "&:hover": { backgroundColor: "#f9fafb" } }}
                     >
                       <TableCell sx={{ fontSize: "12px" }}>
-                        {appt.patient_name}
+                        {getAppointmentPatientName(appt)}
                       </TableCell>
                       <TableCell sx={{ fontSize: "12px" }}>
                         {appt.department ? (
@@ -3400,7 +3410,9 @@ function Appointments() {
               <Typography
                 sx={{ fontWeight: 600, fontSize: "16px", color: "#1a202c" }}
               >
-                {viewModal.appt?.patient_name ?? ""}
+                {viewModal.appt
+                  ? getAppointmentPatientName(viewModal.appt)
+                  : ""}
               </Typography>
               <Typography sx={{ fontSize: "12px", color: "#6b7280", mt: 0.25 }}>
                 Patient Record
@@ -3798,7 +3810,9 @@ function Appointments() {
                 </Typography>
                 {prescriptionModal.appt && (
                   <Typography sx={{ fontSize: "12px", color: "#6b7280" }}>
-                    Patient: {prescriptionModal.appt.patient_name}
+                    Patient:{" "}
+                    {prescriptionModal.appt &&
+                      getAppointmentPatientName(prescriptionModal.appt)}
                   </Typography>
                 )}
               </Box>

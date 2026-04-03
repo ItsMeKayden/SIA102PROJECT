@@ -23,6 +23,14 @@ import {
 import type { Appointment, Attendance } from "../../types";
 import { useAuth } from "../../contexts/AuthContext";
 
+// Helper function to get full patient name from appointment record
+function getAppointmentPatientName(appt: Appointment): string {
+  const parts = [appt.first_name, appt.middle_name, appt.last_name]
+    .filter(Boolean)
+    .join(" ");
+  return parts || "Patient";
+}
+
 // ─── Admin Overview ───────────────────────────────────────────────────────────
 
 function AdminOverview() {
@@ -137,7 +145,7 @@ function AdminOverview() {
         activities.push({
           id: `appointment-${idx}`,
           type: "Appointment",
-          description: `Appointment scheduled - ${app.patient_name || "Patient"}`,
+          description: `Appointment scheduled - ${getAppointmentPatientName(app)}`,
           time: formatRelativeTime(app.appointment_time || ""),
         });
       });
@@ -306,7 +314,7 @@ function AdminOverview() {
                   </div>
                   <div className="appointment-details">
                     <p className="appointment-patient">
-                      {appointment.patient_name || "Patient"}
+                      {getAppointmentPatientName(appointment)}
                     </p>
                     <p className="appointment-doctor">
                       Doctor ID: {appointment.doctor_id || "N/A"}
@@ -720,7 +728,7 @@ function StaffOverview() {
                   </div>
                   <div className="appointment-details">
                     <p className="appointment-patient">
-                      {appointment.patient_name || "Patient"}
+                      {getAppointmentPatientName(appointment)}
                     </p>
                     <p className="appointment-doctor">
                       {formatAppointmentDate(appointment.appointment_date)}

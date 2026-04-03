@@ -449,7 +449,12 @@ const Layout = () => {
                 </Typography>
                 <Box sx={{ mt: 0.5 }}>
                   <Chip
-                    label={isAdmin ? "Admin" : "Staff"}
+                    label={
+                      staffProfile.role
+                        ? staffProfile.role.charAt(0).toUpperCase() +
+                          staffProfile.role.slice(1).toLowerCase()
+                        : "Staff"
+                    }
                     size="small"
                     sx={{
                       height: "20px",

@@ -1,6 +1,20 @@
 import { supabase, handleSupabaseError } from '../../lib/supabase-client';
 import type { AnalyticsStats } from '../../types';
 
+// Helper interface and function to build patient name
+interface PatientRecord {
+  first_name?: string | null;
+  middle_name?: string | null;
+  last_name?: string | null;
+}
+
+const getPatientFullName = (record: PatientRecord): string => {
+  const parts = [record.first_name, record.middle_name, record.last_name]
+    .filter(Boolean)
+    .join(" ");
+  return parts || "Unknown Patient";
+};
+
 /**
  * Fetches the numbers needed by the analytics/dashboards.
  *
@@ -13,7 +27,7 @@ export const getAnalyticsStats = async (monthYear?: string): Promise<{ data: Ana
     // 1. total consultations = total number of completed appointments
     const { data: allAppts, error: apptError } = await supabase
       .from('appointments')
-      .select('patient_name, status, appointment_date');
+      .select('first_name, middle_name, last_name, status, appointment_date');
 
     if (apptError) throw apptError;
 
@@ -44,8 +58,9 @@ export const getAnalyticsStats = async (monthYear?: string): Promise<{ data: Ana
     const patientCounts: { [name: string]: number } = {};
     filteredAppts
       .filter((appt: { status: string }) => appt.status === 'Completed')
-      .forEach((appt: { patient_name: string }) => {
-        patientCounts[appt.patient_name] = (patientCounts[appt.patient_name] || 0) + 1;
+      .forEach((appt: PatientRecord & { status: string }) => {
+        const fullName = getPatientFullName(appt);
+        patientCounts[fullName] = (patientCounts[fullName] || 0) + 1;
       });
     const totalPatients = Object.keys(patientCounts).length;
     const returningPatients = Object.values(patientCounts).filter(count => count > 1).length;
@@ -126,11 +141,14 @@ export const getMonthlyConsultations = async (): Promise<{ data: { month: string
 /**
  * Fetches all appointment patient names for returning patient calculation.
  */
-export const getAllAppointments = async (): Promise<{ data: { patient_name: string }[] | null; error: string | null }> => {
+/**
+ * Fetches all appointment patient names for returning patient calculation.
+ */
+export const getAllAppointments = async (): Promise<{ data: PatientRecord[] | null; error: string | null }> => {
   try {
     const { data, error } = await supabase
       .from('appointments')
-      .select('patient_name');
+      .select('first_name, middle_name, last_name');
     if (error) throw error;
     return { data, error: null };
   } catch (error) {
@@ -147,7 +165,7 @@ export const getMonthlyPerformance = async (monthYear?: string): Promise<{ data:
     // Get completed appointments for consultations and patient returns by month
     const { data: allAppts, error: apptError } = await supabase
       .from('appointments')
-      .select('appointment_date, patient_name, status')
+      .select('appointment_date, first_name, middle_name, last_name, status')
       .eq('status', 'Completed');
     if (apptError) throw apptError;
 
@@ -161,7 +179,7 @@ export const getMonthlyPerformance = async (monthYear?: string): Promise<{ data:
     const monthlyMetrics: { [month: string]: { consultations: number; returnPatients: number; uniquePatients: number; attended: number; total: number } } = {};
 
     // Group completed appointments by month
-    allAppts?.forEach((appt: { appointment_date: string; patient_name: string }) => {
+    allAppts?.forEach((appt: PatientRecord & { appointment_date: string; status: string }) => {
       const date = new Date(appt.appointment_date);
       const month = date.toLocaleString('default', { month: 'long', year: 'numeric' });
       if (!monthlyMetrics[month]) {
@@ -179,8 +197,9 @@ export const getMonthlyPerformance = async (monthYear?: string): Promise<{ data:
       }) ?? [];
       
       const patientCounts: { [name: string]: number } = {};
-      appts.forEach(appt => {
-        patientCounts[appt.patient_name] = (patientCounts[appt.patient_name] || 0) + 1;
+      appts.forEach((appt: PatientRecord & { appointment_date: string; status: string }) => {
+        const fullName = getPatientFullName(appt);
+        patientCounts[fullName] = (patientCounts[fullName] || 0) + 1;
       });
       
       monthlyMetrics[month].uniquePatients = Object.keys(patientCounts).length;
@@ -241,7 +260,7 @@ export const getWeeklyPerformance = async (monthYear: string): Promise<{ data: {
     // Get completed appointments for consultations and patient returns
     const { data: allAppts, error: apptError } = await supabase
       .from('appointments')
-      .select('appointment_date, patient_name, status')
+      .select('appointment_date, first_name, middle_name, last_name, status')
       .eq('status', 'Completed');
     if (apptError) throw apptError;
 
@@ -273,7 +292,7 @@ export const getWeeklyPerformance = async (monthYear: string): Promise<{ data: {
     };
 
     // Group completed appointments by week
-    allAppts?.forEach((appt: { appointment_date: string; patient_name: string }) => {
+    allAppts?.forEach((appt: PatientRecord & { appointment_date: string; status: string }) => {
       const weekInfo = getWeekInfo(appt.appointment_date);
       if (weekInfo) {
         const weekLabel = `Week ${weekInfo.weekNum}`;
@@ -292,8 +311,9 @@ export const getWeeklyPerformance = async (monthYear: string): Promise<{ data: {
       }) ?? [];
       
       const patientCounts: { [name: string]: number } = {};
-      appts.forEach(appt => {
-        patientCounts[appt.patient_name] = (patientCounts[appt.patient_name] || 0) + 1;
+      appts.forEach((appt: PatientRecord & { appointment_date: string; status: string }) => {
+        const fullName = getPatientFullName(appt);
+        patientCounts[fullName] = (patientCounts[fullName] || 0) + 1;
       });
       
       weeklyMetrics[week].uniquePatients = Object.keys(patientCounts).length;

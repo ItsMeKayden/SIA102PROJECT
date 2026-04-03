@@ -6,6 +6,14 @@ import type {
 } from "../../types";
 import { createNotification } from "./notificationService";
 
+// Helper function to build full patient name from separate fields
+const getPatientName = (appointment: Appointment): string => {
+  const parts = [appointment.first_name, appointment.middle_name, appointment.last_name]
+    .filter(Boolean)
+    .join(" ");
+  return parts || "Patient";
+};
+
 export const getAllAppointments = async (): Promise<{
   data: Appointment[] | null;
   error: string | null;
@@ -234,7 +242,7 @@ export const acceptAssignedAppointment = async (
     await createNotification({
       staff_id: null,
       title: "Appointment Accepted by Doctor",
-      message: `The appointment for patient "${data[0].patient_name}" on ${new Date(data[0].appointment_date).toLocaleDateString()} at ${data[0].appointment_time} has been accepted by a doctor.`,
+      message: `The appointment for patient "${getPatientName(data[0])}" on ${new Date(data[0].appointment_date).toLocaleDateString()} at ${data[0].appointment_time} has been accepted by a doctor.`,
       type: "success",
     });
 
@@ -262,7 +270,7 @@ export const rejectAppointment = async (
       await createNotification({
         staff_id: data.doctor_id,
         title: "Appointment Rejected",
-        message: `The appointment for patient "${data.patient_name}" on ${new Date(data.appointment_date).toLocaleDateString()} was rejected${reason ? ": " + reason : "."}`,
+        message: `The appointment for patient "${getPatientName(data)}" on ${new Date(data.appointment_date).toLocaleDateString()} was rejected${reason ? ": " + reason : "."}`,
         type: "warning",
       });
     }
@@ -289,7 +297,7 @@ export const rejectAssignedAppointment = async (
     await createNotification({
       staff_id: null,
       title: "Appointment Rejected by Doctor",
-      message: `The appointment for patient "${data.patient_name}" on ${new Date(data.appointment_date).toLocaleDateString()} at ${data.appointment_time} was rejected by the assigned doctor.`,
+      message: `The appointment for patient "${getPatientName(data)}" on ${new Date(data.appointment_date).toLocaleDateString()} at ${data.appointment_time} was rejected by the assigned doctor.`,
       type: "warning",
     });
 
@@ -315,7 +323,7 @@ export const startAppointment = async (
     await createNotification({
       staff_id: null,
       title: "Appointment In Progress",
-      message: `Appointment for patient "${data.patient_name}" has started. Doctor is now On Duty.`,
+      message: `Appointment for patient "${getPatientName(data)}" has started. Doctor is now On Duty.`,
       type: "info",
     });
 
@@ -341,7 +349,7 @@ export const noShowAppointment = async (
     await createNotification({
       staff_id: null,
       title: "Appointment No Show",
-      message: `Patient "${data.patient_name}" did not show up for their appointment on ${new Date(data.appointment_date).toLocaleDateString()}.`,
+      message: `Patient "${getPatientName(data)}" did not show up for their appointment on ${new Date(data.appointment_date).toLocaleDateString()}.`,
       type: "warning",
     });
 
@@ -374,7 +382,7 @@ export const rescheduleAppointment = async (
     await createNotification({
       staff_id: null,
       title: "Appointment Rescheduled",
-      message: `Appointment for patient "${data.patient_name}" has been rescheduled to ${new Date(newDate).toLocaleDateString()} at ${newTime}.`,
+      message: `Appointment for patient "${getPatientName(data)}" has been rescheduled to ${new Date(newDate).toLocaleDateString()} at ${newTime}.`,
       type: "info",
     });
 

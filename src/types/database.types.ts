@@ -24,8 +24,10 @@ export type Database = {
           id: string;
           notes: string | null;
           prescription?: string | null;
-          patient_contact: string;
-          patient_name: string;
+          patient_contact_number: string;
+          first_name?: string;
+          middle_name?: string;
+          last_name?: string;
           status: string;
           updated_at: string;
         };
@@ -37,8 +39,10 @@ export type Database = {
           department?: string | null;
           id?: string;
           notes?: string | null;
-          patient_contact: string;
-          patient_name: string;
+          patient_contact_number: string;
+          first_name?: string;
+          middle_name?: string;
+          last_name?: string;
           status?: string;
           updated_at?: string;
         };
@@ -50,8 +54,10 @@ export type Database = {
           department?: string | null;
           id?: string;
           notes?: string | null;
-          patient_contact?: string;
-          patient_name?: string;
+          patient_contact_number?: string;
+          first_name?: string;
+          middle_name?: string;
+          last_name?: string;
           status?: string;
           updated_at?: string;
         };
@@ -273,32 +279,32 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: 'schedule_swap_requests_approved_by_staff_id_fkey';
-            columns: ['approved_by_staff_id'];
+            foreignKeyName: "schedule_swap_requests_approved_by_staff_id_fkey";
+            columns: ["approved_by_staff_id"];
             isOneToOne: false;
-            referencedRelation: 'staff';
-            referencedColumns: ['id'];
+            referencedRelation: "staff";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: 'schedule_swap_requests_from_schedule_id_fkey';
-            columns: ['from_schedule_id'];
+            foreignKeyName: "schedule_swap_requests_from_schedule_id_fkey";
+            columns: ["from_schedule_id"];
             isOneToOne: false;
-            referencedRelation: 'schedules';
-            referencedColumns: ['id'];
+            referencedRelation: "schedules";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: 'schedule_swap_requests_requested_by_staff_id_fkey';
-            columns: ['requested_by_staff_id'];
+            foreignKeyName: "schedule_swap_requests_requested_by_staff_id_fkey";
+            columns: ["requested_by_staff_id"];
             isOneToOne: false;
-            referencedRelation: 'staff';
-            referencedColumns: ['id'];
+            referencedRelation: "staff";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: 'schedule_swap_requests_to_schedule_id_fkey';
-            columns: ['to_schedule_id'];
+            foreignKeyName: "schedule_swap_requests_to_schedule_id_fkey";
+            columns: ["to_schedule_id"];
             isOneToOne: false;
-            referencedRelation: 'schedules';
-            referencedColumns: ['id'];
+            referencedRelation: "schedules";
+            referencedColumns: ["id"];
           },
         ];
       };
