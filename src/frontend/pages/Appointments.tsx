@@ -2687,23 +2687,6 @@ function Appointments() {
                             >
                               Accept
                             </Button>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              color="error"
-                              onClick={() => handleDoctorReject(appt.id)}
-                              sx={{
-                                textTransform: "none",
-                                fontSize: "11px",
-                                px: 1.25,
-                                py: 0.3,
-                                minWidth: 0,
-                                height: 26,
-                                borderRadius: "6px",
-                              }}
-                            >
-                              Reject
-                            </Button>
                           </Box>
                         </TableCell>
                       </TableRow>
