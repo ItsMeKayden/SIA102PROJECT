@@ -57,6 +57,7 @@ import {
   FiCheckSquare,
   FiClipboard,
   FiPlusCircle,
+  FiDollarSign,
 } from "react-icons/fi";
 import type { Appointment, Staff } from "../../types";
 import { supabase } from "../../lib/supabase-client";
@@ -70,7 +71,6 @@ import {
   approveAppointment,
   rejectAppointment,
   acceptAssignedAppointment,
-  rejectAssignedAppointment,
   startAppointment,
   noShowAppointment,
   rescheduleAppointment,
@@ -645,15 +645,21 @@ function buildOPDNotes(f: {
 
 // Helper function to get full patient name from appointment record
 function getAppointmentPatientName(appt: Appointment): string {
-  const parts = [appt.first_name, appt.middle_name, appt.last_name]
-    .filter(Boolean)
-    .join(" ");
-  return parts || "Patient";
+  const lastName = appt.last_name?.trim();
+  const firstName = appt.first_name?.trim();
+  const middleInitial = appt.middle_name?.trim()
+    ? appt.middle_name.trim()[0].toUpperCase() + "."
+    : null;
+  const namePart = [firstName, middleInitial].filter(Boolean).join(" ");
+  const full = [lastName, namePart].filter(Boolean).join(", ");
+  return full || "Patient";
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 function Appointments() {
   const { isAdmin, staffProfile } = useAuth();
+  const isReceptionist = staffProfile?.role?.toLowerCase() === "receptionist";
+  const canSelectDepartment = isAdmin || isReceptionist;
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -686,6 +692,11 @@ function Appointments() {
     appt: Appointment | null;
     text: string;
   }>({ open: false, appt: null, text: "" });
+  const [billingModal, setBillingModal] = useState<{
+    open: boolean;
+    appt: Appointment | null;
+    text: string;
+  }>({ open: false, appt: null, text: "" });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -710,6 +721,7 @@ function Appointments() {
     service_id: "",
     appointment_date: "",
     appointment_time: "",
+    downpayment: "",
     allergies: "",
     bp: "",
     pulse: "",
@@ -723,13 +735,15 @@ function Appointments() {
 
   const today = new Date().toISOString().split("T")[0];
 
+  const middleInitial = formData.patient_middle_name?.trim()
+    ? formData.patient_middle_name.trim()[0].toUpperCase() + "."
+    : null;
   const patient_name = [
-    formData.patient_first_name,
-    formData.patient_middle_name,
     formData.patient_last_name,
+    [formData.patient_first_name, middleInitial].filter(Boolean).join(" "),
   ]
     .filter(Boolean)
-    .join(" ");
+    .join(", ");
 
   const departments = [
     ...new Set(doctors.map((d) => d.department).filter(Boolean)),
@@ -762,16 +776,23 @@ function Appointments() {
   }, []);
 
   useEffect(() => {
-    if (!isAdmin && staffProfile?.department && staffProfile?.specialization) {
+    if (
+      canSelectDepartment === false &&
+      staffProfile?.department &&
+      staffProfile?.specialization
+    ) {
       setFormData((prev) => ({
         ...prev,
         department: staffProfile.department ?? "",
         specialization: staffProfile.specialization ?? "",
       }));
     }
-  }, [staffProfile?.department, staffProfile?.specialization, isAdmin]);
+  }, [
+    staffProfile?.department,
+    staffProfile?.specialization,
+    canSelectDepartment,
+  ]);
 
-  // Directly lock the <main> scroll container while this page is mounted
   useEffect(() => {
     const main = document.querySelector("main") as HTMLElement | null;
     if (!main) return;
@@ -894,14 +915,14 @@ function Appointments() {
 
   const handleSubmit = async () => {
     const selectedService = services.find((s) => s.id === formData.service_id);
-    const status = isAdmin ? "Assigned" : "Pending";
+    const status = canSelectDepartment ? "Assigned" : "Pending";
 
     const { error } = await createAppointment({
       first_name: formData.patient_first_name,
       middle_name: formData.patient_middle_name,
       last_name: formData.patient_last_name,
       patient_contact_number: formData.patient_contact_number || "N/A",
-      doctor_id: isAdmin ? null : (staffProfile?.id ?? null),
+      doctor_id: canSelectDepartment ? null : (staffProfile?.id ?? null),
       department: formData.department,
       specialization: formData.specialization || formData.department,
       service_id: formData.service_id || null,
@@ -917,7 +938,7 @@ function Appointments() {
       return;
     }
 
-    if (isAdmin) {
+    if (canSelectDepartment) {
       const matchingDoctors = doctors.filter(
         (d) =>
           d.department === formData.department &&
@@ -972,6 +993,7 @@ function Appointments() {
       service_id: "",
       appointment_date: "",
       appointment_time: "",
+      downpayment: "",
       allergies: "",
       bp: "",
       pulse: "",
@@ -1060,16 +1082,6 @@ function Appointments() {
       );
     }
     showSnackbar("Appointment accepted — you are now assigned", "success");
-    fetchData();
-  };
-
-  const handleDoctorReject = async (id: string) => {
-    setAppointments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: "Rejected" } : a)),
-    );
-    const { error } = await rejectAssignedAppointment(id);
-    if (error) showSnackbar(error, "error");
-    else showSnackbar("Appointment rejected", "success");
     fetchData();
   };
 
@@ -1184,6 +1196,30 @@ function Appointments() {
     );
     showSnackbar("Prescription saved", "success");
     setPrescriptionModal({ open: false, appt: null, text: "" });
+    fetchData();
+  };
+
+  const handleSaveBilling = async () => {
+    const { appt, text } = billingModal;
+    if (!appt || !text.trim()) {
+      showSnackbar("Please enter billing details", "error");
+      return;
+    }
+    const { error } = await supabase
+      .from("appointments")
+      .update({ billing_statement: text.trim() })
+      .eq("id", appt.id);
+    if (error) {
+      showSnackbar(error.message, "error");
+      return;
+    }
+    setAppointments((prev) =>
+      prev.map((a) =>
+        a.id === appt.id ? { ...a, billing_statement: text.trim() } : a,
+      ),
+    );
+    showSnackbar("Billing statement saved", "success");
+    setBillingModal({ open: false, appt: null, text: "" });
     fetchData();
   };
 
@@ -1422,6 +1458,27 @@ function Appointments() {
                 Prescription
               </ListItemText>
             </MenuItem>,
+            <MenuItem
+              key="billing"
+              onClick={() => {
+                setBillingModal({
+                  open: true,
+                  appt,
+                  text: (appt as any).billing_statement ?? "",
+                });
+                setActionsMenu({ anchor: null, appt: null });
+              }}
+              sx={{ fontSize: "13px", gap: 1, py: 1 }}
+            >
+              <ListItemIcon sx={{ minWidth: 0 }}>
+                <FiDollarSign size={13} color="#059669" />
+              </ListItemIcon>
+              <ListItemText
+                primaryTypographyProps={{ fontSize: "13px", color: "#059669" }}
+              >
+                Billing Statement
+              </ListItemText>
+            </MenuItem>,
           ]}
         </Menu>
       </>
@@ -1430,24 +1487,28 @@ function Appointments() {
 
   // ── Table rows ────────────────────────────────────────────────────────────────
   const adminPendingQueue = appointments.filter((a) => a.status === "Pending");
-  const doctorAssignedQueue = isAdmin
-    ? []
-    : appointments.filter(
-        (a) =>
-          a.status === "Assigned" &&
-          a.doctor_id === null &&
-          a.department === staffProfile?.department,
-      );
-  const mainTableRows = isAdmin
-    ? appointments.filter((a) => a.status !== "Pending")
-    : appointments.filter((a) => a.doctor_id === staffProfile?.id);
+  const doctorAssignedQueue =
+    isAdmin || isReceptionist
+      ? []
+      : appointments.filter(
+          (a) =>
+            a.status === "Assigned" &&
+            a.doctor_id === null &&
+            a.department === staffProfile?.department,
+        );
+  const mainTableRows =
+    isAdmin || isReceptionist
+      ? appointments.filter((a) => a.status !== "Pending")
+      : appointments.filter((a) => a.doctor_id === staffProfile?.id);
 
   const filteredRows = mainTableRows.filter((appt) => {
     const doctor = doctors.find((d) => d.id === appt.doctor_id);
     const q = searchQuery.toLowerCase().trim();
     const matchesSearch =
       q === "" ||
-      getAppointmentPatientName(appt).toLowerCase().includes(q) ||
+      `${appt.last_name} ${appt.first_name} ${appt.middle_name ?? ""}`
+        .toLowerCase()
+        .includes(q) ||
       (doctor?.name ?? "").toLowerCase().includes(q) ||
       appt.appointment_date.includes(q) ||
       (appt.department ?? "").toLowerCase().includes(q);
@@ -1473,10 +1534,10 @@ function Appointments() {
       </Box>
     );
 
-  const submitSubtitle = isAdmin
+  const submitSubtitle = canSelectDepartment
     ? "Will be sent to doctors matching department & specialization — first to accept is assigned"
     : "Will be submitted to admin for approval";
-  const submitSubtitleColor = isAdmin ? "#7c3aed" : "#d97706";
+  const submitSubtitleColor = canSelectDepartment ? "#7c3aed" : "#d97706";
 
   // ── Step 1: Patient Information ───────────────────────────────────────────────
   const renderStep1 = () => (
@@ -1705,7 +1766,7 @@ function Appointments() {
               text="Department"
               required
             />
-            <FormControl fullWidth size="small" disabled={!isAdmin}>
+            <FormControl fullWidth size="small" disabled={!canSelectDepartment}>
               <Select
                 value={formData.department}
                 onChange={(e) =>
@@ -1752,9 +1813,9 @@ function Appointments() {
             <FieldLabel
               icon={<FiBriefcase size={10} />}
               text="Specialization"
-              required={isAdmin}
+              required={canSelectDepartment}
             />
-            {isAdmin ? (
+            {canSelectDepartment ? (
               <FormControl
                 fullWidth
                 size="small"
@@ -1837,9 +1898,16 @@ function Appointments() {
             <FormControl fullWidth size="small">
               <Select
                 value={formData.service_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, service_id: e.target.value })
-                }
+                onChange={(e) => {
+                  const selectedSvc = services.find(
+                    (s) => s.id === e.target.value,
+                  );
+                  setFormData({
+                    ...formData,
+                    service_id: e.target.value,
+                    downpayment: selectedSvc?.downpayment?.toString() || "",
+                  });
+                }}
                 displayEmpty
                 renderValue={(selected) => {
                   if (!selected)
@@ -1879,10 +1947,10 @@ function Appointments() {
                     sx={{ fontSize: "13px", color: "#9ca3af" }}
                   >
                     {!formData.department
-                      ? isAdmin
+                      ? canSelectDepartment
                         ? "Select a department first"
                         : "Loading your department…"
-                      : isAdmin && !formData.specialization
+                      : canSelectDepartment && !formData.specialization
                         ? "Select a specialization first"
                         : "No services available for your department"}
                   </MenuItem>
@@ -1947,6 +2015,32 @@ function Appointments() {
               </Select>
             </FormControl>
           </Box>
+        </Box>
+
+        {/* ── Downpayment field ── */}
+        <Box>
+          <FieldLabel icon={<FiDollarSign size={10} />} text="Downpayment" />
+          <TextField
+            size="small"
+            fullWidth
+            placeholder="0.00"
+            type="number"
+            value={formData.downpayment}
+            onChange={(e) =>
+              setFormData({ ...formData, downpayment: e.target.value })
+            }
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Typography sx={{ fontSize: "13px", color: "#6b7280" }}>
+                    ₱
+                  </Typography>
+                </InputAdornment>
+              ),
+            }}
+            inputProps={{ min: 0, step: "0.01" }}
+            sx={fieldSx}
+          />
         </Box>
 
         {!isAdmin && staffProfile && (
@@ -2210,6 +2304,12 @@ function Appointments() {
                 .filter(Boolean)
                 .join(" at ")}
             />
+            {formData.downpayment && (
+              <ReviewField
+                label="Downpayment"
+                value={`₱${parseFloat(formData.downpayment).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`}
+              />
+            )}
           </Box>
         </Box>
 
@@ -2253,8 +2353,12 @@ function Appointments() {
             display: "flex",
             alignItems: "flex-start",
             gap: 1,
-            backgroundColor: isAdmin ? "#f5f3ff" : "#fffbeb",
-            border: `1px solid ${isAdmin ? "#c4b5fd" : "#fde68a"}`,
+            backgroundColor: isAdmin
+              ? "#f5f3ff"
+              : isReceptionist
+                ? "#f0fdf4"
+                : "#fffbeb",
+            border: `1px solid ${isAdmin ? "#c4b5fd" : isReceptionist ? "#bbf7d0" : "#fde68a"}`,
             borderRadius: "10px",
             px: 1.5,
             py: 1,
@@ -2262,11 +2366,18 @@ function Appointments() {
         >
           <FiAlertCircle
             size={13}
-            color={isAdmin ? "#7c3aed" : "#d97706"}
+            color={isAdmin ? "#7c3aed" : isReceptionist ? "#16a34a" : "#d97706"}
             style={{ marginTop: 2, flexShrink: 0 }}
           />
           <Typography
-            sx={{ fontSize: "12px", color: isAdmin ? "#6d28d9" : "#92400e" }}
+            sx={{
+              fontSize: "12px",
+              color: isAdmin
+                ? "#6d28d9"
+                : isReceptionist
+                  ? "#166534"
+                  : "#92400e",
+            }}
           >
             {submitSubtitle}
           </Typography>
@@ -2344,7 +2455,7 @@ function Appointments() {
                 <TableHead>
                   <TableRow>
                     {[
-                      "Patient",
+                      "Patient Name",
                       "Requested By",
                       "Department",
                       "Specialization",
@@ -2359,6 +2470,7 @@ function Appointments() {
                           fontWeight: 600,
                           fontSize: "11px",
                           backgroundColor: "#fef3c7",
+                          whiteSpace: "nowrap",
                         }}
                       >
                         {h}
@@ -2378,7 +2490,14 @@ function Appointments() {
                         key={appt.id}
                         sx={{ "&:hover": { backgroundColor: "#fffbeb" } }}
                       >
-                        <TableCell sx={{ fontSize: "12px" }}>
+                        {/* ── Merged patient name ── */}
+                        <TableCell
+                          sx={{
+                            fontSize: "12px",
+                            fontWeight: 500,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
                           {getAppointmentPatientName(appt)}
                         </TableCell>
                         <TableCell sx={{ fontSize: "12px" }}>
@@ -2548,8 +2667,8 @@ function Appointments() {
                 gap: 1,
               }}
             >
-              <FiAlertCircle /> Available in Your Department (
-              {doctorAssignedQueue.length})
+              <FiAlertCircle /> Appointment Request Available in Your Department
+              ({doctorAssignedQueue.length})
             </Typography>
             <TableContainer
               component={Paper}
@@ -2565,7 +2684,7 @@ function Appointments() {
                 <TableHead>
                   <TableRow>
                     {[
-                      "Patient",
+                      "Patient Name",
                       "Department",
                       "Specialization",
                       "Service",
@@ -2579,6 +2698,7 @@ function Appointments() {
                           fontWeight: 600,
                           fontSize: "11px",
                           backgroundColor: "#ede9fe",
+                          whiteSpace: "nowrap",
                         }}
                       >
                         {h}
@@ -2596,7 +2716,14 @@ function Appointments() {
                         key={appt.id}
                         sx={{ "&:hover": { backgroundColor: "#f5f3ff" } }}
                       >
-                        <TableCell sx={{ fontSize: "12px" }}>
+                        {/* ── Merged patient name ── */}
+                        <TableCell
+                          sx={{
+                            fontSize: "12px",
+                            fontWeight: 500,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
                           {getAppointmentPatientName(appt)}
                         </TableCell>
                         <TableCell sx={{ fontSize: "12px" }}>
@@ -3006,7 +3133,7 @@ function Appointments() {
               <TableHead>
                 <TableRow>
                   {[
-                    "Patient",
+                    "Patient Name",
                     "Department",
                     "Specialization",
                     "Service",
@@ -3023,6 +3150,7 @@ function Appointments() {
                         fontSize: "11px",
                         backgroundColor: "#f9fafb",
                         borderBottom: "1px solid #e5e7eb",
+                        whiteSpace: "nowrap",
                       }}
                     >
                       {h}
@@ -3043,7 +3171,14 @@ function Appointments() {
                       key={appt.id}
                       sx={{ "&:hover": { backgroundColor: "#f9fafb" } }}
                     >
-                      <TableCell sx={{ fontSize: "12px" }}>
+                      {/* ── Merged patient name ── */}
+                      <TableCell
+                        sx={{
+                          fontSize: "12px",
+                          fontWeight: 500,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         {getAppointmentPatientName(appt)}
                       </TableCell>
                       <TableCell sx={{ fontSize: "12px" }}>
@@ -3095,10 +3230,14 @@ function Appointments() {
                             ? "Awaiting claim…"
                             : "Unassigned")}
                       </TableCell>
-                      <TableCell sx={{ fontSize: "12px" }}>
+                      <TableCell
+                        sx={{ fontSize: "12px", whiteSpace: "nowrap" }}
+                      >
                         {new Date(appt.appointment_date).toLocaleDateString()}
                       </TableCell>
-                      <TableCell sx={{ fontSize: "12px" }}>
+                      <TableCell
+                        sx={{ fontSize: "12px", whiteSpace: "nowrap" }}
+                      >
                         {appt.appointment_time}
                       </TableCell>
                       <TableCell>{getStatusChip(appt.status)}</TableCell>
@@ -3189,7 +3328,6 @@ function Appointments() {
             },
           }}
         >
-          {/* Drawer header */}
           <Box
             sx={{
               display: "flex",
@@ -3249,7 +3387,6 @@ function Appointments() {
             </Box>
           </Box>
 
-          {/* Stepper */}
           <Box sx={{ px: 2.5, pt: 1.5, flexShrink: 0 }}>
             <StepperHeader currentStep={currentStep} />
             <Box sx={{ mb: 1 }}>
@@ -3264,12 +3401,10 @@ function Appointments() {
             </Box>
           </Box>
 
-          {/* Scrollable step content */}
           <Box sx={{ flex: 1, overflowY: "auto", px: 2.5, pb: 2 }}>
             {stepContent[currentStep - 1]()}
           </Box>
 
-          {/* Footer navigation */}
           <Box
             sx={{
               display: "flex",
@@ -3424,6 +3559,10 @@ function Appointments() {
                   (s) => s.id === (appt as any).service_id,
                 );
                 const prescription = (appt as any).prescription as
+                  | string
+                  | null
+                  | undefined;
+                const billingStatement = (appt as any).billing_statement as
                   | string
                   | null
                   | undefined;
@@ -3734,6 +3873,44 @@ function Appointments() {
                         </Box>
                       </Box>
                     )}
+
+                    {billingStatement && (
+                      <Box>
+                        <SectionTitle>Billing Statement</SectionTitle>
+                        <Box
+                          sx={{
+                            p: 1.5,
+                            backgroundColor: "#f0fdf4",
+                            border: "1px solid #bbf7d0",
+                            borderRadius: "8px",
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1,
+                            }}
+                          >
+                            <FiDollarSign
+                              size={14}
+                              color="#059669"
+                              style={{ marginTop: 2, flexShrink: 0 }}
+                            />
+                            <Typography
+                              sx={{
+                                fontSize: "13px",
+                                color: "#065f46",
+                                whiteSpace: "pre-wrap",
+                                lineHeight: 1.7,
+                              }}
+                            >
+                              {billingStatement}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    )}
                   </>
                 );
               })()
@@ -3886,6 +4063,144 @@ function Appointments() {
               }}
             >
               Save Prescription
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── BILLING STATEMENT MODAL ── */}
+        <Dialog
+          open={billingModal.open}
+          onClose={() => setBillingModal({ open: false, appt: null, text: "" })}
+          maxWidth="sm"
+          fullWidth
+          sx={{
+            "& .MuiDialog-paper": {
+              margin: { xs: "16px", sm: "32px" },
+              width: { xs: "calc(100% - 32px)", sm: "100%" },
+            },
+          }}
+        >
+          <DialogTitle
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "8px",
+                  backgroundColor: "#f0fdf4",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <FiDollarSign size={15} color="#059669" />
+              </Box>
+              <Box>
+                <Typography
+                  sx={{ fontWeight: 600, fontSize: "15px", color: "#1a202c" }}
+                >
+                  Billing Statement
+                </Typography>
+                {billingModal.appt && (
+                  <Typography sx={{ fontSize: "12px", color: "#6b7280" }}>
+                    Patient: {getAppointmentPatientName(billingModal.appt)}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+            <IconButton
+              onClick={() =>
+                setBillingModal({ open: false, appt: null, text: "" })
+              }
+              size="small"
+            >
+              <FiX />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Box
+              sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}
+            >
+              <Typography sx={{ fontSize: "13px", color: "#6b7280" }}>
+                List any supplies or miscellaneous items used during this
+                appointment. This will be saved to the patient record.
+              </Typography>
+              <TextField
+                multiline
+                rows={6}
+                fullWidth
+                placeholder={`e.g.\nSyringe — ₱15.00\nCotton balls — ₱10.00\nAlcohol swab — ₱5.00\nGloves (pair) — ₱12.00`}
+                value={billingModal.text}
+                onChange={(e) =>
+                  setBillingModal((prev) => ({
+                    ...prev,
+                    text: e.target.value,
+                  }))
+                }
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "10px",
+                    fontSize: "13px",
+                    backgroundColor: "#fff",
+                  },
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#e5e7eb",
+                  },
+                }}
+              />
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 1,
+                  backgroundColor: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  borderRadius: "8px",
+                  px: 1.5,
+                  py: 1,
+                }}
+              >
+                <FiDollarSign
+                  size={13}
+                  color="#059669"
+                  style={{ marginTop: 1, flexShrink: 0 }}
+                />
+                <Typography sx={{ fontSize: "12px", color: "#065f46" }}>
+                  This billing statement will be saved to the{" "}
+                  <strong>billing_statement</strong> column and visible in the
+                  patient record.
+                </Typography>
+              </Box>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 2.5, py: 1.5 }}>
+            <Button
+              onClick={() =>
+                setBillingModal({ open: false, appt: null, text: "" })
+              }
+              sx={{ textTransform: "none", fontSize: "13px" }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSaveBilling}
+              startIcon={<FiDollarSign size={13} />}
+              sx={{
+                textTransform: "none",
+                fontSize: "13px",
+                backgroundColor: "#059669",
+                "&:hover": { backgroundColor: "#047857" },
+                borderRadius: "8px",
+              }}
+            >
+              Save Billing Statement
             </Button>
           </DialogActions>
         </Dialog>

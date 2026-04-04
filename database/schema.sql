@@ -76,7 +76,8 @@ CREATE TABLE IF NOT EXISTS Subsystem2.appointments (
     admin_approved_by UUID REFERENCES Subsystem2.staff(id),
     staff_accepted BOOLEAN,
     staff_accepted_at TIMESTAMP WITH TIME ZONE,
-    rejection_reason TEXT
+    rejection_reason TEXT,
+    billing_statement TEXT
 );
 
 -- =====================================================

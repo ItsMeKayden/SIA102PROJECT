@@ -111,11 +111,11 @@ function App() {
                 <Route path="attendance" element={<Attendance />} />
                 <Route path="schedule" element={<Schedule />} />
 
-                {/* Doctors and Admins only — Nurses and Receptionists are blocked */}
+                {/* Doctors, Admins, and Receptionists */}
                 <Route
                   path="appointments"
                   element={
-                    <ProtectedRoute allowedRoles={["Doctor"]}>
+                    <ProtectedRoute allowedRoles={["Doctor", "Receptionist"]}>
                       <Appointments />
                     </ProtectedRoute>
                   }

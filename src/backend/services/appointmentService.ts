@@ -8,10 +8,14 @@ import { createNotification } from "./notificationService";
 
 // Helper function to build full patient name from separate fields
 const getPatientName = (appointment: Appointment): string => {
-  const parts = [appointment.first_name, appointment.middle_name, appointment.last_name]
-    .filter(Boolean)
-    .join(" ");
-  return parts || "Patient";
+  const lastName = appointment.last_name?.trim();
+  const firstName = appointment.first_name?.trim();
+  const middleInitial = appointment.middle_name?.trim()
+    ? appointment.middle_name.trim()[0].toUpperCase() + "."
+    : null;
+  const namePart = [firstName, middleInitial].filter(Boolean).join(" ");
+  const full = [lastName, namePart].filter(Boolean).join(", ");
+  return full || "Patient";
 };
 
 export const getAllAppointments = async (): Promise<{

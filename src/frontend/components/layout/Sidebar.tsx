@@ -17,6 +17,7 @@ type MenuItem = {
   icon: React.ReactNode;
   adminOnly?: boolean;
   doctorOrAdminOnly?: boolean;
+  receptionistAllowed?: boolean;
 };
 
 const allMenuItems: MenuItem[] = [
@@ -39,6 +40,7 @@ const allMenuItems: MenuItem[] = [
     path: "appointments",
     icon: <FiClipboard />,
     doctorOrAdminOnly: true,
+    receptionistAllowed: true,
   },
   { label: "Schedule", path: "schedule", icon: <FiCalendar /> },
 ];
@@ -52,10 +54,15 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate }) => {
 
   const role = staffProfile?.role?.toLowerCase();
   const isDoctor = role === "doctor";
+  const isReceptionist = role === "receptionist";
 
   const menuItems = allMenuItems.filter((item) => {
     if (item.adminOnly) return isAdmin;
-    if (item.doctorOrAdminOnly) return isAdmin || isDoctor;
+    if (item.doctorOrAdminOnly) {
+      if (item.receptionistAllowed)
+        return isAdmin || isDoctor || isReceptionist;
+      return isAdmin || isDoctor;
+    }
     return true;
   });
 

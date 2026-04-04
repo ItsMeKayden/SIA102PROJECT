@@ -30,6 +30,7 @@ export type Database = {
           last_name?: string;
           status: string;
           updated_at: string;
+          billing_statement?: string | null;
         };
         Insert: {
           appointment_date: string;
@@ -45,6 +46,7 @@ export type Database = {
           last_name?: string;
           status?: string;
           updated_at?: string;
+          billing_statement?: string | null;
         };
         Update: {
           appointment_date?: string;
@@ -60,6 +62,7 @@ export type Database = {
           last_name?: string;
           status?: string;
           updated_at?: string;
+          billing_statement?: string | null;
         };
         Relationships: [
           {
