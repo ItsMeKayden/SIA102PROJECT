@@ -18,7 +18,8 @@ export const getAllNotifications = async (
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (staffId) {
+    // Only filter if staffId is explicitly provided
+    if (staffId !== undefined && staffId !== null) {
       query = query.or(`staff_id.eq.${staffId},staff_id.is.null`);
     }
 

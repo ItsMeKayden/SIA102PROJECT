@@ -1320,9 +1320,9 @@ function StaffTab() {
                     justifyContent: "center",
                   }}
                 >
-                  {(viewModal.staff as any).avatar_url ? (
+                  {viewModal.staff?.avatar_url ? (
                     <img
-                      src={(viewModal.staff as any).avatar_url}
+                      src={viewModal.staff?.avatar_url}
                       alt={formatNameForDisplay(viewModal.staff.name)}
                       style={{
                         width: "100%",

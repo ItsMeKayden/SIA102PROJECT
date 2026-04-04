@@ -46,7 +46,6 @@ import {
   markNotificationAsRead,
   markAllNotificationsAsRead,
   deleteNotification,
-  getUnreadNotificationCount,
 } from "./backend/services/notificationService";
 import { updateStaff } from "./backend/services/staffService";
 import { supabase } from "./lib/supabase-client";
@@ -93,7 +92,10 @@ const Layout = () => {
 
   // Close sidebar when switching to desktop
   useEffect(() => {
-    if (!isMobile) setSidebarOpen(false);
+    if (!isMobile) {
+      // Defer state update to avoid synchronous setState in effect warning
+      queueMicrotask(() => setSidebarOpen(false));
+    }
   }, [isMobile]);
 
   const [userMenuAnchorEl, setUserMenuAnchorEl] = useState<null | HTMLElement>(
@@ -121,14 +123,32 @@ const Layout = () => {
   });
 
   useEffect(() => {
-    const fetchUnreadCount = async () => {
-      const { data } = await getUnreadNotificationCount();
-      if (data !== null && data !== undefined) setUnreadCount(data);
+    const fetchUnreadCountInitial = async () => {
+      const staffIdForQuery = isAdmin ? undefined : staffProfile?.id;
+      const notifData = await getAllNotifications(staffIdForQuery);
+      
+      // Filter and count unread notifications based on role
+      let filteredNotifications = notifData.data || [];
+      if (isAdmin) {
+        filteredNotifications = filteredNotifications.filter(
+          (notif) => notif.type === 'info'
+        );
+      } else if (staffProfile?.id) {
+        filteredNotifications = filteredNotifications.filter(
+          (notif) => notif.staff_id === staffProfile.id
+        );
+      }
+      
+      const unreadCount = filteredNotifications.filter((n) => !n.is_read).length;
+      setUnreadCount(unreadCount);
     };
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    
+    if (user && staffProfile) {
+      fetchUnreadCountInitial();
+      const interval = setInterval(fetchUnreadCountInitial, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user, staffProfile, isAdmin]);
 
   useEffect(() => {
     if (!user) setTimeout(() => setShowLoginModal(true), 0);
@@ -136,12 +156,32 @@ const Layout = () => {
 
   const fetchNotifications = async () => {
     setNotificationsLoading(true);
-    const [notifData, countData] = await Promise.all([
-      getAllNotifications(),
-      getUnreadNotificationCount(),
-    ]);
-    if (notifData.data) setNotifications(notifData.data);
-    if (typeof countData.data === "number") setUnreadCount(countData.data);
+    // Admins see all notifications, staff see only their own
+    const staffIdForQuery = isAdmin ? undefined : staffProfile?.id;
+    const notifData = await getAllNotifications(staffIdForQuery);
+
+    // Filter notifications based on user role:
+    // - Admins see ONLY 'info' type notifications (staff activity, schedule assignments, etc.)
+    // - Staff see all notification types targeted to them
+    let filteredNotifications = notifData.data || [];
+    if (isAdmin) {
+      // Admin users: only show 'info' type notifications (exclude 'success' confirmations)
+      filteredNotifications = filteredNotifications.filter(
+        (notif) => notif.type === 'info'
+      );
+    } else if (staffProfile?.id) {
+      // Staff users: show all notifications targeted to them
+      filteredNotifications = filteredNotifications.filter(
+        (notif) => notif.staff_id === staffProfile.id
+      );
+    }
+
+    if (filteredNotifications.length > 0) setNotifications(filteredNotifications);
+    
+    // Calculate unread count from the filtered notifications
+    const unreadFromFiltered = filteredNotifications.filter((n) => !n.is_read).length;
+    setUnreadCount(unreadFromFiltered);
+
     setNotificationsLoading(false);
   };
 
@@ -245,7 +285,7 @@ const Layout = () => {
       return;
     }
     setEditProfileLoading(true);
-    let avatarUrl = (staffProfile as any).avatar_url || "";
+    let avatarUrl = staffProfile?.avatar_url || "";
     if (avatarFile) {
       const fileExt = avatarFile.name.split(".").pop();
       const filePath = `${staffProfile.id}.${fileExt}`;
@@ -390,7 +430,7 @@ const Layout = () => {
               }}
             >
               <Avatar
-                src={(staffProfile as any)?.avatar_url || undefined}
+                src={staffProfile?.avatar_url || undefined}
                 sx={{
                   width: 32,
                   height: 32,
@@ -560,7 +600,7 @@ const Layout = () => {
                   <Avatar
                     src={
                       avatarPreview ||
-                      (staffProfile as any)?.avatar_url ||
+                      staffProfile?.avatar_url ||
                       undefined
                     }
                     sx={{
@@ -637,7 +677,7 @@ const Layout = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  value={(staffProfile as any).staffid || staffProfile.id}
+                  value={staffProfile?.staffid || staffProfile?.id}
                   disabled
                   sx={{
                     "& .MuiOutlinedInput-root": {
@@ -786,7 +826,7 @@ const Layout = () => {
                   <FiX size={16} />
                 </IconButton>
               </div>
-              <Sidebar onNavigate={() => setSidebarOpen(false)} />
+              <Sidebar />
             </div>
           </>
         )}

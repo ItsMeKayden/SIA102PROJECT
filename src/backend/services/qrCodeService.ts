@@ -1,5 +1,17 @@
 import { supabase, handleSupabaseError } from '../../lib/supabase-client';
 
+/**
+ * Get today's date in local timezone (not UTC)
+ * Fixes timezone issues where UTC date may be one day behind local date
+ */
+const getTodayDateString = (): string => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export interface QRCode {
   id: string;
   staff_id: string;
@@ -44,7 +56,7 @@ export const getDailyQRCode = async (
   staffId: string
 ): Promise<{ data: QRCode | null; error: string | null }> => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateString();
     console.log('Fetching QR code for staff:', staffId, 'date:', today);
 
     // Check if QR code already exists for today
@@ -134,7 +146,7 @@ export const recordQRCodeScan = async (
     }
 
     // Check if scanned today (verify date)
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateString();
     if (qrCode.date !== today) {
       console.log('QR code is not from today:', { qrCodeDate: qrCode.date, today });
       return { data: null, error: 'QR code is from a different day and cannot be used' };
@@ -185,7 +197,7 @@ export const validateQRCode = async (
       return { isValid: false, message: 'QR code not found or invalid' };
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateString();
 
     if (qrCode.date !== today) {
       console.log('QR code date mismatch:', { qrCodeDate: qrCode.date, today });

@@ -45,11 +45,9 @@ const allMenuItems: MenuItem[] = [
   { label: "Schedule", path: "schedule", icon: <FiCalendar /> },
 ];
 
-type SidebarProps = {
-  onNavigate?: () => void;
-};
+type SidebarProps = Record<string, never>;
 
-const Sidebar: React.FC<SidebarProps> = ({ onNavigate }) => {
+const Sidebar: React.FC<SidebarProps> = () => {
   const { isAdmin, staffProfile } = useAuth();
 
   const role = staffProfile?.role?.toLowerCase();
@@ -66,6 +64,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate }) => {
     return true;
   });
 
+  const handleMenuItemClick = () => {
+    // Menu item clicked
+  };
+
   return (
     <aside className="sidebar">
       <nav className="nav">
@@ -76,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onNavigate }) => {
             className={({ isActive }) =>
               isActive ? "menuItem active" : "menuItem"
             }
-            onClick={onNavigate}
+            onClick={handleMenuItemClick}
           >
             <span className="icon">{item.icon}</span>
             {item.label}

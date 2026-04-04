@@ -17,6 +17,7 @@
     "@mui/x-date-pickers": "^8.27.2",
     "@supabase/supabase-js": "^2.97.0",
     "date-fns": "^4.1.0",
+    "dayjs": "^1.11.20",
     "html5-qrcode": "^2.3.8",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.0",

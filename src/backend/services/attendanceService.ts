@@ -1,5 +1,19 @@
 import { supabase, handleSupabaseError } from '../../lib/supabase-client';
 import type { Attendance, AttendanceInsert, AttendanceUpdate } from '../../types';
+import { createNotification } from './notificationService';
+import { isWithinClinicPremises } from '../../lib/locationUtils';
+
+/**
+ * Get today's date in local timezone (not UTC)
+ * Fixes timezone issues where UTC date may be one day behind local date
+ */
+const getTodayDateString = (): string => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 // Attendance Backend Service
 // Handles all attendance-related database operations :)
@@ -8,6 +22,99 @@ import type { Attendance, AttendanceInsert, AttendanceUpdate } from '../../types
 const getDayOfWeek = (dateStr: string): number => {
   const date = new Date(dateStr + 'T00:00:00');
   return date.getDay();
+};
+
+// Helper function to get all admin users
+const getAllAdmins = async (): Promise<string[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('staff')
+      .select('id')
+      .eq('user_role', 'admin');
+
+    if (error) {
+      console.error('Error fetching admins:', error);
+      return [];
+    }
+
+    return (data || []).map((admin: { id: string }) => admin.id);
+  } catch (error) {
+    console.error('Error fetching admins:', error);
+    return [];
+  }
+};
+
+// Helper function to get staff name by ID
+const getStaffName = async (staffId: string): Promise<string | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('staff')
+      .select('name')
+      .eq('id', staffId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching staff name:', error);
+      return null;
+    }
+
+    return data?.name || null;
+  } catch (error) {
+    console.error('Error fetching staff name:', error);
+    return null;
+  }
+};
+
+// Helper function to send clock in notification
+const sendClockInNotification = async (staffId: string, staffName: string): Promise<void> => {
+  try {
+    // Send notification to the staff member
+    await createNotification({
+      title: 'Clock In Successful',
+      message: `You have successfully clocked in at ${new Date().toLocaleTimeString()}`,
+      staff_id: staffId,
+      type: 'success',
+    });
+
+    // Get all admins and send them notifications
+    const admins = await getAllAdmins();
+    for (const adminId of admins) {
+      await createNotification({
+        title: `${staffName} Clocked In`,
+        message: `${staffName} has clocked in at ${new Date().toLocaleTimeString()}`,
+        staff_id: adminId,
+        type: 'info',
+      });
+    }
+  } catch (error) {
+    console.error('Error sending clock in notification:', error);
+  }
+};
+
+// Helper function to send clock out notification
+const sendClockOutNotification = async (staffId: string, staffName: string): Promise<void> => {
+  try {
+    // Send notification to the staff member
+    await createNotification({
+      title: 'Clock Out Successful',
+      message: `You have successfully clocked out at ${new Date().toLocaleTimeString()}`,
+      staff_id: staffId,
+      type: 'success',
+    });
+
+    // Get all admins and send them notifications
+    const admins = await getAllAdmins();
+    for (const adminId of admins) {
+      await createNotification({
+        title: `${staffName} Clocked Out`,
+        message: `${staffName} has clocked out at ${new Date().toLocaleTimeString()}`,
+        staff_id: adminId,
+        type: 'info',
+      });
+    }
+  } catch (error) {
+    console.error('Error sending clock out notification:', error);
+  }
 };
 
 // Helper function to get staff schedule for a given date
@@ -64,7 +171,7 @@ export const getAllAttendance = async (): Promise<{ data: (Attendance & { staff_
     if (error) throw error;
 
     // Transform data to flatten staff name
-    const transformedData = (data || []).map((record: any) => ({
+    const transformedData = (data || []).map((record: Attendance & { staff: { id: string; name: string } | null }) => ({
       ...record,
       staff_name: record.staff?.name || 'Unknown',
     }));
@@ -167,30 +274,58 @@ export const deleteAttendance = async (id: string): Promise<{ error: string | nu
 };
 
 // Clock in
-export const clockIn = async (staffId: string, shift?: string): Promise<{ data: Attendance | null; error: string | null }> => {
+export const clockIn = async (
+  staffId: string,
+  shift?: string,
+  currentUserId?: string,
+  latitude?: number,
+  longitude?: number
+): Promise<{ data: Attendance | null; error: string | null }> => {
   try {
+    // Validate that the current user is either the staff member clocking in or is an admin
+    if (currentUserId && currentUserId !== staffId) {
+      // Check if current user is admin
+      const { data: currentUserStaff, error: userCheckError } = await supabase
+        .from('staff')
+        .select('user_role')
+        .eq('id', currentUserId)
+        .single();
+
+      if (userCheckError || !currentUserStaff || currentUserStaff.user_role !== 'admin') {
+        return {
+          data: null,
+          error: 'You can only clock in/out for yourself. Contact an administrator for manual entries.',
+        };
+      }
+    }
+
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
+    const dateStr = getTodayDateString();
     const timeStr = now.toTimeString().split(' ')[0];
 
     // Check if staff has a schedule for today
     const schedule = await getStaffScheduleForDate(staffId, dateStr);
 
-    // Block clock in if no schedule exists
-    if (!schedule) {
-      return {
-        data: null,
-        error: 'You are not scheduled for today. Please contact your administrator.',
-      };
-    }
-
-    // Determine status: Late or Present
-    let status = 'Present';
+    // Determine status based on schedule
+    let status = 'On-Call'; // Default to On-Call if not scheduled
     let notes = shift ? `Shift: ${shift}` : null;
 
-    if (isStaffLate(timeStr, schedule.start_time)) {
-      status = 'Late';
-      notes = shift ? `Shift: ${shift} (Late)` : 'Late';
+    if (schedule) {
+      // Staff is scheduled - determine if Present or Late
+      status = 'Present';
+      if (isStaffLate(timeStr, schedule.start_time)) {
+        status = 'Late';
+        notes = shift ? `Shift: ${shift} (Late)` : 'Late';
+      }
+    } else {
+      // Staff is not scheduled - set to On-Call
+      notes = shift ? `Shift: ${shift} (On-Call)` : 'On-Call';
+    }
+
+    // Determine if clock in is within clinic premises
+    let clockInWithinPremises = null;
+    if (latitude !== undefined && longitude !== undefined) {
+      clockInWithinPremises = isWithinClinicPremises(latitude, longitude);
     }
 
     const attendanceData: AttendanceInsert = {
@@ -199,6 +334,9 @@ export const clockIn = async (staffId: string, shift?: string): Promise<{ data: 
       time_in: timeStr,
       status,
       notes,
+      clock_in_latitude: latitude ?? null,
+      clock_in_longitude: longitude ?? null,
+      clock_in_within_premises: clockInWithinPremises,
     };
 
     const { data, error } = await supabase
@@ -209,6 +347,35 @@ export const clockIn = async (staffId: string, shift?: string): Promise<{ data: 
 
     if (error) throw error;
 
+    // Update staff duty status to 'On Duty' when clocking in
+    if (staffId && staffId.trim()) {
+      try {
+        console.log('DEBUG: Updating duty_status for staffId:', staffId);
+        const { data: updateData, error: updateError } = await supabase
+          .from('staff')
+          .update({ duty_status: 'On Duty' })
+          .eq('id', staffId)
+          .select();
+        
+        console.log('DEBUG: duty_status update result:', { updated_rows: updateData?.length, error: updateError });
+        
+        if (updateError) {
+          throw updateError;
+        }
+      } catch (updateError) {
+        console.error('Error updating staff duty status:', updateError);
+        // Don't throw error - attendance was created successfully, just log the warning
+      }
+    } else {
+      console.warn('DEBUG: staffId is empty or invalid, skipping duty_status update');
+    }
+
+    // Send notifications on successful clock in
+    const staffName = await getStaffName(staffId);
+    if (staffName) {
+      await sendClockInNotification(staffId, staffName);
+    }
+
     return { data, error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
@@ -216,11 +383,33 @@ export const clockIn = async (staffId: string, shift?: string): Promise<{ data: 
 };
 
 // Clock out
-export const clockOut = async (staffId: string): Promise<{ data: Attendance | null; error: string | null }> => {
+export const clockOut = async (
+  staffId: string,
+  currentUserId?: string,
+  latitude?: number,
+  longitude?: number
+): Promise<{ data: Attendance | null; error: string | null }> => {
   try {
+    // Validate that the current user is either the staff member clocking out or is an admin
+    if (currentUserId && currentUserId !== staffId) {
+      // Check if current user is admin
+      const { data: currentUserStaff, error: userCheckError } = await supabase
+        .from('staff')
+        .select('user_role')
+        .eq('id', currentUserId)
+        .single();
+
+      if (userCheckError || !currentUserStaff || currentUserStaff.user_role !== 'admin') {
+        return {
+          data: null,
+          error: 'You can only clock out for yourself. Contact an administrator for manual entries.',
+        };
+      }
+    }
+
     const now = new Date();
     const timeStr = now.toTimeString().split(' ')[0];
-    const dateStr = now.toISOString().split('T')[0];
+    const dateStr = getTodayDateString();
 
     // Find the most recent attendance record for this staff_id on today's date where time_out is NULL
     const { data: existingRecord, error: fetchError } = await supabase
@@ -244,16 +433,54 @@ export const clockOut = async (staffId: string): Promise<{ data: Attendance | nu
       };
     }
 
+    // Determine if clock out is within clinic premises
+    let clockOutWithinPremises = null;
+    if (latitude !== undefined && longitude !== undefined) {
+      clockOutWithinPremises = isWithinClinicPremises(latitude, longitude);
+    }
+
     const { data, error } = await supabase
       .from('attendance')
       .update({
         time_out: timeStr,
+        clock_out_latitude: latitude ?? null,
+        clock_out_longitude: longitude ?? null,
+        clock_out_within_premises: clockOutWithinPremises,
       })
       .eq('id', existingRecord.id)
       .select()
       .single();
 
     if (error) throw error;
+
+    // Update staff duty status to 'Off Duty' when clocking out
+    if (staffId && staffId.trim()) {
+      try {
+        console.log('DEBUG: Updating duty_status for staffId:', staffId);
+        const { data: updateData, error: updateError } = await supabase
+          .from('staff')
+          .update({ duty_status: 'Off Duty' })
+          .eq('id', staffId)
+          .select();
+        
+        console.log('DEBUG: duty_status update result:', { updated_rows: updateData?.length, error: updateError });
+        
+        if (updateError) {
+          throw updateError;
+        }
+      } catch (updateError) {
+        console.error('Error updating staff duty status:', updateError);
+        // Don't throw error - attendance was updated successfully, just log the warning
+      }
+    } else {
+      console.warn('DEBUG: staffId is empty or invalid, skipping duty_status update');
+    }
+
+    // Send notifications on successful clock out
+    const staffName = await getStaffName(staffId);
+    if (staffName) {
+      await sendClockOutNotification(staffId, staffName);
+    }
 
     return { data, error: null };
   } catch (error) {
@@ -264,8 +491,7 @@ export const clockOut = async (staffId: string): Promise<{ data: Attendance | nu
 // Check if staff is already clocked in today
 export const isStaffClockedIn = async (staffId: string): Promise<{ isClockedIn: boolean; error: string | null }> => {
   try {
-    const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
+    const dateStr = getTodayDateString();
 
     const { data, error } = await supabase
       .from('attendance')
@@ -316,6 +542,108 @@ export const getAttendanceStats = async (staffId: string, startDate: string, end
     };
 
     return { data: stats, error: null };
+  } catch (error) {
+    return { data: null, error: handleSupabaseError(error) };
+  }
+};
+
+// Mark staff as absent and save to database
+// Uses UPSERT to guarantee only one record per staff/date combination
+export const markStaffAbsent = async (
+  staffId: string,
+  date: string,
+  notes?: string
+): Promise<{ data: Attendance | null; error: string | null }> => {
+  try {
+    // Fetch all existing records for this staff on this date
+    // (in case there are multiple from duplicates)
+    const { data: existingRecords, error: fetchError } = await supabase
+      .from('attendance')
+      .select('id, status')
+      .eq('staff_id', staffId)
+      .eq('date', date);
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      throw fetchError;
+    }
+
+    // Check if any already marked as Absent
+    const absentRecord = existingRecords?.find(r => r.status === 'Absent');
+    if (absentRecord) {
+      // Already marked absent, return early
+      console.log(`Staff ${staffId} on ${date} already marked as Absent (id: ${absentRecord.id})`);
+      return { data: absentRecord as Attendance, error: null };
+    }
+
+    let result;
+
+    if (existingRecords && existingRecords.length > 0) {
+      // Update the first record to Absent status
+      const recordToUpdate = existingRecords[0];
+      console.log(`Updating existing attendance record ${recordToUpdate.id} to Absent for staff ${staffId} on ${date}`);
+
+      const { data: updatedRecord, error: updateError } = await supabase
+        .from('attendance')
+        .update({
+          status: 'Absent',
+          notes: notes || 'Marked as absent',
+        })
+        .eq('id', recordToUpdate.id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+      result = updatedRecord;
+
+      // If there are multiple records (duplicates from previous bug), delete the others
+      if (existingRecords.length > 1) {
+        console.warn(`Found ${existingRecords.length} records for staff ${staffId} on ${date}. Deleting duplicates...`);
+        const duplicateIds = existingRecords.slice(1).map(r => r.id);
+        for (const duplicateId of duplicateIds) {
+          await supabase.from('attendance').delete().eq('id', duplicateId);
+        }
+      }
+    } else {
+      // No existing record, create new one with Absent status
+      console.log(`Creating new attendance record with Absent status for staff ${staffId} on ${date}`);
+      const attendanceData = {
+        staff_id: staffId,
+        date: date,
+        status: 'Absent' as const,
+        notes: notes || 'Marked as absent',
+      };
+
+      const { data: newRecord, error: insertError } = await supabase
+        .from('attendance')
+        .insert(attendanceData)
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      result = newRecord;
+    }
+
+    // Send notification to the staff member
+    await createNotification({
+      title: 'Marked as Absent',
+      message: `You have been marked as absent on ${date}`,
+      staff_id: staffId,
+      type: 'warning',
+    });
+
+    // Get all admins and send them notifications
+    const admins = await getAllAdmins();
+    const staffName = await getStaffName(staffId);
+    for (const adminId of admins) {
+      await createNotification({
+        title: `${staffName} Marked as Absent`,
+        message: `${staffName} has been marked as absent on ${date}`,
+        staff_id: adminId,
+        type: 'info',
+      });
+    }
+
+    return { data: result, error: null };
   } catch (error) {
     return { data: null, error: handleSupabaseError(error) };
   }
