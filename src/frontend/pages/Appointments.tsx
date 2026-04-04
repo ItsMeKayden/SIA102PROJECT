@@ -843,7 +843,6 @@ function Appointments() {
       const missing: string[] = [];
       if (!formData.patient_last_name) missing.push("Last name");
       if (!formData.patient_first_name) missing.push("First name");
-      if (!formData.patient_middle_name) missing.push("Middle name");
       if (!formData.patient_contact_number) missing.push("Mobile number");
       if (!formData.patient_dob) missing.push("Date of birth");
       if (!formData.patient_address) missing.push("Address");
@@ -1602,7 +1601,7 @@ function Appointments() {
           />
         </Box>
         <Box>
-          <FieldLabel icon={<FiUser size={10} />} text="Middle Name" required />
+          <FieldLabel icon={<FiUser size={10} />} text="Middle Name" />
           <TextField
             size="small"
             fullWidth
@@ -2068,33 +2067,6 @@ function Appointments() {
             sx={fieldSx}
           />
         </Box>
-
-        {!isAdmin && staffProfile && (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 1,
-              backgroundColor: "#eff6ff",
-              border: "1px solid #bfdbfe",
-              borderRadius: "10px",
-              px: 1.5,
-              py: 1,
-            }}
-          >
-            <Box sx={{ flexShrink: 0, mt: "2px" }}>
-              <FiUser size={13} color="#3b82f6" />
-            </Box>
-            <Typography
-              sx={{ fontSize: "12px", color: "#1d4ed8", flexWrap: "wrap" }}
-            >
-              Appointment will be assigned to{" "}
-              <strong>{staffProfile.name}</strong> ·{" "}
-              <strong>{staffProfile.department}</strong> ·{" "}
-              <strong>{staffProfile.specialization}</strong>
-            </Typography>
-          </Box>
-        )}
       </Box>
     </Box>
   );
@@ -2210,29 +2182,6 @@ function Appointments() {
           }
           sx={fieldSx}
         />
-      </Box>
-
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "flex-start",
-          gap: 1,
-          backgroundColor: "#eff6ff",
-          border: "1px solid #bfdbfe",
-          borderRadius: "10px",
-          px: 1.5,
-          py: 1,
-        }}
-      >
-        <FiClipboard
-          size={12}
-          color="#3b82f6"
-          style={{ marginTop: 1, flexShrink: 0 }}
-        />
-        <Typography sx={{ fontSize: "11px", color: "#1d4ed8" }}>
-          Prescription can be added by the doctor once the appointment has
-          started.
-        </Typography>
       </Box>
     </Box>
   );
@@ -2516,7 +2465,6 @@ function Appointments() {
                         key={appt.id}
                         sx={{ "&:hover": { backgroundColor: "#fffbeb" } }}
                       >
-                        {/* ── Merged patient name ── */}
                         <TableCell
                           sx={{
                             fontSize: "12px",

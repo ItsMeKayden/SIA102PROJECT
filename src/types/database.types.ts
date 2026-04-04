@@ -31,6 +31,7 @@ export type Database = {
           status: string;
           updated_at: string;
           billing_statement?: string | null;
+          created_by?: string | null;
         };
         Insert: {
           appointment_date: string;
@@ -47,6 +48,7 @@ export type Database = {
           status?: string;
           updated_at?: string;
           billing_statement?: string | null;
+          created_by?: string | null;
         };
         Update: {
           appointment_date?: string;
@@ -63,6 +65,7 @@ export type Database = {
           status?: string;
           updated_at?: string;
           billing_statement?: string | null;
+          created_by?: string | null;
         };
         Relationships: [
           {
