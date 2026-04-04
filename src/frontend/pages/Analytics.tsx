@@ -11,7 +11,6 @@ import {
   Select,
   FormControl,
   InputLabel,
-  Skeleton,
 } from "@mui/material";
 import {
   LineChart,

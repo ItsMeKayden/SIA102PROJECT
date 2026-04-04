@@ -4,7 +4,6 @@ import {
   Card,
   CardContent,
   Typography,
-  CircularProgress,
   Skeleton,
 } from "@mui/material";
 import { FiCalendar, FiClock, FiCheckCircle, FiUsers } from "react-icons/fi";

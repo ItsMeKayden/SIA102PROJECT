@@ -298,6 +298,79 @@
   box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
 }
 
+/* Status Card Grid - matches Attendance card styling */
+.status-card-grid {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  justify-content: flex-start;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.status-card {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 200px;
+  text-align: center;
+}
+
+.status-card.on-duty {
+  background-color: #e8f5e9;
+  border-color: #81c784;
+}
+
+.status-card.off-duty {
+  background-color: #fff3e0;
+  border-color: #ffb74d;
+}
+
+.status-card.on-leave {
+  background-color: #f3e5f5;
+  border-color: #ce93d8;
+}
+
+/* Appointment Stats Cards - matches Attendance card styling */
+.stats-card-grid {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.stat-badge {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  width: 200px;
+  text-align: center;
+}
+
+.stat-badge.total {
+  background-color: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.stat-badge.completed {
+  background-color: #f0fdf4;
+  border-color: #10b981;
+}
+
+.stat-badge.upcoming {
+  background-color: #fffbeb;
+  border-color: #f59e0b;
+}
+
+.stat-badge.cancelled {
+  background-color: #fef2f2;
+  border-color: #f87171;
+}
+
 /* Responsive Design */
 @media (max-width: 1024px) {
   .content-grid {

@@ -10,6 +10,7 @@ import {
   Box,
   Skeleton,
 } from "@mui/material";
+import { FiCalendar, FiCheckCircle, FiClock, FiX } from "react-icons/fi";
 import { getStaffCountByStatus } from "../../backend/services/staffService";
 import {
   getUpcomingAppointments,
@@ -21,6 +22,7 @@ import {
   getAllAttendance,
   getAttendanceByStaffId,
 } from "../../backend/services/attendanceService";
+import { supabase } from "../../lib/supabase-client";
 import type { Appointment, Attendance } from "../../types";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -62,13 +64,10 @@ function AdminOverview() {
   });
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    setLoading(true);
-    try {
-      const today = new Date().toISOString().split("T")[0];
+    const fetchDashboardData = async () => {
+      setLoading(true);
+      try {
+        const today = new Date().toISOString().split("T")[0];
       const { data: staffCounts, error: staffError } =
         await getStaffCountByStatus();
       const { data: appointmentStats, error: appointmentError } =
@@ -156,7 +155,9 @@ function AdminOverview() {
     } finally {
       setLoading(false);
     }
-  };
+    };
+    fetchDashboardData();
+  }, []);
 
   const formatRelativeTime = (time: string) => {
     if (!time) return "Recently";
@@ -284,72 +285,123 @@ function AdminOverview() {
 
       <Box
         sx={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-          gap: 2,
+          display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
+          gap: { xs: 2, sm: 2 },
+          alignItems: { xs: "stretch", sm: "flex-start" },
+          flexWrap: "wrap",
           mb: 3,
         }}
       >
-        {[
-          {
-            label: "Total Staff",
-            value: stats.totalStaff,
-            bg: "#fffbeb",
-            border: "#f59e0b",
-            color: "#d97706",
-          },
-          {
-            label: "Present Today",
-            value: stats.presentToday,
-            bg: "#f0fdf4",
-            border: "#4caf50",
-            color: "#16a34a",
-          },
-          {
-            label: "Total Appointments",
-            value: stats.appointments,
-            bg: "#eff6ff",
-            border: "#3b82f6",
-            color: "#2563eb",
-          },
-          {
-            label: "Completed Today",
-            value: stats.completedAppointments,
-            bg: "#f0fdf4",
-            border: "#10b981",
-            color: "#059669",
-          },
-        ].map((card) => (
-          <Card
-            key={card.label}
-            sx={{
-              background: card.bg,
-              border: `1px solid ${card.border}`,
-              borderRadius: "16px",
-              boxShadow: "none",
-            }}
-          >
-            <CardContent sx={{ py: "8px !important", px: "16px !important" }}>
-              <Typography
-                variant="body2"
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
+            gap: { xs: 1.5, sm: 2 },
+            width: "100%",
+          }}
+        >
+          {[
+            {
+              label: "Total Staff",
+              value: stats.totalStaff,
+              color: "#d97706",
+              borderColor: "rgba(245, 158, 11, 0.3)",
+              bgColor: "rgba(245, 158, 11, 0.1)",
+              icon: FiCalendar,
+            },
+            {
+              label: "Present Today",
+              value: stats.presentToday,
+              color: "#16a34a",
+              borderColor: "rgba(22, 163, 74, 0.3)",
+              bgColor: "rgba(22, 163, 74, 0.1)",
+              icon: FiCheckCircle,
+            },
+            {
+              label: "Total Appointments",
+              value: stats.appointments,
+              color: "#2563eb",
+              borderColor: "rgba(59, 130, 246, 0.3)",
+              bgColor: "rgba(59, 130, 246, 0.1)",
+              icon: FiClock,
+            },
+            {
+              label: "Completed Today",
+              value: stats.completedAppointments,
+              color: "#059669",
+              borderColor: "rgba(25, 135, 84, 0.3)",
+              bgColor: "rgba(25, 135, 84, 0.1)",
+              icon: FiCheckCircle,
+            },
+          ].map((card) => {
+            const IconComponent = card.icon;
+            return (
+              <Card
+                key={card.label}
                 sx={{
-                  color: "#374151",
-                  mb: 0.5,
-                  fontWeight: 500,
-                  fontSize: "12px",
+                  background: "#ffffff",
+                  border: `1px solid ${card.borderColor}`,
+                  borderRadius: "12px",
+                  boxShadow: "none",
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
                 }}
               >
-                {card.label}
-              </Typography>
-              <Typography
-                variant="h5"
-                sx={{ color: card.color, fontWeight: 700, fontSize: "28px" }}
-              >
-                {card.value}
-              </Typography>
-            </CardContent>
-          </Card>
-        ))}
+                <CardContent
+                  sx={{
+                    display: "flex",
+                    gap: 2,
+                    alignItems: "center",
+                    py: "12px",
+                    px: "16px",
+                    width: "100%",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      flexShrink: 0,
+                      backgroundColor: card.bgColor,
+                      padding: "8px",
+                      borderRadius: "8px",
+                    }}
+                  >
+                    <IconComponent size={32} color={card.color} />
+                  </Box>
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: "#9ca3af",
+                        mb: 0.5,
+                        fontWeight: 500,
+                        fontSize: { xs: "11px", sm: "12px" },
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                      }}
+                    >
+                      {card.label}
+                    </Typography>
+                    <Typography
+                      variant="h4"
+                      sx={{
+                        color: card.color,
+                        fontWeight: 700,
+                        fontSize: { xs: "24px", sm: "28px" },
+                      }}
+                    >
+                      {card.value}
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </Box>
       </Box>
 
       <div className="content-grid">
@@ -469,6 +521,7 @@ function StaffOverview() {
   const { staffProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dutyStatus, setDutyStatus] = useState<string>("Off Duty");
   const [todayAttendance, setTodayAttendance] = useState<Attendance | null>(
     null,
   );
@@ -483,7 +536,21 @@ function StaffOverview() {
   });
 
   useEffect(() => {
-    if (staffProfile?.id) fetchStaffData(staffProfile.id);
+    if (staffProfile?.id) {
+      // Fetch duty status from database
+      supabase
+        .from("staff")
+        .select("duty_status")
+        .eq("id", staffProfile.id)
+        .single()
+        .then(({ data }) => {
+          if (data?.duty_status) {
+            setDutyStatus(data.duty_status);
+          }
+        });
+      // Fetch staff data
+      fetchStaffData(staffProfile.id);
+    }
   }, [staffProfile]);
 
   const fetchStaffData = async (staffId: string) => {
@@ -562,36 +629,36 @@ function StaffOverview() {
   };
 
   const getStatusConfig = () => {
-    if (!todayAttendance)
+    if (dutyStatus === "On Duty") {
       return {
-        label: "Off Duty",
-        bg: "#f9fafb",
-        border: "#d1d5db",
-        color: "#6b7280",
-        dot: "#9ca3af",
+        label: "On Duty",
+        bg: "#f0fdf4",
+        border: "#4caf50",
+        borderColor: "rgba(76, 175, 80, 0.3)",
+        bgColor: "rgba(76, 175, 80, 0.1)",
+        color: "#16a34a",
+        dot: "#22c55e",
       };
-    if (todayAttendance.time_out)
+    }
+    if (dutyStatus === "On Leave") {
       return {
-        label: "Off Duty",
-        bg: "#f9fafb",
-        border: "#d1d5db",
-        color: "#6b7280",
-        dot: "#9ca3af",
-      };
-    if (todayAttendance.status === "Late")
-      return {
-        label: "On Duty (Late)",
+        label: "On Leave",
         bg: "#fffbeb",
         border: "#f59e0b",
+        borderColor: "rgba(245, 158, 11, 0.3)",
+        bgColor: "rgba(245, 158, 11, 0.1)",
         color: "#d97706",
         dot: "#f59e0b",
       };
+    }
     return {
-      label: "On Duty",
-      bg: "#f0fdf4",
-      border: "#4caf50",
-      color: "#16a34a",
-      dot: "#22c55e",
+      label: "Off Duty",
+      bg: "#f9fafb",
+      border: "#d1d5db",
+      borderColor: "rgba(209, 213, 219, 0.3)",
+      bgColor: "rgba(209, 213, 219, 0.1)",
+      color: "#6b7280",
+      dot: "#9ca3af",
     };
   };
 
@@ -631,56 +698,100 @@ function StaffOverview() {
       </div>
 
       {/* Duty Status Card */}
-      <Card
-        sx={{
-          background: statusConfig.bg,
-          border: `1px solid ${statusConfig.border}`,
-          borderRadius: "16px",
-          boxShadow: "none",
-          mb: 3,
-        }}
-      >
-        <CardContent sx={{ py: "20px !important", px: "24px !important" }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+      <Box sx={{ mb: 3 }}>
+        <Card
+          sx={{
+            background: "#ffffff",
+            border: `1px solid ${statusConfig.borderColor}`,
+            borderRadius: "12px",
+            boxShadow: "none",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <CardContent
+            sx={{
+              display: "flex",
+              gap: 2,
+              alignItems: "center",
+              py: "12px",
+              px: "16px",
+              width: "100%",
+            }}
+          >
             <Box
               sx={{
-                width: 12,
-                height: 12,
-                borderRadius: "50%",
-                background: statusConfig.dot,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
                 flexShrink: 0,
-                boxShadow: `0 0 0 3px ${statusConfig.dot}33`,
-              }}
-            />
-            <Typography
-              sx={{
-                fontWeight: 700,
-                fontSize: "20px",
-                color: statusConfig.color,
+                backgroundColor: statusConfig.bgColor,
+                padding: "8px",
+                borderRadius: "8px",
               }}
             >
-              {statusConfig.label}
-            </Typography>
-          </Box>
-          <Typography
-            variant="body2"
-            sx={{ color: "#6b7280", mt: 0.5, ml: "27px", fontSize: "13px" }}
-          >
-            {!todayAttendance
-              ? "You haven't clocked in today"
-              : todayAttendance.time_out
-                ? `Clocked out at ${formatTime(todayAttendance.time_out)}`
-                : `Clocked in at ${formatTime(todayAttendance.time_in)}`}
-          </Typography>
-        </CardContent>
-      </Card>
+              <Box
+                sx={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  background: statusConfig.dot,
+                }}
+              />
+            </Box>
+            <Box>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "#9ca3af",
+                  mb: 0.5,
+                  fontWeight: 500,
+                  fontSize: { xs: "11px", sm: "12px" },
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                Duty Status
+              </Typography>
+              <Typography
+                variant="h4"
+                sx={{
+                  color: statusConfig.color,
+                  fontWeight: 700,
+                  fontSize: { xs: "24px", sm: "28px" },
+                }}
+              >
+                {statusConfig.label}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "#6b7280",
+                  fontSize: "12px",
+                  display: "block",
+                  mt: 0.5,
+                }}
+              >
+                {dutyStatus === "Off Duty"
+                  ? ""
+                  : !todayAttendance
+                    ? "You haven't clocked in today"
+                    : todayAttendance.time_out
+                      ? `Clocked out at ${formatTime(todayAttendance.time_out)}`
+                      : `Clocked in at ${formatTime(todayAttendance.time_in)}`}
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      </Box>
 
       {/* Appointment Stats Cards */}
       <Box
         sx={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-          gap: 2,
+          display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
+          gap: { xs: 1.5, sm: 2 },
+          width: "100%",
           mb: 3,
         }}
       >
@@ -688,62 +799,102 @@ function StaffOverview() {
           {
             label: "Total Appointments",
             value: appointmentStats.total,
-            bg: "#eff6ff",
-            border: "#3b82f6",
-            color: "#2563eb",
+            color: "#3b82f6",
+            borderColor: "rgba(59, 130, 246, 0.3)",
+            bgColor: "rgba(59, 130, 246, 0.1)",
+            icon: FiCalendar,
           },
           {
             label: "Completed",
             value: appointmentStats.completed,
-            bg: "#f0fdf4",
-            border: "#10b981",
-            color: "#059669",
+            color: "#10b981",
+            borderColor: "rgba(16, 185, 129, 0.3)",
+            bgColor: "rgba(16, 185, 129, 0.1)",
+            icon: FiCheckCircle,
           },
           {
             label: "Upcoming",
             value: appointmentStats.upcoming,
-            bg: "#fffbeb",
-            border: "#f59e0b",
-            color: "#d97706",
+            color: "#f59e0b",
+            borderColor: "rgba(245, 158, 11, 0.3)",
+            bgColor: "rgba(245, 158, 11, 0.1)",
+            icon: FiClock,
           },
           {
             label: "Cancelled",
             value: appointmentStats.cancelled,
-            bg: "#fef2f2",
-            border: "#f87171",
             color: "#dc2626",
+            borderColor: "rgba(220, 38, 38, 0.3)",
+            bgColor: "rgba(220, 38, 38, 0.1)",
+            icon: FiX,
           },
-        ].map((card) => (
-          <Card
-            key={card.label}
-            sx={{
-              background: card.bg,
-              border: `1px solid ${card.border}`,
-              borderRadius: "16px",
-              boxShadow: "none",
-            }}
-          >
-            <CardContent sx={{ py: "8px !important", px: "16px !important" }}>
-              <Typography
-                variant="body2"
+        ].map((card) => {
+          const IconComponent = card.icon;
+          return (
+            <Card
+              key={card.label}
+              sx={{
+                background: "#ffffff",
+                border: `1px solid ${card.borderColor}`,
+                borderRadius: "12px",
+                boxShadow: "none",
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <CardContent
                 sx={{
-                  color: "#374151",
-                  mb: 0.5,
-                  fontWeight: 500,
-                  fontSize: "12px",
+                  display: "flex",
+                  gap: 2,
+                  alignItems: "center",
+                  py: "12px",
+                  px: "16px",
+                  width: "100%",
                 }}
               >
-                {card.label}
-              </Typography>
-              <Typography
-                variant="h5"
-                sx={{ color: card.color, fontWeight: 700, fontSize: "28px" }}
-              >
-                {card.value}
-              </Typography>
-            </CardContent>
-          </Card>
-        ))}
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    flexShrink: 0,
+                    backgroundColor: card.bgColor,
+                    padding: "8px",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <IconComponent size={32} color={card.color} />
+                </Box>
+                <Box>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "#9ca3af",
+                      mb: 0.5,
+                      fontWeight: 500,
+                      fontSize: { xs: "11px", sm: "12px" },
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    {card.label}
+                  </Typography>
+                  <Typography
+                    variant="h4"
+                    sx={{
+                      color: "#000000",
+                      fontWeight: 700,
+                      fontSize: { xs: "24px", sm: "28px" },
+                    }}
+                  >
+                    {card.value}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          );
+        })}
       </Box>
 
       <div className="content-grid">
