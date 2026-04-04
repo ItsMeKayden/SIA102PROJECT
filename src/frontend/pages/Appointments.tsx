@@ -30,6 +30,7 @@ import {
   ListItemIcon,
   ListItemText,
   Drawer,
+  Skeleton,
 } from "@mui/material";
 import {
   FiX,
@@ -1549,13 +1550,124 @@ function Appointments() {
     return (
       <Box
         sx={{
+          width: "100%",
           display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "400px",
+          flexDirection: "column",
+          gap: 2,
+          p: 1.5,
         }}
       >
-        <CircularProgress />
+        {/* Header skeleton */}
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Skeleton variant="text" width="250px" height={32} sx={{ mb: 1 }} />
+            <Skeleton variant="text" width="350px" height={18} />
+          </Box>
+          <Skeleton variant="rounded" width={140} height={40} />
+        </Box>
+
+        {/* Table 1: Admin Pending (8 columns) */}
+        <Paper sx={{ borderRadius: "10px", border: "2px solid #fde68a", p: 2 }}>
+          <Skeleton variant="text" width="300px" height={24} sx={{ mb: 2 }} />
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(8, 1fr)",
+              gap: 1,
+              mb: 2,
+            }}
+          >
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <Skeleton key={i} variant="text" height={20} />
+            ))}
+          </Box>
+          {[1, 2, 3].map((i) => (
+            <Box
+              key={i}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(8, 1fr)",
+                gap: 1,
+                mb: 1,
+              }}
+            >
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((j) => (
+                <Skeleton key={j} variant="text" height={18} />
+              ))}
+            </Box>
+          ))}
+        </Paper>
+
+        {/* Table 2: Doctor Assigned (7 columns) */}
+        <Paper sx={{ borderRadius: "10px", border: "2px solid #dbeafe", p: 2 }}>
+          <Skeleton variant="text" width="280px" height={24} sx={{ mb: 2 }} />
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(7, 1fr)",
+              gap: 1,
+              mb: 2,
+            }}
+          >
+            {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+              <Skeleton key={i} variant="text" height={20} />
+            ))}
+          </Box>
+          {[1, 2, 3].map((i) => (
+            <Box
+              key={i}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(7, 1fr)",
+                gap: 1,
+                mb: 1,
+              }}
+            >
+              {[1, 2, 3, 4, 5, 6, 7].map((j) => (
+                <Skeleton key={j} variant="text" height={18} />
+              ))}
+            </Box>
+          ))}
+        </Paper>
+
+        {/* Table 3: Main Appointment List (9 columns) */}
+        <Paper sx={{ borderRadius: "10px", border: "2px solid #e5e7eb", p: 2 }}>
+          <Skeleton variant="text" width="250px" height={24} sx={{ mb: 2 }} />
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(9, 1fr)",
+              gap: 1,
+              mb: 2,
+            }}
+          >
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+              <Skeleton key={i} variant="text" height={20} />
+            ))}
+          </Box>
+          {[1, 2, 3].map((i) => (
+            <Box
+              key={i}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(9, 1fr)",
+                gap: 1,
+                mb: 1,
+              }}
+            >
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((j) => (
+                <Skeleton key={j} variant="text" height={18} />
+              ))}
+            </Box>
+          ))}
+        </Paper>
       </Box>
     );
 

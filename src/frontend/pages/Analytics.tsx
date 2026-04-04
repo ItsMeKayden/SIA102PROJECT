@@ -1,5 +1,5 @@
-import '../styles/Pages.css';
-import { useEffect, useState } from 'react';
+import "../styles/Pages.css";
+import { useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -11,7 +11,8 @@ import {
   Select,
   FormControl,
   InputLabel,
-} from '@mui/material';
+  Skeleton,
+} from "@mui/material";
 import {
   ResponsiveContainer,
   LineChart,
@@ -22,49 +23,81 @@ import {
   Tooltip,
   Line,
   Bar,
-} from 'recharts';
-import { getAnalyticsStats, getMonthlyConsultations, getWeeklyPerformance } from '../../backend/services/analyticsService';
-import type { AnalyticsStats } from '../../types';
+} from "recharts";
+import {
+  getAnalyticsStats,
+  getMonthlyConsultations,
+  getWeeklyPerformance,
+} from "../../backend/services/analyticsService";
+import type { AnalyticsStats } from "../../types";
 
 function Analytics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<AnalyticsStats | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState<string>(`${new Date().getMonth() + 1}-2026`);
+  const [selectedMonth, setSelectedMonth] = useState<string>(
+    `${new Date().getMonth() + 1}-2026`,
+  );
   const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ];
   const years = [2025, 2026, 2027]; // Adjust as needed
-  const [monthlyConsultations, setMonthlyConsultations] = useState<{ month: string, count: number }[]>([]);
-  const [monthlyPerformanceData, setMonthlyPerformanceData] = useState<{ month: string, value: number }[]>([]);
-  const [performanceInsight, setPerformanceInsight] = useState<string>('');
-  const [consultationInsight, setConsultationInsight] = useState<string>('');
-  const [doctorInsight, setDoctorInsight] = useState<string>('');
-  const [returnRateInsight, setReturnRateInsight] = useState<string>('');
-  const [attendanceInsight, setAttendanceInsight] = useState<string>('');
-  const [visitTrendsInsight, setVisitTrendsInsight] = useState<string>('');
+  const [monthlyConsultations, setMonthlyConsultations] = useState<
+    { month: string; count: number }[]
+  >([]);
+  const [monthlyPerformanceData, setMonthlyPerformanceData] = useState<
+    { month: string; value: number }[]
+  >([]);
+  const [performanceInsight, setPerformanceInsight] = useState<string>("");
+  const [consultationInsight, setConsultationInsight] = useState<string>("");
+  const [doctorInsight, setDoctorInsight] = useState<string>("");
+  const [returnRateInsight, setReturnRateInsight] = useState<string>("");
+  const [attendanceInsight, setAttendanceInsight] = useState<string>("");
+  const [visitTrendsInsight, setVisitTrendsInsight] = useState<string>("");
 
-  const generatePerformanceInsight = (data: { month: string, value: number }[]) => {
+  const generatePerformanceInsight = (
+    data: { month: string; value: number }[],
+  ) => {
     if (data.length === 0) {
-      setPerformanceInsight('No data available');
+      setPerformanceInsight("No data available");
       return;
     }
 
     // Find best month
-    const bestMonth = data.reduce((prev, current) => current.value > prev.value ? current : prev);
-    
+    const bestMonth = data.reduce((prev, current) =>
+      current.value > prev.value ? current : prev,
+    );
+
     // Calculate trend (first half vs second half average)
     const midpoint = Math.floor(data.length / 2);
-    const firstHalfAvg = data.slice(0, midpoint).reduce((sum, m) => sum + m.value, 0) / midpoint;
-    const secondHalfAvg = data.slice(midpoint).reduce((sum, m) => sum + m.value, 0) / (data.length - midpoint);
-    const trendDirection = secondHalfAvg > firstHalfAvg ? 'upward' : 'downward';
-    const trendPercent = Math.round(Math.abs(((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100));
+    const firstHalfAvg =
+      data.slice(0, midpoint).reduce((sum, m) => sum + m.value, 0) / midpoint;
+    const secondHalfAvg =
+      data.slice(midpoint).reduce((sum, m) => sum + m.value, 0) /
+      (data.length - midpoint);
+    const trendDirection = secondHalfAvg > firstHalfAvg ? "upward" : "downward";
+    const trendPercent = Math.round(
+      Math.abs(((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100),
+    );
 
     // Check last month vs average
     const lastMonth = data[data.length - 1];
-    const overallAvg = Math.round(data.reduce((sum, m) => sum + m.value, 0) / data.length);
-    const lastMonthStatus = lastMonth.value > overallAvg ? 'above average' : 'below average';
+    const overallAvg = Math.round(
+      data.reduce((sum, m) => sum + m.value, 0) / data.length,
+    );
+    const lastMonthStatus =
+      lastMonth.value > overallAvg ? "above average" : "below average";
 
     // Generate insight
     let insight = `✓ ${bestMonth.month} was the top performing month (${bestMonth.value}% score). `;
@@ -78,75 +111,116 @@ function Analytics() {
     // Total Consultations Insight
     const consultCount = statsData.totalConsultations;
     if (consultCount === 0) {
-      setConsultationInsight('No consultation data available');
+      setConsultationInsight("No consultation data available");
     } else if (consultCount > 10) {
-      setConsultationInsight(`Strong activity: ${consultCount} consultations indicate high clinic engagement`);
+      setConsultationInsight(
+        `Strong activity: ${consultCount} consultations indicate high clinic engagement`,
+      );
     } else if (consultCount > 5) {
-      setConsultationInsight(`Moderate activity: ${consultCount} consultations this period`);
+      setConsultationInsight(
+        `Moderate activity: ${consultCount} consultations this period`,
+      );
     } else {
-      setConsultationInsight(`Low activity: Consider outreach to increase consultations`);
+      setConsultationInsight(
+        `Low activity: Consider outreach to increase consultations`,
+      );
     }
 
     // Average Patients Per Doctor Insight
     const avgPatients = statsData.avgPatientsPerDoctor;
     if (avgPatients >= 5) {
-      setDoctorInsight(`Each doctor manages ${avgPatients.toFixed(1)} patients on average - high workload`);
+      setDoctorInsight(
+        `Each doctor manages ${avgPatients.toFixed(1)} patients on average - high workload`,
+      );
     } else if (avgPatients >= 2) {
-      setDoctorInsight(`Each doctor manages ${avgPatients.toFixed(1)} patients on average - good balance`);
+      setDoctorInsight(
+        `Each doctor manages ${avgPatients.toFixed(1)} patients on average - good balance`,
+      );
     } else {
-      setDoctorInsight(`Each doctor manages ${avgPatients.toFixed(1)} patients - capacity available`);
+      setDoctorInsight(
+        `Each doctor manages ${avgPatients.toFixed(1)} patients - capacity available`,
+      );
     }
 
     // Patient Return Rate Insight
     const returnRate = statsData.patientReturnRate;
     if (returnRate >= 50) {
-      setReturnRateInsight(`Excellent retention: ${returnRate.toFixed(1)}% of patients return - strong loyalty`);
+      setReturnRateInsight(
+        `Excellent retention: ${returnRate.toFixed(1)}% of patients return - strong loyalty`,
+      );
     } else if (returnRate >= 20) {
-      setReturnRateInsight(`Good retention: ${returnRate.toFixed(1)}% of patients return`);
+      setReturnRateInsight(
+        `Good retention: ${returnRate.toFixed(1)}% of patients return`,
+      );
     } else if (returnRate > 0) {
-      setReturnRateInsight(`${returnRate.toFixed(1)}% patient return rate - focus on retention strategies`);
+      setReturnRateInsight(
+        `${returnRate.toFixed(1)}% patient return rate - focus on retention strategies`,
+      );
     } else {
-      setReturnRateInsight('No returning patients yet - continue building trust');
+      setReturnRateInsight(
+        "No returning patients yet - continue building trust",
+      );
     }
 
     // Attendance Rate Insight
     const attendRate = statsData.attendanceRate;
     if (attendRate >= 95) {
-      setAttendanceInsight(`Outstanding: ${Math.round(attendRate)}% staff attendance rate`);
+      setAttendanceInsight(
+        `Outstanding: ${Math.round(attendRate)}% staff attendance rate`,
+      );
     } else if (attendRate >= 85) {
-      setAttendanceInsight(`Good: ${Math.round(attendRate)}% staff attendance rate`);
+      setAttendanceInsight(
+        `Good: ${Math.round(attendRate)}% staff attendance rate`,
+      );
     } else if (attendRate >= 70) {
-      setAttendanceInsight(`Fair: ${Math.round(attendRate)}% attendance - monitor closely`);
+      setAttendanceInsight(
+        `Fair: ${Math.round(attendRate)}% attendance - monitor closely`,
+      );
     } else {
-      setAttendanceInsight(`Low: ${Math.round(attendRate)}% attendance - address absences`);
+      setAttendanceInsight(
+        `Low: ${Math.round(attendRate)}% attendance - address absences`,
+      );
     }
   };
 
-  const generateVisitTrendsInsight = (data: { month: string; count: number }[]) => {
+  const generateVisitTrendsInsight = (
+    data: { month: string; count: number }[],
+  ) => {
     if (data.length === 0) {
-      setVisitTrendsInsight('No visit data available');
+      setVisitTrendsInsight("No visit data available");
       return;
     }
 
     // Find peak month
-    const peakMonth = data.reduce((prev, current) => current.count > prev.count ? current : prev);
-    
+    const peakMonth = data.reduce((prev, current) =>
+      current.count > prev.count ? current : prev,
+    );
+
     // Calculate average
-    const avgVisits = Math.round(data.reduce((sum, m) => sum + m.count, 0) / data.length);
-    
+    const avgVisits = Math.round(
+      data.reduce((sum, m) => sum + m.count, 0) / data.length,
+    );
+
     // Calculate trend
     const firstHalf = data.slice(0, Math.floor(data.length / 2));
     const secondHalf = data.slice(Math.floor(data.length / 2));
-    const firstHalfAvg = Math.round(firstHalf.reduce((sum, m) => sum + m.count, 0) / firstHalf.length);
-    const secondHalfAvg = Math.round(secondHalf.reduce((sum, m) => sum + m.count, 0) / secondHalf.length);
-    const trendDirection = secondHalfAvg > firstHalfAvg ? 'increasing' : 'decreasing';
-    const trendChange = Math.round(Math.abs(((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100));
+    const firstHalfAvg = Math.round(
+      firstHalf.reduce((sum, m) => sum + m.count, 0) / firstHalf.length,
+    );
+    const secondHalfAvg = Math.round(
+      secondHalf.reduce((sum, m) => sum + m.count, 0) / secondHalf.length,
+    );
+    const trendDirection =
+      secondHalfAvg > firstHalfAvg ? "increasing" : "decreasing";
+    const trendChange = Math.round(
+      Math.abs(((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100),
+    );
 
     // Generate insights
     let insight = `• Peak: ${peakMonth.month} with ${peakMonth.count} visits. `;
     insight += `• Average: ${avgVisits} visits/month. `;
     insight += `• Trend: ${trendDirection} by ${trendChange}%. `;
-    insight += `• Action: ${secondHalfAvg < firstHalfAvg ? 'Visit volume declining - consider marketing initiatives' : 'Strong upward momentum - maintain current strategies'}`;
+    insight += `• Action: ${secondHalfAvg < firstHalfAvg ? "Visit volume declining - consider marketing initiatives" : "Strong upward momentum - maintain current strategies"}`;
 
     setVisitTrendsInsight(insight);
   };
@@ -154,17 +228,18 @@ function Analytics() {
   const fetchAnalyticsData = async (month?: string) => {
     setLoading(true);
     try {
-      const { data: analytics, error: analyticsError } = await getAnalyticsStats(month);
+      const { data: analytics, error: analyticsError } =
+        await getAnalyticsStats(month);
 
       if (analyticsError || !analytics) {
-        setError('Failed to load analytics data');
+        setError("Failed to load analytics data");
         return;
       }
 
       setStats(analytics);
       generateStatInsights(analytics);
     } catch {
-      setError('Failed to load analytics data');
+      setError("Failed to load analytics data");
     } finally {
       setLoading(false);
     }
@@ -187,20 +262,33 @@ function Analytics() {
 
   // Refetch data when month changes
   useEffect(() => {
-    const [month, year] = selectedMonth.split('-');
+    const [month, year] = selectedMonth.split("-");
     const monthIndex = parseInt(month);
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
     const monthYear = `${monthNames[monthIndex - 1]} ${year}`;
-    
+
     const loadMonthData = async () => {
       setLoading(true);
       try {
         const [analyticsRes, consultRes, perfRes] = await Promise.all([
           getAnalyticsStats(monthYear),
           getMonthlyConsultations(),
-          getWeeklyPerformance(monthYear)
+          getWeeklyPerformance(monthYear),
         ]);
-        
+
         if (analyticsRes.data) {
           setStats(analyticsRes.data);
           generateStatInsights(analyticsRes.data);
@@ -211,50 +299,140 @@ function Analytics() {
         }
         if (perfRes.data) {
           // Map week data to the same format as monthly data for the chart
-          const mappedData = perfRes.data.map(item => ({
+          const mappedData = perfRes.data.map((item) => ({
             month: item.week,
-            value: item.value
+            value: item.value,
           }));
           setMonthlyPerformanceData(mappedData);
           generatePerformanceInsight(mappedData);
         }
       } catch (error) {
-        console.error('Failed to load month data:', error);
+        console.error("Failed to load month data:", error);
       } finally {
         setLoading(false);
       }
     };
-    
+
     loadMonthData();
   }, [selectedMonth]);
 
   if (loading) {
     return (
-      <div style={{ 
-        padding: '24px', 
-        width: '100%', 
-        maxWidth: '1400px',
-        margin: '0 auto',
-        boxSizing: 'border-box',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '400px'
-      }}>
-        <CircularProgress />
+      <div
+        style={{
+          padding: "24px",
+          width: "100%",
+          maxWidth: "1400px",
+          margin: "0 auto",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* Header skeleton */}
+        <Box sx={{ mb: 3 }}>
+          <Skeleton variant="text" width="300px" height={32} sx={{ mb: 1 }} />
+          <Skeleton variant="text" width="400px" height={20} />
+        </Box>
+
+        {/* Month selector skeleton */}
+        <Box sx={{ mb: 3, display: "flex", gap: 2 }}>
+          <Skeleton variant="rounded" width={200} height={40} />
+          <Skeleton variant="rounded" width={200} height={40} />
+        </Box>
+
+        {/* Stats cards skeleton */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              sm: "1fr 1fr",
+              md: "repeat(4, 1fr)",
+            },
+            gap: 2,
+            mb: 3,
+          }}
+        >
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardContent>
+                <Skeleton
+                  variant="text"
+                  width="80%"
+                  height={24}
+                  sx={{ mb: 1 }}
+                />
+                <Skeleton variant="text" width="60%" height={16} />
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+
+        {/* Charts skeleton */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+            gap: 3,
+            mb: 3,
+          }}
+        >
+          {[1, 2].map((i) => (
+            <Card key={i}>
+              <CardContent>
+                <Skeleton
+                  variant="text"
+                  width="100%"
+                  height={20}
+                  sx={{ mb: 2 }}
+                />
+                <Skeleton
+                  variant="rectangular"
+                  width="100%"
+                  height={300}
+                  sx={{ mb: 1 }}
+                />
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+
+        {/* Insights skeleton */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+            gap: 2,
+          }}
+        >
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardContent>
+                <Skeleton
+                  variant="text"
+                  width="100%"
+                  height={16}
+                  sx={{ mb: 1 }}
+                />
+                <Skeleton variant="text" width="100%" height={14} />
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ 
-        padding: '24px', 
-        width: '100%', 
-        maxWidth: '1400px',
-        margin: '0 auto',
-        boxSizing: 'border-box'
-      }}>
+      <div
+        style={{
+          padding: "24px",
+          width: "100%",
+          maxWidth: "1400px",
+          margin: "0 auto",
+          boxSizing: "border-box",
+        }}
+      >
         <Alert severity="error">{error}</Alert>
       </div>
     );
@@ -263,23 +441,27 @@ function Analytics() {
   // Chart data variables
 
   return (
-    <div style={{ 
-      padding: '24px', 
-      width: '100%', 
-      maxWidth: '1400px',
-      margin: '0 auto',
-      boxSizing: 'border-box'
-    }}>
+    <div
+      style={{
+        padding: "24px",
+        width: "100%",
+        maxWidth: "1400px",
+        margin: "0 auto",
+        boxSizing: "border-box",
+      }}
+    >
       {/* Staff Activity Overview */}
-      <Box sx={{ 
-        padding: '12px 0', 
-        mb: 2,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: 2,
-        flexWrap: { xs: 'wrap', md: 'nowrap' }
-      }}>
+      <Box
+        sx={{
+          padding: "12px 0",
+          mb: 2,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 2,
+          flexWrap: { xs: "wrap", md: "nowrap" },
+        }}
+      >
         <h1>Staff Activity Overview</h1>
         <FormControl size="small" sx={{ minWidth: 160, flexShrink: 0 }}>
           <InputLabel id="month-year-picker-label">Month/Year</InputLabel>
@@ -287,46 +469,67 @@ function Analytics() {
             labelId="month-year-picker-label"
             value={selectedMonth}
             label="Month/Year"
-            onChange={e => setSelectedMonth(e.target.value)}
+            onChange={(e) => setSelectedMonth(e.target.value)}
           >
-            {years.map(year => months.map((month, idx) => (
-              <MenuItem key={`${month}-${year}`} value={`${idx + 1}-${year}`}>{`${month} ${year}`}</MenuItem>
-            )))}
+            {years.map((year) =>
+              months.map((month, idx) => (
+                <MenuItem
+                  key={`${month}-${year}`}
+                  value={`${idx + 1}-${year}`}
+                >{`${month} ${year}`}</MenuItem>
+              )),
+            )}
           </Select>
         </FormControl>
       </Box>
 
-      
-
       {/* Stat Cards */}
       <Box
         sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' },
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "1fr",
+            sm: "1fr 1fr",
+            md: "repeat(4, 1fr)",
+          },
           gap: 2,
           mb: 4,
-          width: '100%',
+          width: "100%",
         }}
       >
         {/* Total Consultation */}
         <Card
           sx={{
-            background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%)',
-            border: '1px solid #22c55e',
-            borderRadius: '12px',
+            background:
+              "linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%)",
+            border: "1px solid #22c55e",
+            borderRadius: "12px",
           }}
         >
           <CardContent sx={{ p: 2 }}>
-            <Typography sx={{ fontSize: '14px', color: '#666', fontWeight: '600', mb: 1.5 }}>
+            <Typography
+              sx={{
+                fontSize: "14px",
+                color: "#666",
+                fontWeight: "600",
+                mb: 1.5,
+              }}
+            >
               Total Consultations Completed
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Typography sx={{ fontSize: '20px' }}>Rx</Typography>
-              <Typography sx={{ fontSize: '24px', fontWeight: 'bold', color: '#22c55e' }}>
-                {stats ? `${stats.totalConsultations} Consultation${stats.totalConsultations === 1 ? '' : 's'}` : '--'}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+              <Typography sx={{ fontSize: "20px" }}>Rx</Typography>
+              <Typography
+                sx={{ fontSize: "24px", fontWeight: "bold", color: "#22c55e" }}
+              >
+                {stats
+                  ? `${stats.totalConsultations} Consultation${stats.totalConsultations === 1 ? "" : "s"}`
+                  : "--"}
               </Typography>
             </Box>
-            <Typography sx={{ fontSize: '12px', color: '#666', lineHeight: 1.4 }}>
+            <Typography
+              sx={{ fontSize: "12px", color: "#666", lineHeight: 1.4 }}
+            >
               {consultationInsight}
             </Typography>
           </CardContent>
@@ -335,22 +538,36 @@ function Analytics() {
         {/* Avg Patients Per Doctor */}
         <Card
           sx={{
-            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%)',
-            border: '1px solid #3b82f6',
-            borderRadius: '12px',
+            background:
+              "linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%)",
+            border: "1px solid #3b82f6",
+            borderRadius: "12px",
           }}
         >
           <CardContent sx={{ p: 2 }}>
-            <Typography sx={{ fontSize: '14px', color: '#666', fontWeight: '600', mb: 1.5 }}>
+            <Typography
+              sx={{
+                fontSize: "14px",
+                color: "#666",
+                fontWeight: "600",
+                mb: 1.5,
+              }}
+            >
               Ave. Patients Per Doctor
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Typography sx={{ fontSize: '20px' }}>👥</Typography>
-              <Typography sx={{ fontSize: '24px', fontWeight: 'bold', color: '#3b82f6' }}>
-                {stats ? `${stats.avgPatientsPerDoctor.toFixed(1)} Patients` : '--'}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+              <Typography sx={{ fontSize: "20px" }}>👥</Typography>
+              <Typography
+                sx={{ fontSize: "24px", fontWeight: "bold", color: "#3b82f6" }}
+              >
+                {stats
+                  ? `${stats.avgPatientsPerDoctor.toFixed(1)} Patients`
+                  : "--"}
               </Typography>
             </Box>
-            <Typography sx={{ fontSize: '12px', color: '#666', lineHeight: 1.4 }}>
+            <Typography
+              sx={{ fontSize: "12px", color: "#666", lineHeight: 1.4 }}
+            >
               {doctorInsight}
             </Typography>
           </CardContent>
@@ -359,22 +576,34 @@ function Analytics() {
         {/* Patient Return Rate */}
         <Card
           sx={{
-            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%)',
-            border: '1px solid #f59e0b',
-            borderRadius: '12px',
+            background:
+              "linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%)",
+            border: "1px solid #f59e0b",
+            borderRadius: "12px",
           }}
         >
           <CardContent sx={{ p: 2 }}>
-            <Typography sx={{ fontSize: '14px', color: '#666', fontWeight: '600', mb: 1.5 }}>
+            <Typography
+              sx={{
+                fontSize: "14px",
+                color: "#666",
+                fontWeight: "600",
+                mb: 1.5,
+              }}
+            >
               Patient Return Rate
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Typography sx={{ fontSize: '20px' }}>🔄</Typography>
-              <Typography sx={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b' }}>
-                {stats ? `${stats.patientReturnRate.toFixed(1)}%` : '--'}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+              <Typography sx={{ fontSize: "20px" }}>🔄</Typography>
+              <Typography
+                sx={{ fontSize: "24px", fontWeight: "bold", color: "#f59e0b" }}
+              >
+                {stats ? `${stats.patientReturnRate.toFixed(1)}%` : "--"}
               </Typography>
             </Box>
-            <Typography sx={{ fontSize: '12px', color: '#666', lineHeight: 1.4 }}>
+            <Typography
+              sx={{ fontSize: "12px", color: "#666", lineHeight: 1.4 }}
+            >
               {returnRateInsight}
             </Typography>
           </CardContent>
@@ -383,67 +612,136 @@ function Analytics() {
         {/* Attendance Rate */}
         <Card
           sx={{
-            background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%)',
-            border: '1px solid #22c55e',
-            borderRadius: '12px',
+            background:
+              "linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%)",
+            border: "1px solid #22c55e",
+            borderRadius: "12px",
           }}
         >
           <CardContent sx={{ p: 2 }}>
-            <Typography sx={{ fontSize: '14px', color: '#666', fontWeight: '600', mb: 1.5 }}>
+            <Typography
+              sx={{
+                fontSize: "14px",
+                color: "#666",
+                fontWeight: "600",
+                mb: 1.5,
+              }}
+            >
               Attendance Rate
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Typography sx={{ fontSize: '20px' }}>📅</Typography>
-              <Typography sx={{ fontSize: '24px', fontWeight: 'bold', color: '#22c55e' }}>
-                {stats ? `${Math.round(stats.attendanceRate)}%` : '--'}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+              <Typography sx={{ fontSize: "20px" }}>📅</Typography>
+              <Typography
+                sx={{ fontSize: "24px", fontWeight: "bold", color: "#22c55e" }}
+              >
+                {stats ? `${Math.round(stats.attendanceRate)}%` : "--"}
               </Typography>
             </Box>
-            <Typography sx={{ fontSize: '12px', color: '#666', lineHeight: 1.4 }}>
+            <Typography
+              sx={{ fontSize: "12px", color: "#666", lineHeight: 1.4 }}
+            >
               {attendanceInsight}
             </Typography>
           </CardContent>
         </Card>
       </Box>
 
-
       {/* Charts Section */}
       <Box
         sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
           gap: 3,
           mb: 4,
-          width: '100%',
-          alignItems: 'start',
+          width: "100%",
+          alignItems: "start",
         }}
       >
         {/* Monthly Performance */}
-        <Card sx={{ borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', width: '100%', boxSizing: 'border-box', minHeight: { xs: 'auto', md: '460px' } }}>
-          <CardContent sx={{ p: 3, width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', flex: 1 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography sx={{ fontSize: '16px', fontWeight: 'bold', color: '#3b82f6' }}>
+        <Card
+          sx={{
+            borderRadius: "12px",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+            display: "flex",
+            flexDirection: "column",
+            width: "100%",
+            boxSizing: "border-box",
+            minHeight: { xs: "auto", md: "460px" },
+          }}
+        >
+          <CardContent
+            sx={{
+              p: 3,
+              width: "100%",
+              boxSizing: "border-box",
+              display: "flex",
+              flexDirection: "column",
+              flex: 1,
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2,
+              }}
+            >
+              <Typography
+                sx={{ fontSize: "16px", fontWeight: "bold", color: "#3b82f6" }}
+              >
                 Monthly Performance
               </Typography>
             </Box>
-            <Box sx={{ mb: 2, width: '100%', maxWidth: '400px', height: '300px', display: 'flex', justifyContent: 'center', position: 'relative' }}>
+            <Box
+              sx={{
+                mb: 2,
+                width: "100%",
+                maxWidth: "400px",
+                height: "300px",
+                display: "flex",
+                justifyContent: "center",
+                position: "relative",
+              }}
+            >
               <ResponsiveContainer width={400} height={300}>
-                <LineChart width={400} height={300} data={monthlyPerformanceData} margin={{ bottom: 10 }}>
+                <LineChart
+                  width={400}
+                  height={300}
+                  data={monthlyPerformanceData}
+                  margin={{ bottom: 10 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6', r: 4 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={{ fill: "#3b82f6", r: 4 }}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </Box>
-            <Box sx={{ borderTop: '2px solid #d1d5db', pt: 2, mt: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                <Typography sx={{ fontSize: '18px' }}>📌</Typography>
+            <Box sx={{ borderTop: "2px solid #d1d5db", pt: 2, mt: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+                <Typography sx={{ fontSize: "18px" }}>📌</Typography>
                 <Box>
-                  <Typography sx={{ fontSize: '12px', fontWeight: 'bold', color: '#666', mb: 0.5 }}>
+                  <Typography
+                    sx={{
+                      fontSize: "12px",
+                      fontWeight: "bold",
+                      color: "#666",
+                      mb: 0.5,
+                    }}
+                  >
                     Insight
                   </Typography>
-                  <Typography sx={{ fontSize: '13px', color: '#555', lineHeight: 1.5 }}>
+                  <Typography
+                    sx={{ fontSize: "13px", color: "#555", lineHeight: 1.5 }}
+                  >
                     {performanceInsight}
                   </Typography>
                 </Box>
@@ -453,16 +751,64 @@ function Analytics() {
         </Card>
 
         {/* Right Column: Patient Visit Trends and Insight & Alerts */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, width: '100%' }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 3,
+            width: "100%",
+          }}
+        >
           {/* Patient Visit Trends */}
-          <Card sx={{ borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', width: '100%', boxSizing: 'border-box' }}>
-            <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column', width: '100%', boxSizing: 'border-box', gap: 3, alignItems: 'center' }}>
-              <Typography sx={{ fontSize: '16px', fontWeight: 'bold', mb: 2, width: '100%' }}>
+          <Card
+            sx={{
+              borderRadius: "12px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              display: "flex",
+              flexDirection: "column",
+              width: "100%",
+              boxSizing: "border-box",
+            }}
+          >
+            <CardContent
+              sx={{
+                p: 3,
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                width: "100%",
+                boxSizing: "border-box",
+                gap: 3,
+                alignItems: "center",
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                  mb: 2,
+                  width: "100%",
+                }}
+              >
                 Patient Visit Trends
               </Typography>
-              <Box sx={{ width: '100%', maxWidth: '400px', height: '300px', display: 'flex', justifyContent: 'center', position: 'relative' }}>
+              <Box
+                sx={{
+                  width: "100%",
+                  maxWidth: "400px",
+                  height: "300px",
+                  display: "flex",
+                  justifyContent: "center",
+                  position: "relative",
+                }}
+              >
                 <ResponsiveContainer width={400} height={300}>
-                  <BarChart width={400} height={300} data={monthlyConsultations} margin={{ bottom: 10 }}>
+                  <BarChart
+                    width={400}
+                    height={300}
+                    data={monthlyConsultations}
+                    margin={{ bottom: 10 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
@@ -475,15 +821,29 @@ function Analytics() {
           </Card>
 
           {/* Insight & Alerts Card */}
-          <Card sx={{ borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <Card
+            sx={{
+              borderRadius: "12px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+            }}
+          >
             <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                <Typography sx={{ fontSize: '20px' }}>✓</Typography>
+              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+                <Typography sx={{ fontSize: "20px" }}>✓</Typography>
                 <Box>
-                  <Typography sx={{ fontSize: '12px', fontWeight: 'bold', mb: 1 }}>
+                  <Typography
+                    sx={{ fontSize: "12px", fontWeight: "bold", mb: 1 }}
+                  >
                     Insight & Alerts
                   </Typography>
-                  <Typography sx={{ fontSize: '12px', color: '#555', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                  <Typography
+                    sx={{
+                      fontSize: "12px",
+                      color: "#555",
+                      lineHeight: 1.6,
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
                     {visitTrendsInsight}
                   </Typography>
                 </Box>
@@ -494,6 +854,6 @@ function Analytics() {
       </Box>
     </div>
   );
-};
+}
 
 export default Analytics;

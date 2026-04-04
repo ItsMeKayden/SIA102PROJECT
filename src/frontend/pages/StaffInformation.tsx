@@ -20,18 +20,17 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
-  CircularProgress,
   Snackbar,
   Alert,
   Tabs,
   Tab,
-  Chip,
   Typography,
   useMediaQuery,
   useTheme,
   Card,
   CardContent,
   Collapse,
+  Skeleton,
 } from "@mui/material";
 import {
   FiSearch,
@@ -645,13 +644,71 @@ function StaffTab() {
     return (
       <Box
         sx={{
+          p: 2,
           display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "400px",
+          flexDirection: "column",
+          gap: 2,
         }}
       >
-        <CircularProgress />
+        {/* Header skeleton */}
+        <Box sx={{ mb: 2 }}>
+          <Skeleton variant="text" width="200px" height={32} sx={{ mb: 1 }} />
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Skeleton variant="text" width="80px" height={20} />
+            <Skeleton variant="text" width="80px" height={20} />
+          </Box>
+        </Box>
+        {/* Controls skeleton */}
+        <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
+          <Skeleton
+            variant="rounded"
+            width="100%"
+            height={40}
+            sx={{ maxWidth: "300px" }}
+          />
+          <Skeleton variant="rounded" width={120} height={40} />
+        </Box>
+        {/* Table skeleton */}
+        <Box
+          sx={{
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+            overflow: "hidden",
+          }}
+        >
+          {/* Headers */}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(5, 1fr)",
+              gap: 1,
+              p: 2,
+              backgroundColor: "#f9fafb",
+              borderBottom: "1px solid #e5e7eb",
+            }}
+          >
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} variant="text" height={20} />
+            ))}
+          </Box>
+          {/* Rows */}
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Box
+              key={i}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(5, 1fr)",
+                gap: 1,
+                p: 2,
+                borderBottom: "1px solid #e5e7eb",
+              }}
+            >
+              {[1, 2, 3, 4, 5].map((j) => (
+                <Skeleton key={j} variant="text" height={20} />
+              ))}
+            </Box>
+          ))}
+        </Box>
       </Box>
     );
 
@@ -1599,13 +1656,53 @@ function ServicesTab() {
     return (
       <Box
         sx={{
+          p: 2,
           display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "400px",
+          flexDirection: "column",
+          gap: 2,
         }}
       >
-        <CircularProgress />
+        {/* Services table skeleton */}
+        <Box
+          sx={{
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+            overflow: "hidden",
+          }}
+        >
+          {/* Headers */}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(6, 1fr)",
+              gap: 1,
+              p: 2,
+              backgroundColor: "#f9fafb",
+              borderBottom: "1px solid #e5e7eb",
+            }}
+          >
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} variant="text" height={20} />
+            ))}
+          </Box>
+          {/* Rows */}
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Box
+              key={i}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(6, 1fr)",
+                gap: 1,
+                p: 2,
+                borderBottom: "1px solid #e5e7eb",
+              }}
+            >
+              {[1, 2, 3, 4, 5, 6].map((j) => (
+                <Skeleton key={j} variant="text" height={20} />
+              ))}
+            </Box>
+          ))}
+        </Box>
       </Box>
     );
 
@@ -2410,13 +2507,53 @@ function DepartmentsTab() {
     return (
       <Box
         sx={{
+          p: 2,
           display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "400px",
+          flexDirection: "column",
+          gap: 2,
         }}
       >
-        <CircularProgress />
+        {/* Departments table skeleton */}
+        <Box
+          sx={{
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+            overflow: "hidden",
+          }}
+        >
+          {/* Headers */}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 1,
+              p: 2,
+              backgroundColor: "#f9fafb",
+              borderBottom: "1px solid #e5e7eb",
+            }}
+          >
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} variant="text" height={20} />
+            ))}
+          </Box>
+          {/* Rows */}
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Box
+              key={i}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 1,
+                p: 2,
+                borderBottom: "1px solid #e5e7eb",
+              }}
+            >
+              {[1, 2, 3].map((j) => (
+                <Skeleton key={j} variant="text" height={20} />
+              ))}
+            </Box>
+          ))}
+        </Box>
       </Box>
     );
 
@@ -2791,13 +2928,53 @@ function SpecializationsTab() {
     return (
       <Box
         sx={{
+          p: 2,
           display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "400px",
+          flexDirection: "column",
+          gap: 2,
         }}
       >
-        <CircularProgress />
+        {/* Specializations table skeleton */}
+        <Box
+          sx={{
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+            overflow: "hidden",
+          }}
+        >
+          {/* Headers */}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 1,
+              p: 2,
+              backgroundColor: "#f9fafb",
+              borderBottom: "1px solid #e5e7eb",
+            }}
+          >
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} variant="text" height={20} />
+            ))}
+          </Box>
+          {/* Rows */}
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Box
+              key={i}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 1,
+                p: 2,
+                borderBottom: "1px solid #e5e7eb",
+              }}
+            >
+              {[1, 2, 3].map((j) => (
+                <Skeleton key={j} variant="text" height={20} />
+              ))}
+            </Box>
+          ))}
+        </Box>
       </Box>
     );
 

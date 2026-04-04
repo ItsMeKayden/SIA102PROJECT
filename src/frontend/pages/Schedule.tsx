@@ -1,5 +1,11 @@
-import { useState, useEffect, useCallback, useMemo, type DragEvent } from 'react';
-import '../styles/Pages.css';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  type DragEvent,
+} from "react";
+import "../styles/Pages.css";
 import {
   Box,
   Typography,
@@ -24,10 +30,27 @@ import {
   Avatar,
   Tabs,
   Tab,
-} from '@mui/material';
-import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { FiSearch, FiCalendar, FiPlus, FiRefreshCw, FiAlertTriangle, FiAlertCircle, FiInfo, FiUsers, FiClock, FiList, FiUserCheck, FiXCircle, FiSettings, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+  Skeleton,
+} from "@mui/material";
+import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import {
+  FiSearch,
+  FiCalendar,
+  FiPlus,
+  FiRefreshCw,
+  FiAlertTriangle,
+  FiAlertCircle,
+  FiInfo,
+  FiUsers,
+  FiClock,
+  FiList,
+  FiUserCheck,
+  FiXCircle,
+  FiSettings,
+  FiChevronLeft,
+  FiChevronRight,
+} from "react-icons/fi";
 import {
   getAllSchedules,
   getSchedulesByStaffId,
@@ -47,11 +70,11 @@ import {
   type ScheduleSwapRequestWithDetails,
   type ShiftSession,
   type SessionSettings,
-} from '../../backend/services/scheduleService';
-import { getAllAppointments } from '../../backend/services/appointmentService';
-import { getAllStaff } from '../../backend/services/staffService';
-import { useAuth } from '../../contexts/AuthContext';
-import type { Schedule as ScheduleRecord, Staff } from '../../types';
+} from "../../backend/services/scheduleService";
+import { getAllAppointments } from "../../backend/services/appointmentService";
+import { getAllStaff } from "../../backend/services/staffService";
+import { useAuth } from "../../contexts/AuthContext";
+import type { Schedule as ScheduleRecord, Staff } from "../../types";
 
 interface ScheduleWithStaff extends ScheduleRecord {
   staff?: Staff;
@@ -66,17 +89,19 @@ const enrichSchedulesWithStaff = (
       ...s,
       staff: allStaff.find((st) => st.id === s.staff_id),
     }))
-    .filter((s) => !s.staff?.role?.toLowerCase().includes('admin'));
+    .filter((s) => !s.staff?.role?.toLowerCase().includes("admin"));
 
 const getLastName = (fullName: string | undefined) => {
-  const trimmed = (fullName ?? '').trim();
-  if (!trimmed) return 'Unknown';
+  const trimmed = (fullName ?? "").trim();
+  if (!trimmed) return "Unknown";
   const parts = trimmed.split(/\s+/);
   return parts[parts.length - 1];
 };
 
-const formatRoleLastName = (role: string | undefined, fullName: string | undefined) =>
-  `${role || 'Staff'} ${getLastName(fullName)}`;
+const formatRoleLastName = (
+  role: string | undefined,
+  fullName: string | undefined,
+) => `${role || "Staff"} ${getLastName(fullName)}`;
 
 function Schedule() {
   const { isAdmin, staffProfile } = useAuth();
@@ -87,32 +112,44 @@ function Schedule() {
   const [currentTab, setCurrentTab] = useState(0);
   const [weekAnchorDate, setWeekAnchorDate] = useState<Date>(new Date());
   const [schedulePage, setSchedulePage] = useState<number>(1);
-  const [sessionSettings, setSessionSettings] = useState<SessionSettings>(() => getSessionSettings());
-  const [sessionSettingsDraft, setSessionSettingsDraft] = useState<SessionSettings>(() => getSessionSettings());
-  const [openSessionSettingsDialog, setOpenSessionSettingsDialog] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [sessionSettings, setSessionSettings] = useState<SessionSettings>(() =>
+    getSessionSettings(),
+  );
+  const [sessionSettingsDraft, setSessionSettingsDraft] =
+    useState<SessionSettings>(() => getSessionSettings());
+  const [openSessionSettingsDialog, setOpenSessionSettingsDialog] =
+    useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [openModal, setOpenModal] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
-    message: '',
-    severity: 'success' as 'success' | 'error',
+    message: "",
+    severity: "success" as "success" | "error",
   });
   const [formData, setFormData] = useState({
-    staff_id: '',
+    staff_id: "",
     days_of_week: [1] as number[],
-    shift_session: 'AM' as ShiftSession,
-    notes: '',
+    shift_session: "AM" as ShiftSession,
+    notes: "",
   });
   const [generating, setGenerating] = useState(false);
-  const [draggingScheduleId, setDraggingScheduleId] = useState<string | null>(null);
-  const [swapRequests, setSwapRequests] = useState<ScheduleSwapRequestWithDetails[]>([]);
-  const [swapCandidateSchedules, setSwapCandidateSchedules] = useState<ScheduleWithStaff[]>([]);
+  const [draggingScheduleId, setDraggingScheduleId] = useState<string | null>(
+    null,
+  );
+  const [swapRequests, setSwapRequests] = useState<
+    ScheduleSwapRequestWithDetails[]
+  >([]);
+  const [swapCandidateSchedules, setSwapCandidateSchedules] = useState<
+    ScheduleWithStaff[]
+  >([]);
   const [swapForm, setSwapForm] = useState({
-    fromScheduleId: '',
-    toScheduleId: '',
-    reason: '',
+    fromScheduleId: "",
+    toScheduleId: "",
+    reason: "",
   });
-  const [swapActionLoadingId, setSwapActionLoadingId] = useState<string | null>(null);
+  const [swapActionLoadingId, setSwapActionLoadingId] = useState<string | null>(
+    null,
+  );
 
   // Preview state for Generate Schedule
   type DayPreviewEntry = {
@@ -151,17 +188,17 @@ function Schedule() {
     return next;
   }, [schedulePage, weekAnchorDate]);
 
-  const sessions: ShiftSession[] = ['AM', 'PM'];
+  const sessions: ShiftSession[] = ["AM", "PM"];
   const sessionLabel = (session: ShiftSession) =>
     `${session} Session (${sessionSettings[session].start}-${sessionSettings[session].end})`;
   const getSwapStatusStyle = (status: string) => {
-    if (status === 'approved') {
-      return { backgroundColor: '#dcfce7', color: '#166534' };
+    if (status === "approved") {
+      return { backgroundColor: "#dcfce7", color: "#166534" };
     }
-    if (status === 'rejected') {
-      return { backgroundColor: '#fee2e2', color: '#991b1b' };
+    if (status === "rejected") {
+      return { backgroundColor: "#fee2e2", color: "#991b1b" };
     }
-    return { backgroundColor: '#fef3c7', color: '#92400e' };
+    return { backgroundColor: "#fef3c7", color: "#92400e" };
   };
 
   const fetchData = useCallback(async () => {
@@ -179,11 +216,12 @@ function Schedule() {
         schedulesPromise = Promise.resolve({ data: [], error: null });
         allSchedulesForSwapPromise = Promise.resolve({ data: [], error: null });
       }
-      const [staffResult, schedulesResult, allSchedulesForSwapResult] = await Promise.all([
-        getAllStaff(),
-        schedulesPromise,
-        allSchedulesForSwapPromise,
-      ]);
+      const [staffResult, schedulesResult, allSchedulesForSwapResult] =
+        await Promise.all([
+          getAllStaff(),
+          schedulesPromise,
+          allSchedulesForSwapPromise,
+        ]);
       const allStaff = staffResult.data ?? [];
       setStaff(allStaff);
       if (schedulesResult.data) {
@@ -196,9 +234,14 @@ function Schedule() {
         );
       }
 
-      let swapRequestOptions: { status?: 'pending' | 'approved' | 'rejected'; requestedByStaffId?: string } | undefined;
+      let swapRequestOptions:
+        | {
+            status?: "pending" | "approved" | "rejected";
+            requestedByStaffId?: string;
+          }
+        | undefined;
       if (isAdmin) {
-        swapRequestOptions = { status: 'pending' };
+        swapRequestOptions = { status: "pending" };
       } else if (staffProfile) {
         swapRequestOptions = { requestedByStaffId: staffProfile.id };
       }
@@ -207,7 +250,7 @@ function Schedule() {
         setSwapRequests(swapResult.data);
       }
     } catch (err) {
-      console.error('Error fetching schedules:', err);
+      console.error("Error fetching schedules:", err);
     } finally {
       setLoading(false);
     }
@@ -223,13 +266,16 @@ function Schedule() {
       setSessionSettings(result.data);
       setSessionSettingsDraft(result.data);
       if (result.error) {
-        showSnackbar(`Session settings fallback applied: ${result.error}`, 'error');
+        showSnackbar(
+          `Session settings fallback applied: ${result.error}`,
+          "error",
+        );
       }
     };
     void hydrateSessionSettings();
   }, []);
 
-  const showSnackbar = (msg: string, sev: 'success' | 'error') =>
+  const showSnackbar = (msg: string, sev: "success" | "error") =>
     setSnackbar({ open: true, message: msg, severity: sev });
 
   const handleWeekDateChange = (value: string) => {
@@ -244,7 +290,7 @@ function Schedule() {
 
   const handleSessionDraftChange = (
     session: ShiftSession,
-    field: 'start' | 'end',
+    field: "start" | "end",
     value: string,
   ) => {
     setSessionSettingsDraft((prev) => ({
@@ -261,52 +307,55 @@ function Schedule() {
     const pm = sessionSettingsDraft.PM;
 
     if (!am.start || !am.end || !pm.start || !pm.end) {
-      showSnackbar('Please set start and end times for AM and PM sessions.', 'error');
+      showSnackbar(
+        "Please set start and end times for AM and PM sessions.",
+        "error",
+      );
       return;
     }
     if (am.start >= am.end) {
-      showSnackbar('AM start time must be earlier than AM end time.', 'error');
+      showSnackbar("AM start time must be earlier than AM end time.", "error");
       return;
     }
     if (pm.start >= pm.end) {
-      showSnackbar('PM start time must be earlier than PM end time.', 'error');
+      showSnackbar("PM start time must be earlier than PM end time.", "error");
       return;
     }
 
     const result = await updateSessionSettings(sessionSettingsDraft);
     if (result.error) {
-      showSnackbar(result.error, 'error');
+      showSnackbar(result.error, "error");
       return;
     }
 
     setSessionSettings(result.data);
     setSessionSettingsDraft(result.data);
     setOpenSessionSettingsDialog(false);
-    showSnackbar('Session time settings updated.', 'success');
+    showSnackbar("Session time settings updated.", "success");
   };
 
   const handleOpenModal = () => {
     setFormData({
-      staff_id: isAdmin ? '' : (staffProfile?.id ?? ''),
+      staff_id: isAdmin ? "" : (staffProfile?.id ?? ""),
       days_of_week: [1],
-      shift_session: 'AM',
-      notes: '',
+      shift_session: "AM",
+      notes: "",
     });
     setOpenModal(true);
   };
 
   const handleSubmit = async () => {
     if (!isAdmin) {
-      showSnackbar('Only administrators can modify schedules.', 'error');
+      showSnackbar("Only administrators can modify schedules.", "error");
       return;
     }
     const targetStaffId = formData.staff_id;
     if (!targetStaffId) {
-      showSnackbar('No staff selected', 'error');
+      showSnackbar("No staff selected", "error");
       return;
     }
     if (formData.days_of_week.length === 0) {
-      showSnackbar('Please select at least one day', 'error');
+      showSnackbar("Please select at least one day", "error");
       return;
     }
 
@@ -324,7 +373,7 @@ function Schedule() {
         is_active: true,
       });
       if (error) {
-        showSnackbar(error, 'error');
+        showSnackbar(error, "error");
         hasError = true;
         break;
       }
@@ -334,8 +383,8 @@ function Schedule() {
       showSnackbar(
         formData.days_of_week.length > 1
           ? `${formData.days_of_week.length} schedules added successfully`
-          : 'Schedule added successfully',
-        'success',
+          : "Schedule added successfully",
+        "success",
       );
       setOpenModal(false);
       fetchData();
@@ -344,7 +393,10 @@ function Schedule() {
 
   // Helper function: Calculate appointment demand by day of week
   const getAppointmentCounts = async (days: number[]) => {
-    const appointmentCounts: Record<number, number> = days.reduce((acc, d) => ({ ...acc, [d]: 0 }), {});
+    const appointmentCounts: Record<number, number> = days.reduce(
+      (acc, d) => ({ ...acc, [d]: 0 }),
+      {},
+    );
     const result = await getAllAppointments();
     const appointments = result.data ?? [];
     const cutoff = new Date();
@@ -369,9 +421,11 @@ function Schedule() {
     activeStaff: Staff[],
     groupedCurrent: Record<number, ScheduleWithStaff[]>,
   ) => {
-    const scheduleInserts: PreviewData['scheduleInserts'] = [];
+    const scheduleInserts: PreviewData["scheduleInserts"] = [];
     const dayPreviews: DayPreview[] = [];
-    const roster = [...activeStaff].sort((a, b) => a.name.localeCompare(b.name));
+    const roster = [...activeStaff].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
     const uniquePerDayTarget = Math.min(roster.length, 4);
     let rosterCursor = 0;
 
@@ -417,26 +471,36 @@ function Schedule() {
       const pmCount = dayStaff.length - amCount;
 
       for (let i = 0; i < amCount; i += 1) {
-        pushAssignment(assigned, day, dayStaff[i], 'AM', 'Auto-generated AM schedule');
+        pushAssignment(
+          assigned,
+          day,
+          dayStaff[i],
+          "AM",
+          "Auto-generated AM schedule",
+        );
       }
       for (let i = 0; i < pmCount; i += 1) {
         pushAssignment(
           assigned,
           day,
           dayStaff[amCount + i],
-          'PM',
-          'Auto-generated PM schedule',
+          "PM",
+          "Auto-generated PM schedule",
         );
       }
 
       // If staffing is too low, duplicate only as needed to keep both sessions covered.
       for (const session of sessions) {
-        const hasSessionCoverage = assigned.some((entry) => entry.session === session);
+        const hasSessionCoverage = assigned.some(
+          (entry) => entry.session === session,
+        );
         if (hasSessionCoverage) continue;
 
         const fallbackStaff =
-          roster.find((candidate) => !assigned.some((entry) => entry.staffId === candidate.id)) ??
-          roster[day % Math.max(roster.length, 1)];
+          roster.find(
+            (candidate) =>
+              !assigned.some((entry) => entry.staffId === candidate.id),
+          ) ?? roster[day % Math.max(roster.length, 1)];
 
         if (!fallbackStaff) continue;
 
@@ -466,12 +530,11 @@ function Schedule() {
     try {
       const activeStaff = staff.filter(
         (s) =>
-          s.status === 'Active' &&
-          !s.role?.toLowerCase().includes('admin'),
+          s.status === "Active" && !s.role?.toLowerCase().includes("admin"),
       );
 
       if (activeStaff.length === 0) {
-        showSnackbar('No active staff to schedule.', 'error');
+        showSnackbar("No active staff to schedule.", "error");
         setGenerating(false);
         return;
       }
@@ -505,7 +568,7 @@ function Schedule() {
       setPreviewOpen(true);
     } catch (error) {
       console.error(error);
-      showSnackbar('Failed to generate schedule.', 'error');
+      showSnackbar("Failed to generate schedule.", "error");
     } finally {
       setGenerating(false);
     }
@@ -521,11 +584,11 @@ function Schedule() {
       await clearWeeklySchedules(previewData.staffIdsToClear);
       const { error } = await createScheduleBulk(previewData.scheduleInserts);
       if (error) {
-        showSnackbar(error, 'error');
+        showSnackbar(error, "error");
       } else {
         showSnackbar(
           `Schedule generated: ${previewData.scheduleInserts.length} entries created. Doctors have been notified.`,
-          'success',
+          "success",
         );
       }
       setPreviewOpen(false);
@@ -539,7 +602,10 @@ function Schedule() {
     setDraggingScheduleId(scheduleId);
   };
 
-  const handleDropSchedule = async (dayOfWeek: number, session: ShiftSession) => {
+  const handleDropSchedule = async (
+    dayOfWeek: number,
+    session: ShiftSession,
+  ) => {
     if (!isAdmin || !draggingScheduleId) return;
     const selected = schedules.find((s) => s.id === draggingScheduleId);
     if (!selected) return;
@@ -559,9 +625,9 @@ function Schedule() {
     });
 
     if (error) {
-      showSnackbar(error, 'error');
+      showSnackbar(error, "error");
     } else {
-      showSnackbar('Schedule updated via drag-and-drop.', 'success');
+      showSnackbar("Schedule updated via drag-and-drop.", "success");
       fetchData();
     }
     setDraggingScheduleId(null);
@@ -584,10 +650,13 @@ function Schedule() {
   const renderScheduleChip = (
     schedule: ScheduleWithStaff,
     session: ShiftSession,
-    roleColors: Record<string, { bg: string; text: string; border: string; accent: string }>,
+    roleColors: Record<
+      string,
+      { bg: string; text: string; border: string; accent: string }
+    >,
   ) => {
-    const role = schedule.staff?.role || 'Staff';
-    const name = schedule.staff?.name || 'Unknown';
+    const role = schedule.staff?.role || "Staff";
+    const name = schedule.staff?.name || "Unknown";
     const displayName = formatRoleLastName(role, name);
     const spec = schedule.staff?.specialization;
     const color = roleColors[role] || roleColors.Staff;
@@ -600,10 +669,18 @@ function Schedule() {
         key={schedule.id}
         title={
           <Box sx={{ p: 0.75 }}>
-            <Typography sx={{ fontSize: '12px', fontWeight: 700 }}>{displayName}</Typography>
-            <Typography sx={{ fontSize: '11px', opacity: 0.85 }}>{role}</Typography>
-            {spec && <Typography sx={{ fontSize: '10px', opacity: 0.75 }}>{spec}</Typography>}
-            <Typography sx={{ fontSize: '10px', mt: 0.5 }}>
+            <Typography sx={{ fontSize: "12px", fontWeight: 700 }}>
+              {displayName}
+            </Typography>
+            <Typography sx={{ fontSize: "11px", opacity: 0.85 }}>
+              {role}
+            </Typography>
+            {spec && (
+              <Typography sx={{ fontSize: "10px", opacity: 0.75 }}>
+                {spec}
+              </Typography>
+            )}
+            <Typography sx={{ fontSize: "10px", mt: 0.5 }}>
               {session} • {startTime} – {endTime}
             </Typography>
           </Box>
@@ -616,20 +693,20 @@ function Schedule() {
           onDragStart={() => handleDragStart(schedule.id)}
           onDragEnd={() => setDraggingScheduleId(null)}
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
             backgroundColor: color.accent,
             border: `1.5px solid ${color.border}`,
-            borderRadius: '6px',
+            borderRadius: "6px",
             px: 1,
             py: 0.8,
-            cursor: isAdmin ? 'grab' : 'pointer',
-            transition: 'all 0.15s',
-            '&:hover': {
+            cursor: isAdmin ? "grab" : "pointer",
+            transition: "all 0.15s",
+            "&:hover": {
               backgroundColor: color.bg,
               boxShadow: `0 2px 8px ${color.border}40`,
-              transform: 'scale(1.02)',
+              transform: "scale(1.02)",
             },
           }}
         >
@@ -637,7 +714,7 @@ function Schedule() {
             sx={{
               width: 24,
               height: 24,
-              fontSize: '9px',
+              fontSize: "9px",
               fontWeight: 700,
               backgroundColor: color.border,
               color: color.accent,
@@ -649,22 +726,22 @@ function Schedule() {
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               sx={{
-                fontSize: '11px',
+                fontSize: "11px",
                 fontWeight: 600,
                 color: color.text,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
               }}
             >
               {displayName}
             </Typography>
             <Typography
               sx={{
-                fontSize: '9px',
+                fontSize: "9px",
                 color: color.text,
                 opacity: 0.8,
-                whiteSpace: 'nowrap',
+                whiteSpace: "nowrap",
               }}
             >
               {session}
@@ -678,16 +755,22 @@ function Schedule() {
   const renderSessionSchedules = (
     session: ShiftSession,
     schedulesForSession: ScheduleWithStaff[],
-    roleColors: Record<string, { bg: string; text: string; border: string; accent: string }>,
-  ) => schedulesForSession.map((schedule) => renderScheduleChip(schedule, session, roleColors));
+    roleColors: Record<
+      string,
+      { bg: string; text: string; border: string; accent: string }
+    >,
+  ) =>
+    schedulesForSession.map((schedule) =>
+      renderScheduleChip(schedule, session, roleColors),
+    );
 
   const handleCreateSwapRequest = async () => {
     if (!staffProfile) {
-      showSnackbar('Staff profile is required.', 'error');
+      showSnackbar("Staff profile is required.", "error");
       return;
     }
     if (!swapForm.fromScheduleId || !swapForm.toScheduleId) {
-      showSnackbar('Select your schedule and target schedule.', 'error');
+      showSnackbar("Select your schedule and target schedule.", "error");
       return;
     }
 
@@ -699,49 +782,56 @@ function Schedule() {
     });
 
     if (error) {
-      showSnackbar(error, 'error');
+      showSnackbar(error, "error");
       return;
     }
 
-    setSwapForm({ fromScheduleId: '', toScheduleId: '', reason: '' });
-    showSnackbar('Swap request submitted for admin approval.', 'success');
+    setSwapForm({ fromScheduleId: "", toScheduleId: "", reason: "" });
+    showSnackbar("Swap request submitted for admin approval.", "success");
     fetchData();
   };
 
   const handleApproveSwapRequest = async (requestId: string) => {
     if (!staffProfile) {
-      showSnackbar('Admin profile is required.', 'error');
+      showSnackbar("Admin profile is required.", "error");
       return;
     }
     setSwapActionLoadingId(requestId);
-    const { error } = await approveScheduleSwapRequest(requestId, staffProfile.id);
+    const { error } = await approveScheduleSwapRequest(
+      requestId,
+      staffProfile.id,
+    );
     setSwapActionLoadingId(null);
     if (error) {
-      showSnackbar(error, 'error');
+      showSnackbar(error, "error");
       return;
     }
-    showSnackbar('Swap request approved.', 'success');
+    showSnackbar("Swap request approved.", "success");
     fetchData();
   };
 
   const handleRejectSwapRequest = async (requestId: string) => {
     if (!staffProfile) {
-      showSnackbar('Admin profile is required.', 'error');
+      showSnackbar("Admin profile is required.", "error");
       return;
     }
     setSwapActionLoadingId(requestId);
-    const { error } = await rejectScheduleSwapRequest(requestId, staffProfile.id, 'Rejected by admin.');
+    const { error } = await rejectScheduleSwapRequest(
+      requestId,
+      staffProfile.id,
+      "Rejected by admin.",
+    );
     setSwapActionLoadingId(null);
     if (error) {
-      showSnackbar(error, 'error');
+      showSnackbar(error, "error");
       return;
     }
-    showSnackbar('Swap request rejected.', 'success');
+    showSnackbar("Swap request rejected.", "success");
     fetchData();
   };
 
   // Calculate summary statistics
-  const totalStaff = staff.filter((s) => s.status === 'Active').length;
+  const totalStaff = staff.filter((s) => s.status === "Active").length;
   const activeSchedules = schedules.filter((s) => s.is_active).length;
   const todaySchedules = schedules.filter(
     (s) => s.is_active && s.day_of_week === new Date().getDay(),
@@ -749,49 +839,57 @@ function Schedule() {
 
   const summaryCards = [
     {
-      title: 'Active Staff',
+      title: "Active Staff",
       value: totalStaff.toString(),
       icon: <FiUsers size={18} />,
-      accent: '#2563eb',
-      accentBg: '#eff6ff',
+      accent: "#2563eb",
+      accentBg: "#eff6ff",
     },
     {
-      title: 'Shifts Today',
+      title: "Shifts Today",
       value: todaySchedules.toString(),
       icon: <FiClock size={18} />,
-      accent: '#059669',
-      accentBg: '#ecfdf5',
+      accent: "#059669",
+      accentBg: "#ecfdf5",
     },
     {
-      title: 'Total Schedules',
+      title: "Total Schedules",
       value: activeSchedules.toString(),
       icon: <FiList size={18} />,
-      accent: '#7c3aed',
-      accentBg: '#ede9fe',
+      accent: "#7c3aed",
+      accentBg: "#ede9fe",
     },
     {
-      title: 'Staff Scheduled',
+      title: "Staff Scheduled",
       value: new Set(
         schedules.filter((s) => s.is_active).map((s) => s.staff_id),
       ).size.toString(),
       icon: <FiUserCheck size={18} />,
-      accent: '#d97706',
-      accentBg: '#fffbeb',
+      accent: "#d97706",
+      accentBg: "#fffbeb",
     },
   ];
 
-  const weekDaysFull = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const weekDaysFull = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
 
   const getInitials = (name: string) =>
     name
-      .split(' ')
+      .split(" ")
       .slice(0, 2)
       .map((n) => n[0])
-      .join('')
+      .join("")
       .toUpperCase();
 
   // ─── Operational Alerts ────────────────────────────────────────────────────
-  type AlertSeverity = 'critical' | 'warning' | 'info';
+  type AlertSeverity = "critical" | "warning" | "info";
   interface OperationalAlert {
     id: string;
     severity: AlertSeverity;
@@ -810,15 +908,15 @@ function Schedule() {
       if (dayEntries.length === 0) {
         alerts.push({
           id: `no-staff-${day}`,
-          severity: 'critical',
-          title: 'No coverage',
+          severity: "critical",
+          title: "No coverage",
           message: `${weekDaysFull[day]} has no staff scheduled — clinic may be unable to operate.`,
         });
       } else if (dayEntries.length === 1) {
         alerts.push({
           id: `short-${day}`,
-          severity: 'critical',
-          title: 'Critically short-staffed',
+          severity: "critical",
+          title: "Critically short-staffed",
           message: `${weekDaysFull[day]} has only 1 staff member scheduled. Minimum recommended is 2.`,
         });
       }
@@ -834,12 +932,14 @@ function Schedule() {
     const total = workDaySchedules.length;
     const target = total > 0 ? Math.ceil(total / workDays.length) : 0;
     for (const day of workDays) {
-      const count = workDaySchedules.filter((s) => s.day_of_week === day).length;
+      const count = workDaySchedules.filter(
+        (s) => s.day_of_week === day,
+      ).length;
       if (count > target + 1) {
         alerts.push({
           id: `overloaded-${day}`,
-          severity: 'warning',
-          title: 'Day overloaded',
+          severity: "warning",
+          title: "Day overloaded",
           message: `${weekDaysFull[day]} has ${count} staff (target ≤ ${target}). Consider running Generate Schedule to rebalance.`,
         });
       }
@@ -847,12 +947,17 @@ function Schedule() {
     return alerts;
   };
 
-  const getStaffOverworkAlerts = (workDaySchedules: ScheduleWithStaff[]): OperationalAlert[] => {
+  const getStaffOverworkAlerts = (
+    workDaySchedules: ScheduleWithStaff[],
+  ): OperationalAlert[] => {
     const alerts: OperationalAlert[] = [];
     const staffDayCounts: Record<string, { name: string; count: number }> = {};
     for (const s of workDaySchedules) {
       if (!staffDayCounts[s.staff_id]) {
-        staffDayCounts[s.staff_id] = { name: s.staff?.name ?? 'Unknown', count: 0 };
+        staffDayCounts[s.staff_id] = {
+          name: s.staff?.name ?? "Unknown",
+          count: 0,
+        };
       }
       staffDayCounts[s.staff_id].count++;
     }
@@ -860,8 +965,8 @@ function Schedule() {
       if (val.count === 5) {
         alerts.push({
           id: `overwork-${val.name}`,
-          severity: 'warning',
-          title: 'Staff overloaded',
+          severity: "warning",
+          title: "Staff overloaded",
           message: `${val.name} is scheduled all 5 working days. Consider reducing their workload to prevent burnout.`,
         });
       }
@@ -877,14 +982,15 @@ function Schedule() {
     for (const day of workDays) {
       const dayEntries = workDaySchedules.filter((s) => s.day_of_week === day);
       const hasDoctor = dayEntries.some(
-        (s) => s.staff?.role?.toLowerCase().includes('doctor') ||
-               s.staff?.role?.toLowerCase().includes('physician'),
+        (s) =>
+          s.staff?.role?.toLowerCase().includes("doctor") ||
+          s.staff?.role?.toLowerCase().includes("physician"),
       );
       if (dayEntries.length > 0 && !hasDoctor) {
         alerts.push({
           id: `no-doctor-${day}`,
-          severity: 'warning',
-          title: 'No doctor assigned',
+          severity: "warning",
+          title: "No doctor assigned",
           message: `${weekDaysFull[day]} has no doctor scheduled. Medical consultations may be unavailable.`,
         });
       }
@@ -901,12 +1007,14 @@ function Schedule() {
       const dayEntries = workDaySchedules.filter((s) => s.day_of_week === day);
       if (dayEntries.length === 0) continue;
 
-      const hasPmStaff = dayEntries.some((s) => resolveScheduleSession(s) === 'PM');
+      const hasPmStaff = dayEntries.some(
+        (s) => resolveScheduleSession(s) === "PM",
+      );
       if (!hasPmStaff) {
         alerts.push({
           id: `no-pm-${day}`,
-          severity: 'critical',
-          title: 'No PM session coverage',
+          severity: "critical",
+          title: "No PM session coverage",
           message: `${weekDaysFull[day]} has no staff scheduled for PM session.`,
         });
       }
@@ -920,15 +1028,20 @@ function Schedule() {
   ): OperationalAlert[] => {
     const alerts: OperationalAlert[] = [];
     const scheduledStaffIds = new Set(activeSchedules.map((s) => s.staff_id));
-    const unscheduled = activeNonAdminStaff.filter((s) => !scheduledStaffIds.has(s.id));
+    const unscheduled = activeNonAdminStaff.filter(
+      (s) => !scheduledStaffIds.has(s.id),
+    );
     if (unscheduled.length > 0) {
-      const names = unscheduled.slice(0, 3).map((s) => s.name).join(', ');
-      const suffix = unscheduled.length > 3 ? ', …' : '';
+      const names = unscheduled
+        .slice(0, 3)
+        .map((s) => s.name)
+        .join(", ");
+      const suffix = unscheduled.length > 3 ? ", …" : "";
       alerts.push({
-        id: 'unscheduled-staff',
-        severity: 'info',
-        title: 'Unscheduled active staff',
-        message: `${unscheduled.length} active staff member${unscheduled.length > 1 ? 's' : ''} (${names}${suffix}) have no schedule assigned.`,
+        id: "unscheduled-staff",
+        severity: "info",
+        title: "Unscheduled active staff",
+        message: `${unscheduled.length} active staff member${unscheduled.length > 1 ? "s" : ""} (${names}${suffix}) have no schedule assigned.`,
       });
     }
     return alerts;
@@ -955,11 +1068,11 @@ function Schedule() {
       );
       const uncovered = workDays.filter((d) => !coveredDays.has(d));
       if (uncovered.length > 0 && uncovered.length <= 3) {
-        const dayNames = uncovered.map((d) => weekDaysFull[d]).join(', ');
+        const dayNames = uncovered.map((d) => weekDaysFull[d]).join(", ");
         alerts.push({
           id: `spec-gap-${spec}`,
-          severity: 'info',
-          title: 'Specialization gap',
+          severity: "info",
+          title: "Specialization gap",
           message: `No ${spec} specialist scheduled on ${dayNames}.`,
         });
       }
@@ -970,9 +1083,9 @@ function Schedule() {
   const operationalAlerts = (() => {
     const workDays = [0, 1, 2, 3, 4, 5, 6];
     const activeSchedules = schedules.filter((s) => s.is_active);
-    const activeStaff = staff.filter((s) => s.status === 'Active');
+    const activeStaff = staff.filter((s) => s.status === "Active");
     const activeNonAdminStaff = activeStaff.filter(
-      (s) => !s.role?.toLowerCase().includes('admin'),
+      (s) => !s.role?.toLowerCase().includes("admin"),
     );
     const workDaySchedules = activeSchedules.filter(
       (s) => s.day_of_week >= 0 && s.day_of_week <= 6,
@@ -991,23 +1104,26 @@ function Schedule() {
     return alerts;
   })();
 
-  const alertConfig: Record<AlertSeverity, { color: string; bg: string; border: string; icon: React.ReactNode }> = {
+  const alertConfig: Record<
+    AlertSeverity,
+    { color: string; bg: string; border: string; icon: React.ReactNode }
+  > = {
     critical: {
-      color: '#991b1b',
-      bg: '#fff5f5',
-      border: '#fecaca',
+      color: "#991b1b",
+      bg: "#fff5f5",
+      border: "#fecaca",
       icon: <FiAlertCircle size={11} />,
     },
     warning: {
-      color: '#92400e',
-      bg: '#fffbeb',
-      border: '#fde68a',
+      color: "#92400e",
+      bg: "#fffbeb",
+      border: "#fde68a",
       icon: <FiAlertTriangle size={11} />,
     },
     info: {
-      color: '#1e40af',
-      bg: '#eff6ff',
-      border: '#bfdbfe',
+      color: "#1e40af",
+      bg: "#eff6ff",
+      border: "#bfdbfe",
       icon: <FiInfo size={11} />,
     },
   };
@@ -1017,13 +1133,106 @@ function Schedule() {
     return (
       <Box
         sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '400px',
+          p: 3,
+          maxWidth: "1400px",
+          mx: "auto",
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
         }}
       >
-        <CircularProgress />
+        {/* Header skeleton */}
+        <Box sx={{ mb: 2 }}>
+          <Skeleton variant="text" width="250px" height={32} sx={{ mb: 1 }} />
+          <Skeleton variant="text" width="300px" height={20} />
+        </Box>
+
+        {/* Controls skeleton */}
+        <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+          <Skeleton
+            variant="rounded"
+            width={200}
+            height={40}
+            sx={{ flex: 1 }}
+          />
+          <Skeleton variant="rounded" width={120} height={40} />
+        </Box>
+
+        {/* Stats cards skeleton */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              sm: "1fr 1fr",
+              md: "repeat(4, 1fr)",
+            },
+            gap: 2,
+            mb: 2,
+          }}
+        >
+          {[1, 2, 3, 4].map((i) => (
+            <Box
+              key={i}
+              sx={{ p: 2, border: "1px solid #e5e7eb", borderRadius: "8px" }}
+            >
+              <Skeleton variant="text" width="60%" height={24} sx={{ mb: 1 }} />
+              <Skeleton variant="text" width="40%" height={16} />
+            </Box>
+          ))}
+        </Box>
+
+        {/* Schedule grid skeleton */}
+        <Box
+          sx={{
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+            overflow: "hidden",
+          }}
+        >
+          {/* Days header */}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(8, 1fr)",
+              gap: 0,
+              borderBottom: "1px solid #e5e7eb",
+            }}
+          >
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <Box key={i} sx={{ p: 2, borderRight: "1px solid #e5e7eb" }}>
+                <Skeleton variant="text" height={20} />
+              </Box>
+            ))}
+          </Box>
+          {/* Rows */}
+          {[1, 2, 3].map((i) => (
+            <Box
+              key={i}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(8, 1fr)",
+                gap: 0,
+                borderBottom: "1px solid #e5e7eb",
+              }}
+            >
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((j) => (
+                <Box
+                  key={j}
+                  sx={{
+                    p: 2,
+                    borderRight: j < 8 ? "1px solid #e5e7eb" : "none",
+                    minHeight: "100px",
+                  }}
+                >
+                  <Skeleton variant="text" height={16} sx={{ mb: 1 }} />
+                  <Skeleton variant="text" width="80%" height={14} />
+                </Box>
+              ))}
+            </Box>
+          ))}
+        </Box>
       </Box>
     );
   }
@@ -1031,52 +1240,52 @@ function Schedule() {
   return (
     <div
       style={{
-        padding: '24px',
-        width: '100%',
-        maxWidth: '1400px',
-        margin: '0 auto',
-        boxSizing: 'border-box',
+        padding: "24px",
+        width: "100%",
+        maxWidth: "1400px",
+        margin: "0 auto",
+        boxSizing: "border-box",
       }}
     >
       {/* Top Header Bar */}
       <Box
         sx={{
-          marginBottom: '20px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
+          marginBottom: "20px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
         }}
       >
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 600, color: '#111827' }}>
-            {isAdmin ? 'Schedule Management' : 'My Schedule'}
+          <Typography variant="h5" sx={{ fontWeight: 600, color: "#111827" }}>
+            {isAdmin ? "Schedule Management" : "My Schedule"}
           </Typography>
           {!isAdmin && (
-            <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
+            <Typography variant="body2" sx={{ color: "#6b7280", mt: 0.5 }}>
               Schedule assignments are managed by administrators.
             </Typography>
           )}
         </Box>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
           <TextField
             placeholder="Search staff or role..."
             size="small"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             sx={{
-              width: '100%',
-              maxWidth: '280px',
-              backgroundColor: 'white',
-              borderRadius: '6px',
-              '& .MuiOutlinedInput-root': {
-                borderRadius: '6px',
+              width: "100%",
+              maxWidth: "280px",
+              backgroundColor: "white",
+              borderRadius: "6px",
+              "& .MuiOutlinedInput-root": {
+                borderRadius: "6px",
               },
             }}
             slotProps={{
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <FiSearch style={{ color: '#6b7280', fontSize: '16px' }} />
+                    <FiSearch style={{ color: "#6b7280", fontSize: "16px" }} />
                   </InputAdornment>
                 ),
               },
@@ -1088,21 +1297,27 @@ function Schedule() {
               startIcon={<FiSettings />}
               onClick={handleOpenSessionSettings}
               sx={{
-                borderColor: '#4b5563',
-                color: '#374151',
-                '&:hover': { borderColor: '#1f2937', backgroundColor: '#f9fafb' },
-                borderRadius: '8px',
-                textTransform: 'none',
+                borderColor: "#4b5563",
+                color: "#374151",
+                "&:hover": {
+                  borderColor: "#1f2937",
+                  backgroundColor: "#f9fafb",
+                },
+                borderRadius: "8px",
+                textTransform: "none",
                 fontWeight: 600,
-                fontSize: '13px',
-                whiteSpace: 'nowrap',
+                fontSize: "13px",
+                whiteSpace: "nowrap",
               }}
             >
               Session Settings
             </Button>
           )}
           {isAdmin && (
-            <Tooltip title="Balance existing schedules so no day is overloaded" arrow>
+            <Tooltip
+              title="Balance existing schedules so no day is overloaded"
+              arrow
+            >
               <span>
                 <Button
                   variant="outlined"
@@ -1110,14 +1325,17 @@ function Schedule() {
                   onClick={handleGenerateSchedule}
                   disabled={generating}
                   sx={{
-                    borderColor: '#16a34a',
-                    color: '#16a34a',
-                    '&:hover': { borderColor: '#15803d', backgroundColor: '#f0fdf4' },
-                    borderRadius: '8px',
-                    textTransform: 'none',
+                    borderColor: "#16a34a",
+                    color: "#16a34a",
+                    "&:hover": {
+                      borderColor: "#15803d",
+                      backgroundColor: "#f0fdf4",
+                    },
+                    borderRadius: "8px",
+                    textTransform: "none",
                     fontWeight: 600,
-                    fontSize: '13px',
-                    whiteSpace: 'nowrap',
+                    fontSize: "13px",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   Generate Schedule
@@ -1131,13 +1349,13 @@ function Schedule() {
               startIcon={<FiPlus />}
               onClick={handleOpenModal}
               sx={{
-                backgroundColor: '#2563eb',
-                '&:hover': { backgroundColor: '#1d4ed8' },
-                borderRadius: '8px',
-                textTransform: 'none',
+                backgroundColor: "#2563eb",
+                "&:hover": { backgroundColor: "#1d4ed8" },
+                borderRadius: "8px",
+                textTransform: "none",
                 fontWeight: 600,
-                fontSize: '13px',
-                whiteSpace: 'nowrap',
+                fontSize: "13px",
+                whiteSpace: "nowrap",
               }}
             >
               Add Schedule
@@ -1148,264 +1366,381 @@ function Schedule() {
 
       {/* Tab Navigation */}
       <Box sx={{ mb: 3 }}>
-        <Tabs value={currentTab} onChange={(_, newValue) => setCurrentTab(newValue)}>
+        <Tabs
+          value={currentTab}
+          onChange={(_, newValue) => setCurrentTab(newValue)}
+        >
           <Tab label="Summary" />
           <Tab label="All Schedules" />
-          {isAdmin ? <Tab label="Swap Approvals" /> : <Tab label="Swap Requests" />}
+          {isAdmin ? (
+            <Tab label="Swap Approvals" />
+          ) : (
+            <Tab label="Swap Requests" />
+          )}
           {isAdmin && <Tab label="Alerts" />}
         </Tabs>
       </Box>
 
       {/* Tab 0: Summary + Alerts side by side */}
       {currentTab === 0 && (
-      <Box sx={{ display: 'flex', gap: '20px', alignItems: 'stretch', mb: '24px' }}>
-        {/* Schedule Summary — left */}
-        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <Box
-            sx={{
-              borderRadius: '14px',
-              border: '1.5px solid #e5e7eb',
-              overflow: 'hidden',
-              boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            {/* Panel header */}
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-                px: 2.5,
-                py: 2,
-                background: 'linear-gradient(135deg, #fff 0%, #eff6ff 100%)',
-                borderBottom: '1px solid #e5e7eb',
-              }}
-            >
-              <Box
-                sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '12px',
-                  backgroundColor: '#dbeafe',
-                  border: '1.5px solid #bfdbfe',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <FiCalendar size={22} color="#2563eb" />
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827', lineHeight: 1.2 }}>
-                  Schedule Summary
-                </Typography>
-                <Typography sx={{ fontSize: '11px', color: '#6b7280', mt: 0.2 }}>
-                  Overview of active staff, shifts, and schedule coverage
-                </Typography>
-              </Box>
-            </Box>
-            {/* Cards body */}
-            <Box sx={{ p: 2, backgroundColor: '#fafafa', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', flex: 1 }}>
-              {summaryCards.map((card) => (
-                <Box
-                  key={card.title}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '14px',
-                    backgroundColor: '#fff',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '10px',
-                    px: '16px',
-                    py: '12px',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: '10px',
-                      backgroundColor: card.accentBg,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: card.accent,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {card.icon}
-                  </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '11px', fontWeight: 500, color: '#9ca3af', lineHeight: 1, mb: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      {card.title}
-                    </Typography>
-                    <Typography sx={{ fontSize: '24px', fontWeight: 700, color: '#111827', lineHeight: 1 }}>
-                      {card.value}
-                    </Typography>
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        </Box>
-
-        {/* Alerts & Operational Risks — right, admin only */}
-        {isAdmin && (
-        <Box sx={{ flex: 1.5, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <Box
           sx={{
-            borderRadius: '14px',
-            border: '1.5px solid #e5e7eb',
-            overflow: 'hidden',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
+            display: "flex",
+            gap: "20px",
+            alignItems: "stretch",
+            mb: "24px",
           }}
         >
-          {/* Panel header */}
+          {/* Schedule Summary — left */}
           <Box
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-              px: 2.5,
-              py: 2,
-              background: 'linear-gradient(135deg, #fff 0%, #fef2f2 100%)',
-              borderBottom: '1px solid #e5e7eb',
+              flex: 1,
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
             }}
           >
-            {/* Bell icon block */}
             <Box
               sx={{
-                width: 48,
-                height: 48,
-                borderRadius: '12px',
-                backgroundColor: '#fee2e2',
-                border: '1.5px solid #fecaca',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
+                borderRadius: "14px",
+                border: "1.5px solid #e5e7eb",
+                overflow: "hidden",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
               }}
             >
-              <FiAlertTriangle size={22} color="#ef4444" />
-            </Box>
-            <Box>
-              <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827', lineHeight: 1.2 }}>
-                Alerts &amp; Operational Risks
-              </Typography>
-              <Typography sx={{ fontSize: '11px', color: '#6b7280', mt: 0.2 }}>
-                Live analysis of schedule coverage, workload balance, and specialization gaps
-              </Typography>
-            </Box>
-            {operationalAlerts.length > 0 && (
-              <Chip
-                label={`${operationalAlerts.length} alert${operationalAlerts.length > 1 ? 's' : ''}`}
-                size="small"
+              {/* Panel header */}
+              <Box
                 sx={{
-                  ml: 'auto',
-                  height: '22px',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  backgroundColor:
-                    operationalAlerts.some((a) => a.severity === 'critical')
-                      ? '#fee2e2'
-                      : '#fef3c7',
-                  color:
-                    operationalAlerts.some((a) => a.severity === 'critical')
-                      ? '#b91c1c'
-                      : '#b45309',
-                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 2,
+                  px: 2.5,
+                  py: 2,
+                  background: "linear-gradient(135deg, #fff 0%, #eff6ff 100%)",
+                  borderBottom: "1px solid #e5e7eb",
                 }}
-              />
-            )}
-          </Box>
-
-          {/* Alert cards grid */}
-          <Box sx={{ p: 2, backgroundColor: '#fafafa' }}>
-            {operationalAlerts.length === 0 ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 2, px: 1 }}>
+              >
                 <Box
                   sx={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    backgroundColor: '#d1fae5',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    width: 48,
+                    height: 48,
+                    borderRadius: "12px",
+                    backgroundColor: "#dbeafe",
+                    border: "1.5px solid #bfdbfe",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     flexShrink: 0,
                   }}
                 >
-                  <FiInfo size={16} color="#065f46" />
+                  <FiCalendar size={22} color="#2563eb" />
                 </Box>
-                <Typography sx={{ fontSize: '13px', color: '#374151', fontWeight: 500 }}>
-                  All clear — no operational risks detected for the current schedule.
-                </Typography>
+                <Box>
+                  <Typography
+                    sx={{
+                      fontSize: "15px",
+                      fontWeight: 700,
+                      color: "#111827",
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    Schedule Summary
+                  </Typography>
+                  <Typography
+                    sx={{ fontSize: "11px", color: "#6b7280", mt: 0.2 }}
+                  >
+                    Overview of active staff, shifts, and schedule coverage
+                  </Typography>
+                </Box>
               </Box>
-            ) : (
+              {/* Cards body */}
               <Box
                 sx={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-                  gap: '10px',
+                  p: 2,
+                  backgroundColor: "#fafafa",
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "10px",
+                  flex: 1,
                 }}
               >
-                {operationalAlerts.map((alert) => {
-                  const cfg = alertConfig[alert.severity];
-                  return (
+                {summaryCards.map((card) => (
+                  <Box
+                    key={card.title}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "14px",
+                      backgroundColor: "#fff",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "10px",
+                      px: "16px",
+                      py: "12px",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                    }}
+                  >
                     <Box
-                      key={alert.id}
                       sx={{
-                        backgroundColor: cfg.bg,
-                        border: `1.5px solid ${cfg.border}`,
-                        borderRadius: '10px',
-                        p: '10px 12px',
-                        display: 'flex',
-                        gap: 1,
-                        transition: 'box-shadow 0.15s',
-                        '&:hover': { boxShadow: `0 3px 10px ${cfg.border}` },
+                        width: 40,
+                        height: 40,
+                        borderRadius: "10px",
+                        backgroundColor: card.accentBg,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: card.accent,
+                        flexShrink: 0,
                       }}
                     >
-                      <Box sx={{ mt: '2px', display: 'flex', alignItems: 'flex-start', color: cfg.color, flexShrink: 0 }}>
-                        {cfg.icon}
-                      </Box>
-                      <Box>
-                        {(() => {
-                          let severityLabel: string;
-                          if (alert.severity === 'critical') {
-                            severityLabel = 'Critical';
-                          } else if (alert.severity === 'warning') {
-                            severityLabel = 'Warning';
-                          } else {
-                            severityLabel = 'Info';
-                          }
-                          return (
-                            <Typography sx={{ fontSize: '11px', fontWeight: 700, color: cfg.color, lineHeight: 1.3, mb: 0.25 }}>
-                              {severityLabel}: {alert.title}
-                            </Typography>
-                          );
-                        })()}
-                        <Typography sx={{ fontSize: '11px', color: cfg.color, lineHeight: 1.45, opacity: 0.9 }}>
-                          {alert.message}
-                        </Typography>
-                      </Box>
+                      {card.icon}
                     </Box>
-                  );
-                })}
+                    <Box>
+                      <Typography
+                        sx={{
+                          fontSize: "11px",
+                          fontWeight: 500,
+                          color: "#9ca3af",
+                          lineHeight: 1,
+                          mb: "4px",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        {card.title}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: "24px",
+                          fontWeight: 700,
+                          color: "#111827",
+                          lineHeight: 1,
+                        }}
+                      >
+                        {card.value}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
               </Box>
-            )}
+            </Box>
           </Box>
+
+          {/* Alerts & Operational Risks — right, admin only */}
+          {isAdmin && (
+            <Box
+              sx={{
+                flex: 1.5,
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <Box
+                sx={{
+                  borderRadius: "14px",
+                  border: "1.5px solid #e5e7eb",
+                  overflow: "hidden",
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                {/* Panel header */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2,
+                    px: 2.5,
+                    py: 2,
+                    background:
+                      "linear-gradient(135deg, #fff 0%, #fef2f2 100%)",
+                    borderBottom: "1px solid #e5e7eb",
+                  }}
+                >
+                  {/* Bell icon block */}
+                  <Box
+                    sx={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: "12px",
+                      backgroundColor: "#fee2e2",
+                      border: "1.5px solid #fecaca",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <FiAlertTriangle size={22} color="#ef4444" />
+                  </Box>
+                  <Box>
+                    <Typography
+                      sx={{
+                        fontSize: "15px",
+                        fontWeight: 700,
+                        color: "#111827",
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      Alerts &amp; Operational Risks
+                    </Typography>
+                    <Typography
+                      sx={{ fontSize: "11px", color: "#6b7280", mt: 0.2 }}
+                    >
+                      Live analysis of schedule coverage, workload balance, and
+                      specialization gaps
+                    </Typography>
+                  </Box>
+                  {operationalAlerts.length > 0 && (
+                    <Chip
+                      label={`${operationalAlerts.length} alert${operationalAlerts.length > 1 ? "s" : ""}`}
+                      size="small"
+                      sx={{
+                        ml: "auto",
+                        height: "22px",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        backgroundColor: operationalAlerts.some(
+                          (a) => a.severity === "critical",
+                        )
+                          ? "#fee2e2"
+                          : "#fef3c7",
+                        color: operationalAlerts.some(
+                          (a) => a.severity === "critical",
+                        )
+                          ? "#b91c1c"
+                          : "#b45309",
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                </Box>
+
+                {/* Alert cards grid */}
+                <Box sx={{ p: 2, backgroundColor: "#fafafa" }}>
+                  {operationalAlerts.length === 0 ? (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                        py: 2,
+                        px: 1,
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: "50%",
+                          backgroundColor: "#d1fae5",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <FiInfo size={16} color="#065f46" />
+                      </Box>
+                      <Typography
+                        sx={{
+                          fontSize: "13px",
+                          color: "#374151",
+                          fontWeight: 500,
+                        }}
+                      >
+                        All clear — no operational risks detected for the
+                        current schedule.
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fill, minmax(260px, 1fr))",
+                        gap: "10px",
+                      }}
+                    >
+                      {operationalAlerts.map((alert) => {
+                        const cfg = alertConfig[alert.severity];
+                        return (
+                          <Box
+                            key={alert.id}
+                            sx={{
+                              backgroundColor: cfg.bg,
+                              border: `1.5px solid ${cfg.border}`,
+                              borderRadius: "10px",
+                              p: "10px 12px",
+                              display: "flex",
+                              gap: 1,
+                              transition: "box-shadow 0.15s",
+                              "&:hover": {
+                                boxShadow: `0 3px 10px ${cfg.border}`,
+                              },
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                mt: "2px",
+                                display: "flex",
+                                alignItems: "flex-start",
+                                color: cfg.color,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {cfg.icon}
+                            </Box>
+                            <Box>
+                              {(() => {
+                                let severityLabel: string;
+                                if (alert.severity === "critical") {
+                                  severityLabel = "Critical";
+                                } else if (alert.severity === "warning") {
+                                  severityLabel = "Warning";
+                                } else {
+                                  severityLabel = "Info";
+                                }
+                                return (
+                                  <Typography
+                                    sx={{
+                                      fontSize: "11px",
+                                      fontWeight: 700,
+                                      color: cfg.color,
+                                      lineHeight: 1.3,
+                                      mb: 0.25,
+                                    }}
+                                  >
+                                    {severityLabel}: {alert.title}
+                                  </Typography>
+                                );
+                              })()}
+                              <Typography
+                                sx={{
+                                  fontSize: "11px",
+                                  color: cfg.color,
+                                  lineHeight: 1.45,
+                                  opacity: 0.9,
+                                }}
+                              >
+                                {alert.message}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            </Box>
+          )}
         </Box>
-        </Box>
-        )}
-      </Box>
       )}
 
       {/* Tab 1: 7-Day Calendar View */}
@@ -1413,21 +1748,23 @@ function Schedule() {
         <Box sx={{ mb: 3 }}>
           <Box
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
               gap: 2,
               mb: 2,
-              flexWrap: 'wrap',
+              flexWrap: "wrap",
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <FiCalendar style={{ color: '#6b7280', fontSize: 18 }} />
-              <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <FiCalendar style={{ color: "#6b7280", fontSize: 18 }} />
+              <Typography
+                sx={{ fontSize: "16px", fontWeight: 700, color: "#111827" }}
+              >
                 Weekly Schedule
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+            <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
               <IconButton
                 size="small"
                 onClick={() => setSchedulePage(Math.max(1, schedulePage - 1))}
@@ -1440,17 +1777,17 @@ function Schedule() {
                   value={weekStartDate}
                   onChange={(newDate) => {
                     if (newDate) {
-                      handleWeekDateChange(newDate.toISOString().split('T')[0]);
+                      handleWeekDateChange(newDate.toISOString().split("T")[0]);
                     }
                   }}
                   slotProps={{
                     textField: {
-                      size: 'small',
+                      size: "small",
                       sx: {
-                        width: '120px',
-                        backgroundColor: 'white',
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: '6px',
+                        width: "120px",
+                        backgroundColor: "white",
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "6px",
                         },
                       },
                     },
@@ -1458,17 +1795,21 @@ function Schedule() {
                 />
               </LocalizationProvider>
               <Chip
-                label={`${weekStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(weekStartDate.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                label={`${weekStartDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${new Date(weekStartDate.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
                 sx={{
-                  backgroundColor: '#eff6ff',
-                  color: '#1e40af',
+                  backgroundColor: "#eff6ff",
+                  color: "#1e40af",
                   fontWeight: 600,
-                  fontSize: '12px',
+                  fontSize: "12px",
                 }}
               />
               <IconButton
                 size="small"
-                onClick={() => setSchedulePage(Math.min(SCHEDULE_PAGE_COUNT, schedulePage + 1))}
+                onClick={() =>
+                  setSchedulePage(
+                    Math.min(SCHEDULE_PAGE_COUNT, schedulePage + 1),
+                  )
+                }
                 disabled={schedulePage === SCHEDULE_PAGE_COUNT}
               >
                 <FiChevronRight style={{ fontSize: 18 }} />
@@ -1477,37 +1818,61 @@ function Schedule() {
           </Box>
 
           {isAdmin && (
-            <Typography sx={{ fontSize: '12px', color: '#6b7280', mb: 1.5 }}>
-              Drag schedule cards and drop them into a day/session lane to alter assignments.
+            <Typography sx={{ fontSize: "12px", color: "#6b7280", mb: 1.5 }}>
+              Drag schedule cards and drop them into a day/session lane to alter
+              assignments.
             </Typography>
           )}
 
           {/* 7-Day Calendar Grid */}
           <Box
             sx={{
-              display: 'grid',
+              display: "grid",
               gridTemplateColumns: {
-                xs: '1fr',
-                sm: 'repeat(2, 1fr)',
-                md: 'repeat(3, 1fr)',
-                lg: 'repeat(4, 1fr)',
-                xl: 'repeat(7, 1fr)',
+                xs: "1fr",
+                sm: "repeat(2, 1fr)",
+                md: "repeat(3, 1fr)",
+                lg: "repeat(4, 1fr)",
+                xl: "repeat(7, 1fr)",
               },
-              gap: '12px',
+              gap: "12px",
             }}
           >
             {(() => {
-              const roleColors: Record<string, { bg: string; text: string; border: string; accent: string }> = {
-                Doctor: { bg: '#eff6ff', text: '#0c4a6e', border: '#0284c7', accent: '#dbeafe' },
-                Nurse: { bg: '#faf5ff', text: '#4c1d95', border: '#7c3aed', accent: '#ddd6fe' },
-                Technician: { bg: '#fdf2f8', text: '#831843', border: '#ec4899', accent: '#fce7f3' },
-                Staff: { bg: '#f5f3ff', text: '#312e81', border: '#6366f1', accent: '#e0e7ff' },
+              const roleColors: Record<
+                string,
+                { bg: string; text: string; border: string; accent: string }
+              > = {
+                Doctor: {
+                  bg: "#eff6ff",
+                  text: "#0c4a6e",
+                  border: "#0284c7",
+                  accent: "#dbeafe",
+                },
+                Nurse: {
+                  bg: "#faf5ff",
+                  text: "#4c1d95",
+                  border: "#7c3aed",
+                  accent: "#ddd6fe",
+                },
+                Technician: {
+                  bg: "#fdf2f8",
+                  text: "#831843",
+                  border: "#ec4899",
+                  accent: "#fce7f3",
+                },
+                Staff: {
+                  bg: "#f5f3ff",
+                  text: "#312e81",
+                  border: "#6366f1",
+                  accent: "#e0e7ff",
+                },
               };
 
               return Array.from({ length: 7 }).map((_, i) => {
                 const currentDate = new Date(weekStartDate);
                 currentDate.setDate(currentDate.getDate() + i);
-                const dateKey = currentDate.toISOString().split('T')[0];
+                const dateKey = currentDate.toISOString().split("T")[0];
                 const dayOfWeek = currentDate.getDay();
                 const daySchedules = schedules
                   .filter((s) => s.day_of_week === dayOfWeek && s.is_active)
@@ -1515,53 +1880,65 @@ function Schedule() {
                     if (!searchTerm.trim()) return true;
                     const q = searchTerm.toLowerCase();
                     return (
-                      (s.staff?.name ?? '').toLowerCase().includes(q) ||
-                      (s.staff?.role ?? '').toLowerCase().includes(q) ||
-                      (s.staff?.department ?? '').toLowerCase().includes(q)
+                      (s.staff?.name ?? "").toLowerCase().includes(q) ||
+                      (s.staff?.role ?? "").toLowerCase().includes(q) ||
+                      (s.staff?.department ?? "").toLowerCase().includes(q)
                     );
                   });
-                const daySchedulesBySession: Record<ShiftSession, ScheduleWithStaff[]> = {
-                  AM: daySchedules.filter((s) => resolveScheduleSession(s) === 'AM'),
-                  PM: daySchedules.filter((s) => resolveScheduleSession(s) === 'PM'),
+                const daySchedulesBySession: Record<
+                  ShiftSession,
+                  ScheduleWithStaff[]
+                > = {
+                  AM: daySchedules.filter(
+                    (s) => resolveScheduleSession(s) === "AM",
+                  ),
+                  PM: daySchedules.filter(
+                    (s) => resolveScheduleSession(s) === "PM",
+                  ),
                 };
-                const isToday = new Date().toDateString() === currentDate.toDateString();
+                const isToday =
+                  new Date().toDateString() === currentDate.toDateString();
                 const isSunday = dayOfWeek === 0;
-                
+
                 // Compute header styling to reduce nested ternaries
                 let headerBgColor: string;
                 if (isToday) {
-                  headerBgColor = '#2563eb';
+                  headerBgColor = "#2563eb";
                 } else if (isSunday) {
-                  headerBgColor = '#fee2e2';
+                  headerBgColor = "#fee2e2";
                 } else {
-                  headerBgColor = '#f9fafb';
+                  headerBgColor = "#f9fafb";
                 }
-                
+
                 let headerTextColor: string;
                 if (isToday) {
-                  headerTextColor = '#fff';
+                  headerTextColor = "#fff";
                 } else if (isSunday) {
-                  headerTextColor = '#991b1b';
+                  headerTextColor = "#991b1b";
                 } else {
-                  headerTextColor = '#111827';
+                  headerTextColor = "#111827";
                 }
 
                 return (
                   <Box
                     key={dateKey}
                     sx={{
-                      border: isToday ? '2px solid #2563eb' : '1.5px solid #e5e7eb',
-                      borderRadius: '10px',
-                      backgroundColor: isToday ? '#eff6ff' : '#ffffff',
-                      overflow: 'hidden',
-                      boxShadow: isToday ? '0 4px 12px rgba(37, 99, 235, 0.15)' : '0 1px 3px rgba(0,0,0,0.05)',
-                      transition: 'all 0.2s',
-                      '&:hover': {
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                        transform: 'translateY(-2px)',
+                      border: isToday
+                        ? "2px solid #2563eb"
+                        : "1.5px solid #e5e7eb",
+                      borderRadius: "10px",
+                      backgroundColor: isToday ? "#eff6ff" : "#ffffff",
+                      overflow: "hidden",
+                      boxShadow: isToday
+                        ? "0 4px 12px rgba(37, 99, 235, 0.15)"
+                        : "0 1px 3px rgba(0,0,0,0.05)",
+                      transition: "all 0.2s",
+                      "&:hover": {
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                        transform: "translateY(-2px)",
                       },
-                      display: 'flex',
-                      flexDirection: 'column',
+                      display: "flex",
+                      flexDirection: "column",
                     }}
                   >
                     {/* Date Header */}
@@ -1570,15 +1947,24 @@ function Schedule() {
                         backgroundColor: headerBgColor,
                         px: 1.5,
                         py: 1.2,
-                        borderBottom: '1px solid #e5e7eb',
+                        borderBottom: "1px solid #e5e7eb",
                       }}
                     >
-                      <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>
-                        {currentDate.toLocaleString('default', { weekday: 'short' })}
+                      <Typography
+                        sx={{
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          color: "#6b7280",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {currentDate.toLocaleString("default", {
+                          weekday: "short",
+                        })}
                       </Typography>
                       <Typography
                         sx={{
-                          fontSize: '22px',
+                          fontSize: "22px",
                           fontWeight: 700,
                           color: headerTextColor,
                           mt: 0.3,
@@ -1588,12 +1974,15 @@ function Schedule() {
                       </Typography>
                       <Typography
                         sx={{
-                          fontSize: '11px',
-                          color: isToday ? 'rgba(255,255,255,0.8)' : '#9ca3af',
+                          fontSize: "11px",
+                          color: isToday ? "rgba(255,255,255,0.8)" : "#9ca3af",
                           mt: 0.2,
                         }}
                       >
-                        {currentDate.toLocaleString('default', { month: 'short', year: 'numeric' })}
+                        {currentDate.toLocaleString("default", {
+                          month: "short",
+                          year: "numeric",
+                        })}
                       </Typography>
                     </Box>
 
@@ -1602,23 +1991,23 @@ function Schedule() {
                       sx={{
                         flex: 1,
                         p: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px',
-                        minHeight: '240px',
-                        overflowY: 'auto',
-                        '&::-webkit-scrollbar': {
-                          width: '4px',
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px",
+                        minHeight: "240px",
+                        overflowY: "auto",
+                        "&::-webkit-scrollbar": {
+                          width: "4px",
                         },
-                        '&::-webkit-scrollbar-track': {
-                          backgroundColor: '#f3f4f6',
-                          borderRadius: '4px',
+                        "&::-webkit-scrollbar-track": {
+                          backgroundColor: "#f3f4f6",
+                          borderRadius: "4px",
                         },
-                        '&::-webkit-scrollbar-thumb': {
-                          backgroundColor: '#d1d5db',
-                          borderRadius: '4px',
-                          '&:hover': {
-                            backgroundColor: '#9ca3af',
+                        "&::-webkit-scrollbar-thumb": {
+                          backgroundColor: "#d1d5db",
+                          borderRadius: "4px",
+                          "&:hover": {
+                            backgroundColor: "#9ca3af",
                           },
                         },
                       }}
@@ -1629,24 +2018,43 @@ function Schedule() {
                           onDragOver={handleSessionDragOver}
                           onDrop={handleSessionDrop(dayOfWeek, session)}
                           sx={{
-                            border: draggingScheduleId && isAdmin ? '1px dashed #2563eb' : '1px solid #e5e7eb',
-                            borderRadius: '8px',
+                            border:
+                              draggingScheduleId && isAdmin
+                                ? "1px dashed #2563eb"
+                                : "1px solid #e5e7eb",
+                            borderRadius: "8px",
                             p: 1,
-                            backgroundColor: '#ffffff',
-                            display: 'flex',
-                            flexDirection: 'column',
+                            backgroundColor: "#ffffff",
+                            display: "flex",
+                            flexDirection: "column",
                             gap: 0.6,
                           }}
                         >
-                          <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#1f2937' }}>
+                          <Typography
+                            sx={{
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              color: "#1f2937",
+                            }}
+                          >
                             {session} Session
                           </Typography>
                           {daySchedulesBySession[session].length === 0 ? (
-                            <Typography sx={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>
+                            <Typography
+                              sx={{
+                                fontSize: "11px",
+                                color: "#9ca3af",
+                                fontStyle: "italic",
+                              }}
+                            >
                               No staff
                             </Typography>
                           ) : (
-                            renderSessionSchedules(session, daySchedulesBySession[session], roleColors)
+                            renderSessionSchedules(
+                              session,
+                              daySchedulesBySession[session],
+                              roleColors,
+                            )
                           )}
                         </Box>
                       ))}
@@ -1655,14 +2063,20 @@ function Schedule() {
                     {/* Staff Count Footer */}
                     <Box
                       sx={{
-                        backgroundColor: '#f9fafb',
+                        backgroundColor: "#f9fafb",
                         px: 1.5,
                         py: 0.8,
-                        borderTop: '1px solid #e5e7eb',
-                        textAlign: 'center',
+                        borderTop: "1px solid #e5e7eb",
+                        textAlign: "center",
                       }}
                     >
-                      <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#6b7280' }}>
+                      <Typography
+                        sx={{
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: "#6b7280",
+                        }}
+                      >
                         {daySchedules.length} staff
                       </Typography>
                     </Box>
@@ -1676,62 +2090,84 @@ function Schedule() {
 
       {/* Tab 2: Swap Requests / Approvals */}
       {currentTab === 2 && (
-        <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ mb: 3, display: "flex", flexDirection: "column", gap: 2 }}>
           {isAdmin ? (
             <>
               {swapRequests.length === 0 ? (
                 <Box
                   sx={{
-                    borderRadius: '10px',
-                    border: '1px solid #dbeafe',
-                    backgroundColor: '#eff6ff',
+                    borderRadius: "10px",
+                    border: "1px solid #dbeafe",
+                    backgroundColor: "#eff6ff",
                     p: 2,
                   }}
                 >
-                  <Typography sx={{ fontSize: '13px', color: '#1e40af', fontWeight: 600 }}>
+                  <Typography
+                    sx={{ fontSize: "13px", color: "#1e40af", fontWeight: 600 }}
+                  >
                     No pending schedule swap approvals.
                   </Typography>
                 </Box>
               ) : (
                 swapRequests.map((request) => {
-                  const fromShift = request.from_schedule ? resolveScheduleSession(request.from_schedule) : 'AM';
+                  const fromShift = request.from_schedule
+                    ? resolveScheduleSession(request.from_schedule)
+                    : "AM";
                   const dayLabel = request.from_schedule
                     ? weekDaysFull[request.from_schedule.day_of_week]
-                    : 'Unknown day';
+                    : "Unknown day";
                   return (
                     <Box
                       key={request.id}
                       sx={{
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '10px',
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "10px",
                         p: 2,
-                        backgroundColor: '#ffffff',
-                        display: 'flex',
-                        flexDirection: 'column',
+                        backgroundColor: "#ffffff",
+                        display: "flex",
+                        flexDirection: "column",
                         gap: 1,
                       }}
                     >
-                      <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
-                        {request.requested_by?.name ?? 'Unknown'} requested a swap
+                      <Typography
+                        sx={{
+                          fontSize: "14px",
+                          fontWeight: 700,
+                          color: "#111827",
+                        }}
+                      >
+                        {request.requested_by?.name ?? "Unknown"} requested a
+                        swap
                       </Typography>
-                      <Typography sx={{ fontSize: '12px', color: '#4b5563' }}>
+                      <Typography sx={{ fontSize: "12px", color: "#4b5563" }}>
                         {dayLabel} • {fromShift} session
                       </Typography>
-                      <Typography sx={{ fontSize: '12px', color: '#4b5563' }}>
-                        {request.from_schedule?.staff?.name ?? 'Unknown'} ↔ {request.to_schedule?.staff?.name ?? 'Unknown'}
+                      <Typography sx={{ fontSize: "12px", color: "#4b5563" }}>
+                        {request.from_schedule?.staff?.name ?? "Unknown"} ↔{" "}
+                        {request.to_schedule?.staff?.name ?? "Unknown"}
                       </Typography>
                       {request.reason && (
-                        <Typography sx={{ fontSize: '12px', color: '#6b7280', fontStyle: 'italic' }}>
+                        <Typography
+                          sx={{
+                            fontSize: "12px",
+                            color: "#6b7280",
+                            fontStyle: "italic",
+                          }}
+                        >
                           Reason: {request.reason}
                         </Typography>
                       )}
-                      <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                      <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
                         <Button
                           size="small"
                           variant="contained"
                           onClick={() => handleApproveSwapRequest(request.id)}
                           disabled={swapActionLoadingId === request.id}
-                          sx={{ textTransform: 'none', backgroundColor: '#16a34a', '&:hover': { backgroundColor: '#15803d' } }}
+                          sx={{
+                            textTransform: "none",
+                            backgroundColor: "#16a34a",
+                            "&:hover": { backgroundColor: "#15803d" },
+                          }}
                         >
                           Approve
                         </Button>
@@ -1740,7 +2176,11 @@ function Schedule() {
                           variant="outlined"
                           onClick={() => handleRejectSwapRequest(request.id)}
                           disabled={swapActionLoadingId === request.id}
-                          sx={{ textTransform: 'none', borderColor: '#dc2626', color: '#dc2626' }}
+                          sx={{
+                            textTransform: "none",
+                            borderColor: "#dc2626",
+                            color: "#dc2626",
+                          }}
                         >
                           Reject
                         </Button>
@@ -1754,28 +2194,40 @@ function Schedule() {
             <>
               <Box
                 sx={{
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '10px',
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "10px",
                   p: 2,
-                  display: 'flex',
-                  flexDirection: 'column',
+                  display: "flex",
+                  flexDirection: "column",
                   gap: 1.5,
-                  backgroundColor: '#ffffff',
+                  backgroundColor: "#ffffff",
                 }}
               >
-                <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                <Typography
+                  sx={{ fontSize: "14px", fontWeight: 700, color: "#111827" }}
+                >
                   Request Schedule Swap (Doctors)
                 </Typography>
                 <FormControl size="small" fullWidth>
-                  <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ fontWeight: 600, color: "#374151", mb: 0.5 }}
+                  >
                     Your upcoming schedule
                   </Typography>
                   <Select
                     value={swapForm.fromScheduleId}
-                    onChange={(e) => setSwapForm((prev) => ({ ...prev, fromScheduleId: e.target.value }))}
+                    onChange={(e) =>
+                      setSwapForm((prev) => ({
+                        ...prev,
+                        fromScheduleId: e.target.value,
+                      }))
+                    }
                     displayEmpty
                   >
-                    <MenuItem value="" disabled>Select one of your schedules</MenuItem>
+                    <MenuItem value="" disabled>
+                      Select one of your schedules
+                    </MenuItem>
                     {schedules
                       .filter((s) => s.staff_id === staffProfile?.id)
                       .filter((s) => {
@@ -1788,25 +2240,38 @@ function Schedule() {
                         const shift = resolveScheduleSession(s);
                         return (
                           <MenuItem key={s.id} value={s.id}>
-                            {weekDaysFull[s.day_of_week]} - {shift} ({s.staff?.name ?? 'Me'})
+                            {weekDaysFull[s.day_of_week]} - {shift} (
+                            {s.staff?.name ?? "Me"})
                           </MenuItem>
                         );
                       })}
                   </Select>
                 </FormControl>
                 <FormControl size="small" fullWidth>
-                  <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ fontWeight: 600, color: "#374151", mb: 0.5 }}
+                  >
                     Doctor schedule to swap with
                   </Typography>
                   <Select
                     value={swapForm.toScheduleId}
-                    onChange={(e) => setSwapForm((prev) => ({ ...prev, toScheduleId: e.target.value }))}
+                    onChange={(e) =>
+                      setSwapForm((prev) => ({
+                        ...prev,
+                        toScheduleId: e.target.value,
+                      }))
+                    }
                     displayEmpty
                   >
-                    <MenuItem value="" disabled>Select target schedule</MenuItem>
+                    <MenuItem value="" disabled>
+                      Select target schedule
+                    </MenuItem>
                     {swapCandidateSchedules
                       .filter((s) => s.staff_id !== staffProfile?.id)
-                      .filter((s) => /doctor|physician/i.test(s.staff?.role || ''))
+                      .filter((s) =>
+                        /doctor|physician/i.test(s.staff?.role || ""),
+                      )
                       .filter((s) => {
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
@@ -1817,7 +2282,8 @@ function Schedule() {
                         const shift = resolveScheduleSession(s);
                         return (
                           <MenuItem key={s.id} value={s.id}>
-                            {weekDaysFull[s.day_of_week]} - {shift} ({s.staff?.name ?? 'Unknown'})
+                            {weekDaysFull[s.day_of_week]} - {shift} (
+                            {s.staff?.name ?? "Unknown"})
                           </MenuItem>
                         );
                       })}
@@ -1829,23 +2295,32 @@ function Schedule() {
                   rows={2}
                   label="Reason"
                   value={swapForm.reason}
-                  onChange={(e) => setSwapForm((prev) => ({ ...prev, reason: e.target.value }))}
+                  onChange={(e) =>
+                    setSwapForm((prev) => ({ ...prev, reason: e.target.value }))
+                  }
                 />
                 <Button
                   variant="contained"
                   onClick={handleCreateSwapRequest}
-                  sx={{ textTransform: 'none', width: 'fit-content', backgroundColor: '#2563eb', '&:hover': { backgroundColor: '#1d4ed8' } }}
+                  sx={{
+                    textTransform: "none",
+                    width: "fit-content",
+                    backgroundColor: "#2563eb",
+                    "&:hover": { backgroundColor: "#1d4ed8" },
+                  }}
                 >
                   Submit Swap Request
                 </Button>
               </Box>
 
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <Typography
+                  sx={{ fontSize: "14px", fontWeight: 700, color: "#111827" }}
+                >
                   My Swap Requests
                 </Typography>
                 {swapRequests.length === 0 ? (
-                  <Typography sx={{ fontSize: '12px', color: '#6b7280' }}>
+                  <Typography sx={{ fontSize: "12px", color: "#6b7280" }}>
                     No swap requests yet.
                   </Typography>
                 ) : (
@@ -1855,17 +2330,32 @@ function Schedule() {
                       <Box
                         key={request.id}
                         sx={{
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '10px',
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "10px",
                           p: 1.5,
-                          backgroundColor: '#ffffff',
+                          backgroundColor: "#ffffff",
                         }}
                       >
-                        <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>
-                          {weekDaysFull[request.from_schedule?.day_of_week ?? 0]} • {request.from_schedule ? resolveScheduleSession(request.from_schedule) : 'AM'}
+                        <Typography
+                          sx={{
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            color: "#111827",
+                          }}
+                        >
+                          {
+                            weekDaysFull[
+                              request.from_schedule?.day_of_week ?? 0
+                            ]
+                          }{" "}
+                          •{" "}
+                          {request.from_schedule
+                            ? resolveScheduleSession(request.from_schedule)
+                            : "AM"}
                         </Typography>
-                        <Typography sx={{ fontSize: '12px', color: '#4b5563' }}>
-                          {request.from_schedule?.staff?.name ?? 'Unknown'} ↔ {request.to_schedule?.staff?.name ?? 'Unknown'}
+                        <Typography sx={{ fontSize: "12px", color: "#4b5563" }}>
+                          {request.from_schedule?.staff?.name ?? "Unknown"} ↔{" "}
+                          {request.to_schedule?.staff?.name ?? "Unknown"}
                         </Typography>
                         <Chip
                           label={request.status.toUpperCase()}
@@ -1874,7 +2364,7 @@ function Schedule() {
                             mt: 1,
                             backgroundColor: statusStyle.backgroundColor,
                             color: statusStyle.color,
-                            fontSize: '10px',
+                            fontSize: "10px",
                             fontWeight: 700,
                           }}
                         />
@@ -1888,64 +2378,92 @@ function Schedule() {
         </Box>
       )}
 
-
       {/* Tab 3: Alerts (Admin only) */}
       {currentTab === 3 && isAdmin && (
-      <Box sx={{ marginBottom: '28px' }}>
-        {operationalAlerts.length === 0 ? (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.5,
-              py: 2,
-              px: 2,
-              backgroundColor: '#d1fae5',
-              borderRadius: '8px',
-              border: '1px solid #a7f3d0',
-            }}
-          >
-            <FiInfo size={16} color="#065f46" />
-            <Typography sx={{ fontSize: '13px', color: '#065f46', fontWeight: 500 }}>
-              All clear — no operational risks detected for the current schedule.
-            </Typography>
-          </Box>
-        ) : (
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
-            {operationalAlerts.map((alert) => {
-              const alertConfig: Record<AlertSeverity, { bg: string; border: string; icon: string }> = {
-                critical: { bg: '#fef2f2', border: '#fecaca', icon: '🚨' },
-                warning: { bg: '#fffbeb', border: '#fde68a', icon: '⚠️' },
-                info: { bg: '#ecf0ff', border: '#c7d2fe', icon: 'ℹ️' },
-              };
-              const cfg = alertConfig[alert.severity];
-              return (
-                <Box
-                  key={alert.id}
-                  sx={{
-                    border: `1.5px solid ${cfg.border}`,
-                    borderRadius: '8px',
-                    p: 2,
-                    backgroundColor: cfg.bg,
-                  }}
-                >
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                    <Box sx={{ fontSize: '18px', flexShrink: 0, mt: 0 }}>{cfg.icon}</Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#111827', mb: 0.5 }}>
-                        {alert.title}
-                      </Typography>
-                      <Typography sx={{ fontSize: '12px', color: '#4b5563', lineHeight: 1.5 }}>
-                        {alert.message}
-                      </Typography>
+        <Box sx={{ marginBottom: "28px" }}>
+          {operationalAlerts.length === 0 ? (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                py: 2,
+                px: 2,
+                backgroundColor: "#d1fae5",
+                borderRadius: "8px",
+                border: "1px solid #a7f3d0",
+              }}
+            >
+              <FiInfo size={16} color="#065f46" />
+              <Typography
+                sx={{ fontSize: "13px", color: "#065f46", fontWeight: 500 }}
+              >
+                All clear — no operational risks detected for the current
+                schedule.
+              </Typography>
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                gap: "12px",
+              }}
+            >
+              {operationalAlerts.map((alert) => {
+                const alertConfig: Record<
+                  AlertSeverity,
+                  { bg: string; border: string; icon: string }
+                > = {
+                  critical: { bg: "#fef2f2", border: "#fecaca", icon: "🚨" },
+                  warning: { bg: "#fffbeb", border: "#fde68a", icon: "⚠️" },
+                  info: { bg: "#ecf0ff", border: "#c7d2fe", icon: "ℹ️" },
+                };
+                const cfg = alertConfig[alert.severity];
+                return (
+                  <Box
+                    key={alert.id}
+                    sx={{
+                      border: `1.5px solid ${cfg.border}`,
+                      borderRadius: "8px",
+                      p: 2,
+                      backgroundColor: cfg.bg,
+                    }}
+                  >
+                    <Box
+                      sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}
+                    >
+                      <Box sx={{ fontSize: "18px", flexShrink: 0, mt: 0 }}>
+                        {cfg.icon}
+                      </Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography
+                          sx={{
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            color: "#111827",
+                            mb: 0.5,
+                          }}
+                        >
+                          {alert.title}
+                        </Typography>
+                        <Typography
+                          sx={{
+                            fontSize: "12px",
+                            color: "#4b5563",
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {alert.message}
+                        </Typography>
+                      </Box>
                     </Box>
                   </Box>
-                </Box>
-              );
-            })}
-          </Box>
-        )}
-      </Box>
+                );
+              })}
+            </Box>
+          )}
+        </Box>
       )}
 
       {/* Generate Schedule Preview Dialog */}
@@ -1957,9 +2475,9 @@ function Schedule() {
       >
         <DialogTitle
           sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             pb: 1,
           }}
         >
@@ -1967,8 +2485,10 @@ function Schedule() {
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               Schedule Generation Preview
             </Typography>
-            <Typography variant="caption" sx={{ color: '#6b7280' }}>
-              Review the proposed schedule before applying. The system uses recent appointment trends to allocate staff where demand is highest.
+            <Typography variant="caption" sx={{ color: "#6b7280" }}>
+              Review the proposed schedule before applying. The system uses
+              recent appointment trends to allocate staff where demand is
+              highest.
             </Typography>
           </Box>
           <IconButton
@@ -1981,53 +2501,70 @@ function Schedule() {
         </DialogTitle>
         <DialogContent dividers>
           {previewData && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {/* Summary info */}
               <Box
                 sx={{
-                  backgroundColor: '#eff6ff',
-                  border: '1px solid #bfdbfe',
-                  borderRadius: '8px',
+                  backgroundColor: "#eff6ff",
+                  border: "1px solid #bfdbfe",
+                  borderRadius: "8px",
                   p: 1.5,
                 }}
               >
-                <Typography sx={{ fontSize: '12px', color: '#1e40af' }}>
-                  <strong>Preview:</strong> This will clear existing weekly schedules for{' '}
-                  <strong>{previewData.staffIdsToClear.length}</strong> staff and create{' '}
-                  <strong>{previewData.scheduleInserts.length}</strong> new schedule entries.
+                <Typography sx={{ fontSize: "12px", color: "#1e40af" }}>
+                  <strong>Preview:</strong> This will clear existing weekly
+                  schedules for{" "}
+                  <strong>{previewData.staffIdsToClear.length}</strong> staff
+                  and create{" "}
+                  <strong>{previewData.scheduleInserts.length}</strong> new
+                  schedule entries.
                 </Typography>
               </Box>
 
               {/* Per-day breakdown */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
                 {previewData.dayPreviews.map((dp) => (
                   <Box
                     key={dp.day}
                     sx={{
-                      borderRadius: '8px',
-                      border: '1px solid #e5e7eb',
-                      overflow: 'hidden',
+                      borderRadius: "8px",
+                      border: "1px solid #e5e7eb",
+                      overflow: "hidden",
                     }}
                   >
                     <Box
                       sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
                         px: 1.5,
                         py: 0.8,
-                        backgroundColor: '#f9fafb',
-                        borderBottom: '1px solid #e5e7eb',
+                        backgroundColor: "#f9fafb",
+                        borderBottom: "1px solid #e5e7eb",
                       }}
                     >
-                      <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#1f2937' }}>
+                      <Typography
+                        sx={{
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          color: "#1f2937",
+                        }}
+                      >
                         {weekDaysFull[dp.day]}
                       </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography sx={{ fontSize: '11px', color: '#6b7280' }}>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
+                        <Typography sx={{ fontSize: "11px", color: "#6b7280" }}>
                           {dp.currentCount} currently scheduled
                         </Typography>
-                        <Typography sx={{ fontSize: '11px', fontWeight: 700, color: '#16a34a' }}>
+                        <Typography
+                          sx={{
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            color: "#16a34a",
+                          }}
+                        >
                           → {dp.targetCount} planned
                         </Typography>
                       </Box>
@@ -2035,34 +2572,43 @@ function Schedule() {
 
                     {dp.assigned.length === 0 ? (
                       <Box sx={{ px: 1.5, py: 1 }}>
-                        <Typography sx={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>
+                        <Typography
+                          sx={{
+                            fontSize: "11px",
+                            color: "#9ca3af",
+                            fontStyle: "italic",
+                          }}
+                        >
                           No staff assigned
                         </Typography>
                       </Box>
                     ) : (
-                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                      <Box sx={{ display: "flex", flexDirection: "column" }}>
                         {dp.assigned.map((entry, idx) => (
                           <Box
                             key={entry.staffId}
                             sx={{
-                              display: 'flex',
-                              alignItems: 'center',
+                              display: "flex",
+                              alignItems: "center",
                               gap: 1,
                               px: 1.5,
                               py: 0.7,
-                              backgroundColor: idx % 2 === 0 ? '#fff' : '#f9fafb',
+                              backgroundColor:
+                                idx % 2 === 0 ? "#fff" : "#f9fafb",
                               borderBottom:
-                                idx < dp.assigned.length - 1 ? '1px solid #f3f4f6' : 'none',
+                                idx < dp.assigned.length - 1
+                                  ? "1px solid #f3f4f6"
+                                  : "none",
                             }}
                           >
                             <Avatar
                               sx={{
                                 width: 24,
                                 height: 24,
-                                fontSize: '9px',
+                                fontSize: "9px",
                                 fontWeight: 700,
-                                backgroundColor: '#2563eb',
-                                color: '#ffffff',
+                                backgroundColor: "#2563eb",
+                                color: "#ffffff",
                                 flexShrink: 0,
                               }}
                             >
@@ -2070,10 +2616,10 @@ function Schedule() {
                             </Avatar>
                             <Typography
                               sx={{
-                                fontSize: '12px',
+                                fontSize: "12px",
                                 fontWeight: 600,
-                                color: '#1f2937',
-                                minWidth: '140px',
+                                color: "#1f2937",
+                                minWidth: "140px",
                                 flexShrink: 0,
                               }}
                             >
@@ -2083,11 +2629,17 @@ function Schedule() {
                               label={entry.session}
                               size="small"
                               sx={{
-                                height: '18px',
-                                fontSize: '9px',
+                                height: "18px",
+                                fontSize: "9px",
                                 fontWeight: 700,
-                                backgroundColor: entry.session === 'AM' ? '#fff7ed' : '#eff6ff',
-                                color: entry.session === 'AM' ? '#9a3412' : '#1e40af',
+                                backgroundColor:
+                                  entry.session === "AM"
+                                    ? "#fff7ed"
+                                    : "#eff6ff",
+                                color:
+                                  entry.session === "AM"
+                                    ? "#9a3412"
+                                    : "#1e40af",
                                 flexShrink: 0,
                               }}
                             />
@@ -2096,11 +2648,11 @@ function Schedule() {
                                 label={entry.specialization}
                                 size="small"
                                 sx={{
-                                  height: '18px',
-                                  fontSize: '9px',
+                                  height: "18px",
+                                  fontSize: "9px",
                                   fontWeight: 500,
-                                  backgroundColor: '#f0fdf4',
-                                  color: '#166534',
+                                  backgroundColor: "#f0fdf4",
+                                  color: "#166534",
                                   flexShrink: 0,
                                 }}
                               />
@@ -2115,14 +2667,15 @@ function Schedule() {
 
               <Box
                 sx={{
-                  backgroundColor: '#fffbeb',
-                  border: '1px solid #fde68a',
-                  borderRadius: '8px',
+                  backgroundColor: "#fffbeb",
+                  border: "1px solid #fde68a",
+                  borderRadius: "8px",
                   p: 1.5,
                 }}
               >
-                <Typography sx={{ fontSize: '11px', color: '#92400e' }}>
-                  <strong>Note:</strong> Doctors will be notified when their schedule is created.
+                <Typography sx={{ fontSize: "11px", color: "#92400e" }}>
+                  <strong>Note:</strong> Doctors will be notified when their
+                  schedule is created.
                 </Typography>
               </Box>
             </Box>
@@ -2132,21 +2685,25 @@ function Schedule() {
           <Button
             onClick={() => setPreviewOpen(false)}
             disabled={applying}
-            sx={{ textTransform: 'none', color: '#6b7280' }}
+            sx={{ textTransform: "none", color: "#6b7280" }}
           >
             Cancel
           </Button>
           <Button
             variant="contained"
             onClick={handleApplyGenerate}
-            disabled={applying || !previewData || previewData.scheduleInserts.length === 0}
+            disabled={
+              applying ||
+              !previewData ||
+              previewData.scheduleInserts.length === 0
+            }
             sx={{
-              textTransform: 'none',
-              backgroundColor: '#16a34a',
-              '&:hover': { backgroundColor: '#15803d' },
+              textTransform: "none",
+              backgroundColor: "#16a34a",
+              "&:hover": { backgroundColor: "#15803d" },
             }}
           >
-            {applying ? 'Applying…' : 'Apply Schedule'}
+            {applying ? "Applying…" : "Apply Schedule"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2160,31 +2717,51 @@ function Schedule() {
       >
         <DialogTitle
           sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             pb: 1,
           }}
         >
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             Session Time Settings
           </Typography>
-          <IconButton onClick={() => setOpenSessionSettingsDialog(false)} size="small">
+          <IconButton
+            onClick={() => setOpenSessionSettingsDialog(false)}
+            size="small"
+          >
             <FiXCircle />
           </IconButton>
         </DialogTitle>
         <DialogContent dividers>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
+          <Box
+            sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 1 }}
+          >
             <Box>
-              <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827', mb: 1 }}>
+              <Typography
+                sx={{
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  color: "#111827",
+                  mb: 1,
+                }}
+              >
                 AM Session
               </Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 1.5,
+                }}
+              >
                 <TextField
                   label="Start"
                   type="time"
                   value={sessionSettingsDraft.AM.start}
-                  onChange={(e) => handleSessionDraftChange('AM', 'start', e.target.value)}
+                  onChange={(e) =>
+                    handleSessionDraftChange("AM", "start", e.target.value)
+                  }
                   size="small"
                   fullWidth
                 />
@@ -2192,7 +2769,9 @@ function Schedule() {
                   label="End"
                   type="time"
                   value={sessionSettingsDraft.AM.end}
-                  onChange={(e) => handleSessionDraftChange('AM', 'end', e.target.value)}
+                  onChange={(e) =>
+                    handleSessionDraftChange("AM", "end", e.target.value)
+                  }
                   size="small"
                   fullWidth
                 />
@@ -2200,15 +2779,30 @@ function Schedule() {
             </Box>
 
             <Box>
-              <Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#111827', mb: 1 }}>
+              <Typography
+                sx={{
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  color: "#111827",
+                  mb: 1,
+                }}
+              >
                 PM Session
               </Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 1.5,
+                }}
+              >
                 <TextField
                   label="Start"
                   type="time"
                   value={sessionSettingsDraft.PM.start}
-                  onChange={(e) => handleSessionDraftChange('PM', 'start', e.target.value)}
+                  onChange={(e) =>
+                    handleSessionDraftChange("PM", "start", e.target.value)
+                  }
                   size="small"
                   fullWidth
                 />
@@ -2216,7 +2810,9 @@ function Schedule() {
                   label="End"
                   type="time"
                   value={sessionSettingsDraft.PM.end}
-                  onChange={(e) => handleSessionDraftChange('PM', 'end', e.target.value)}
+                  onChange={(e) =>
+                    handleSessionDraftChange("PM", "end", e.target.value)
+                  }
                   size="small"
                   fullWidth
                 />
@@ -2227,7 +2823,7 @@ function Schedule() {
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
             onClick={() => setOpenSessionSettingsDialog(false)}
-            sx={{ textTransform: 'none', color: '#6b7280' }}
+            sx={{ textTransform: "none", color: "#6b7280" }}
           >
             Cancel
           </Button>
@@ -2235,9 +2831,9 @@ function Schedule() {
             variant="contained"
             onClick={() => void handleSaveSessionSettings()}
             sx={{
-              textTransform: 'none',
-              backgroundColor: '#2563eb',
-              '&:hover': { backgroundColor: '#1d4ed8' },
+              textTransform: "none",
+              backgroundColor: "#2563eb",
+              "&:hover": { backgroundColor: "#1d4ed8" },
             }}
           >
             Save Settings
@@ -2254,9 +2850,9 @@ function Schedule() {
       >
         <DialogTitle
           sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             pb: 1,
           }}
         >
@@ -2269,13 +2865,13 @@ function Schedule() {
         </DialogTitle>
         <DialogContent dividers>
           <Box
-            sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}
+            sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 1 }}
           >
             {isAdmin && (
               <FormControl fullWidth size="small">
                 <Typography
                   variant="caption"
-                  sx={{ fontWeight: 600, mb: 0.5, color: '#374151' }}
+                  sx={{ fontWeight: 600, mb: 0.5, color: "#374151" }}
                 >
                   Staff Member
                 </Typography>
@@ -2303,7 +2899,12 @@ function Schedule() {
             <FormControl component="fieldset" fullWidth>
               <Typography
                 variant="caption"
-                sx={{ fontWeight: 600, mb: 1, color: '#374151', display: 'block' }}
+                sx={{
+                  fontWeight: 600,
+                  mb: 1,
+                  color: "#374151",
+                  display: "block",
+                }}
               >
                 Days of Week
               </Typography>
@@ -2312,40 +2913,43 @@ function Schedule() {
                 onChange={(_e, newDays: number[]) =>
                   setFormData((prev) => ({ ...prev, days_of_week: newDays }))
                 }
-                sx={{ flexWrap: 'wrap', gap: '6px' }}
+                sx={{ flexWrap: "wrap", gap: "6px" }}
               >
-                {(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const).map(
-                  (day, i) => (
-                    <ToggleButton
-                      key={day}
-                      value={i}
-                      size="small"
-                      sx={{
-                        border: '1.5px solid #d1d5db !important',
-                        borderRadius: '20px !important',
-                        px: 1.8,
-                        py: 0.5,
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        color: '#6b7280',
-                        textTransform: 'none',
-                        lineHeight: 1.4,
-                        '&.Mui-selected': {
-                          backgroundColor: '#2563eb',
-                          color: '#fff',
-                          borderColor: '#2563eb !important',
-                          '&:hover': { backgroundColor: '#1d4ed8' },
-                        },
-                        '&:hover': { backgroundColor: '#f3f4f6' },
-                      }}
-                    >
-                      {day}
-                    </ToggleButton>
-                  ),
-                )}
+                {(
+                  ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const
+                ).map((day, i) => (
+                  <ToggleButton
+                    key={day}
+                    value={i}
+                    size="small"
+                    sx={{
+                      border: "1.5px solid #d1d5db !important",
+                      borderRadius: "20px !important",
+                      px: 1.8,
+                      py: 0.5,
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "#6b7280",
+                      textTransform: "none",
+                      lineHeight: 1.4,
+                      "&.Mui-selected": {
+                        backgroundColor: "#2563eb",
+                        color: "#fff",
+                        borderColor: "#2563eb !important",
+                        "&:hover": { backgroundColor: "#1d4ed8" },
+                      },
+                      "&:hover": { backgroundColor: "#f3f4f6" },
+                    }}
+                  >
+                    {day}
+                  </ToggleButton>
+                ))}
               </ToggleButtonGroup>
               {formData.days_of_week.length === 0 && (
-                <Typography variant="caption" sx={{ color: '#ef4444', mt: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "#ef4444", mt: 0.5 }}
+                >
                   Select at least one day
                 </Typography>
               )}
@@ -2353,7 +2957,7 @@ function Schedule() {
             <FormControl fullWidth size="small">
               <Typography
                 variant="caption"
-                sx={{ fontWeight: 600, mb: 0.5, color: '#374151' }}
+                sx={{ fontWeight: 600, mb: 0.5, color: "#374151" }}
               >
                 Session
               </Typography>
@@ -2379,8 +2983,8 @@ function Schedule() {
                 sx={{
                   fontWeight: 600,
                   mb: 0.5,
-                  color: '#374151',
-                  display: 'block',
+                  color: "#374151",
+                  display: "block",
                 }}
               >
                 Notes (optional)
@@ -2402,7 +3006,7 @@ function Schedule() {
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
             onClick={() => setOpenModal(false)}
-            sx={{ textTransform: 'none', color: '#6b7280' }}
+            sx={{ textTransform: "none", color: "#6b7280" }}
           >
             Cancel
           </Button>
@@ -2410,9 +3014,9 @@ function Schedule() {
             variant="contained"
             onClick={handleSubmit}
             sx={{
-              textTransform: 'none',
-              backgroundColor: '#2563eb',
-              '&:hover': { backgroundColor: '#1d4ed8' },
+              textTransform: "none",
+              backgroundColor: "#2563eb",
+              "&:hover": { backgroundColor: "#1d4ed8" },
             }}
           >
             Save Schedule
@@ -2425,12 +3029,12 @@ function Schedule() {
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert
           onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
           severity={snackbar.severity}
-          sx={{ width: '100%' }}
+          sx={{ width: "100%" }}
         >
           {snackbar.message}
         </Alert>

@@ -8,6 +8,7 @@ import {
   CardContent,
   Typography,
   Box,
+  Skeleton,
 } from "@mui/material";
 import { getStaffCountByStatus } from "../../backend/services/staffService";
 import {
@@ -170,28 +171,96 @@ function AdminOverview() {
     return "Recently";
   };
 
-  const formatAppointmentTime = (time: string) => {
-    if (!time) return "TBD";
-    const date = new Date(`2000-01-01T${time}`);
-    return date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
-
   if (loading) {
     return (
       <div
         className="overview-container"
         style={{
+          padding: "24px",
           display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "400px",
+          flexDirection: "column",
+          gap: "24px",
         }}
       >
-        <CircularProgress />
+        {/* Header skeleton */}
+        <Box sx={{ mb: 2 }}>
+          <Skeleton variant="text" width="300px" height={32} sx={{ mb: 1 }} />
+          <Skeleton variant="text" width="400px" height={20} />
+        </Box>
+
+        {/* Stats cards skeleton */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              sm: "1fr 1fr",
+              md: "repeat(4, 1fr)",
+            },
+            gap: 2,
+          }}
+        >
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardContent>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <Skeleton variant="circular" width={40} height={40} />
+                  <Box sx={{ flex: 1 }}>
+                    <Skeleton variant="text" height={24} sx={{ mb: 1 }} />
+                    <Skeleton variant="text" width="60%" height={14} />
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+
+        {/* Content grid skeleton */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" },
+            gap: 2,
+          }}
+        >
+          {/* Recent activity section */}
+          <Card>
+            <CardContent>
+              <Skeleton
+                variant="text"
+                width="150px"
+                height={24}
+                sx={{ mb: 2 }}
+              />
+              {[1, 2, 3].map((i) => (
+                <Box key={i} sx={{ mb: 2, display: "flex", gap: 1 }}>
+                  <Skeleton variant="circular" width={32} height={32} />
+                  <Box sx={{ flex: 1 }}>
+                    <Skeleton variant="text" height={16} sx={{ mb: 1 }} />
+                    <Skeleton variant="text" width="70%" height={12} />
+                  </Box>
+                </Box>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Quick stats section */}
+          <Card>
+            <CardContent>
+              <Skeleton
+                variant="text"
+                width="120px"
+                height={24}
+                sx={{ mb: 2 }}
+              />
+              {[1, 2, 3].map((i) => (
+                <Box key={i} sx={{ mb: 2 }}>
+                  <Skeleton variant="text" width="80%" height={14} />
+                </Box>
+              ))}
+            </CardContent>
+          </Card>
+        </Box>
       </div>
     );
   }
@@ -310,7 +379,7 @@ function AdminOverview() {
               upcomingAppointments.map((appointment) => (
                 <div key={appointment.id} className="appointment-item">
                   <div className="appointment-time">
-                    {formatAppointmentTime(appointment.appointment_time || "")}
+                    {formatRelativeTime(appointment.appointment_time || "")}
                   </div>
                   <div className="appointment-details">
                     <p className="appointment-patient">
