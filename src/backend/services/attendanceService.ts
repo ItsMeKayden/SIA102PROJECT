@@ -347,6 +347,29 @@ export const clockIn = async (
 
     if (error) throw error;
 
+    // Update staff duty status to 'On Duty' when clocking in
+    if (staffId && staffId.trim()) {
+      try {
+        console.log('DEBUG: Updating duty_status for staffId:', staffId);
+        const { data: updateData, error: updateError } = await supabase
+          .from('staff')
+          .update({ duty_status: 'On Duty' })
+          .eq('id', staffId)
+          .select();
+        
+        console.log('DEBUG: duty_status update result:', { updated_rows: updateData?.length, error: updateError });
+        
+        if (updateError) {
+          throw updateError;
+        }
+      } catch (updateError) {
+        console.error('Error updating staff duty status:', updateError);
+        // Don't throw error - attendance was created successfully, just log the warning
+      }
+    } else {
+      console.warn('DEBUG: staffId is empty or invalid, skipping duty_status update');
+    }
+
     // Send notifications on successful clock in
     const staffName = await getStaffName(staffId);
     if (staffName) {
@@ -430,6 +453,29 @@ export const clockOut = async (
 
     if (error) throw error;
 
+    // Update staff duty status to 'Off Duty' when clocking out
+    if (staffId && staffId.trim()) {
+      try {
+        console.log('DEBUG: Updating duty_status for staffId:', staffId);
+        const { data: updateData, error: updateError } = await supabase
+          .from('staff')
+          .update({ duty_status: 'Off Duty' })
+          .eq('id', staffId)
+          .select();
+        
+        console.log('DEBUG: duty_status update result:', { updated_rows: updateData?.length, error: updateError });
+        
+        if (updateError) {
+          throw updateError;
+        }
+      } catch (updateError) {
+        console.error('Error updating staff duty status:', updateError);
+        // Don't throw error - attendance was updated successfully, just log the warning
+      }
+    } else {
+      console.warn('DEBUG: staffId is empty or invalid, skipping duty_status update');
+    }
+
     // Send notifications on successful clock out
     const staffName = await getStaffName(staffId);
     if (staffName) {
@@ -502,61 +548,64 @@ export const getAttendanceStats = async (staffId: string, startDate: string, end
 };
 
 // Mark staff as absent and save to database
+// Uses UPSERT to guarantee only one record per staff/date combination
 export const markStaffAbsent = async (
   staffId: string,
   date: string,
   notes?: string
 ): Promise<{ data: Attendance | null; error: string | null }> => {
   try {
-    // Check if staff is already marked as Absent on this date - if so, skip to prevent duplicates
-    const { data: absentRecord, error: absentCheckError } = await supabase
+    // Fetch all existing records for this staff on this date
+    // (in case there are multiple from duplicates)
+    const { data: existingRecords, error: fetchError } = await supabase
       .from('attendance')
       .select('id, status')
       .eq('staff_id', staffId)
-      .eq('date', date)
-      .eq('status', 'Absent')
-      .maybeSingle();
-
-    if (absentCheckError && absentCheckError.code !== 'PGRST116') {
-      throw absentCheckError;
-    }
-
-    // If already marked as Absent, return early to prevent duplicates
-    if (absentRecord) {
-      return { data: absentRecord as Attendance, error: null };
-    }
-
-    // Now check if an attendance record already exists for this staff on this date (with any status)
-    const { data: existingRecord, error: fetchError } = await supabase
-      .from('attendance')
-      .select('id, status, notes')
-      .eq('staff_id', staffId)
-      .eq('date', date)
-      .maybeSingle();
+      .eq('date', date);
 
     if (fetchError && fetchError.code !== 'PGRST116') {
-      // PGRST116 is "no rows returned" error
       throw fetchError;
     }
 
+    // Check if any already marked as Absent
+    const absentRecord = existingRecords?.find(r => r.status === 'Absent');
+    if (absentRecord) {
+      // Already marked absent, return early
+      console.log(`Staff ${staffId} on ${date} already marked as Absent (id: ${absentRecord.id})`);
+      return { data: absentRecord as Attendance, error: null };
+    }
+
     let result;
-    
-    if (existingRecord) {
-      // Update existing record to Absent status
-      const { data, error } = await supabase
+
+    if (existingRecords && existingRecords.length > 0) {
+      // Update the first record to Absent status
+      const recordToUpdate = existingRecords[0];
+      console.log(`Updating existing attendance record ${recordToUpdate.id} to Absent for staff ${staffId} on ${date}`);
+
+      const { data: updatedRecord, error: updateError } = await supabase
         .from('attendance')
         .update({
           status: 'Absent',
-          notes: notes || existingRecord.notes || 'Marked as absent',
+          notes: notes || 'Marked as absent',
         })
-        .eq('id', existingRecord.id)
+        .eq('id', recordToUpdate.id)
         .select()
         .single();
 
-      if (error) throw error;
-      result = data;
+      if (updateError) throw updateError;
+      result = updatedRecord;
+
+      // If there are multiple records (duplicates from previous bug), delete the others
+      if (existingRecords.length > 1) {
+        console.warn(`Found ${existingRecords.length} records for staff ${staffId} on ${date}. Deleting duplicates...`);
+        const duplicateIds = existingRecords.slice(1).map(r => r.id);
+        for (const duplicateId of duplicateIds) {
+          await supabase.from('attendance').delete().eq('id', duplicateId);
+        }
+      }
     } else {
-      // Create new attendance record with Absent status
+      // No existing record, create new one with Absent status
+      console.log(`Creating new attendance record with Absent status for staff ${staffId} on ${date}`);
       const attendanceData = {
         staff_id: staffId,
         date: date,
@@ -564,14 +613,14 @@ export const markStaffAbsent = async (
         notes: notes || 'Marked as absent',
       };
 
-      const { data, error } = await supabase
+      const { data: newRecord, error: insertError } = await supabase
         .from('attendance')
         .insert(attendanceData)
         .select()
         .single();
 
-      if (error) throw error;
-      result = data;
+      if (insertError) throw insertError;
+      result = newRecord;
     }
 
     // Send notification to the staff member

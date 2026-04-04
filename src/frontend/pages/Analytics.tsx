@@ -156,25 +156,41 @@ function Analytics() {
     try {
       const { data: analytics, error: analyticsError } = await getAnalyticsStats(month);
 
-      if (analyticsError || !analytics) {
-        setError('Failed to load analytics data');
+      if (analyticsError) {
+        console.error('Analytics error:', analyticsError);
+        setError(`Failed to load analytics data: ${analyticsError}`);
+        return;
+      }
+
+      if (!analytics) {
+        console.warn('No analytics data returned');
+        setError('Failed to load analytics data: No data returned');
         return;
       }
 
       setStats(analytics);
       generateStatInsights(analytics);
-    } catch {
-      setError('Failed to load analytics data');
+    } catch (error) {
+      console.error('Analytics fetch exception:', error);
+      setError(`Failed to load analytics data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
   };
 
   const fetchMonthlyConsultations = async () => {
-    const { data, error } = await getMonthlyConsultations();
-    if (!error && data) {
-      setMonthlyConsultations(data);
-      generateVisitTrendsInsight(data);
+    try {
+      const { data, error } = await getMonthlyConsultations();
+      if (error) {
+        console.error('Monthly consultations error:', error);
+        return;
+      }
+      if (data) {
+        setMonthlyConsultations(data);
+        generateVisitTrendsInsight(data);
+      }
+    } catch (error) {
+      console.error('Monthly consultations fetch exception:', error);
     }
   };
 
@@ -201,15 +217,23 @@ function Analytics() {
           getWeeklyPerformance(monthYear)
         ]);
         
-        if (analyticsRes.data) {
+        if (analyticsRes.error) {
+          console.error('Analytics error:', analyticsRes.error);
+        } else if (analyticsRes.data) {
           setStats(analyticsRes.data);
           generateStatInsights(analyticsRes.data);
         }
-        if (consultRes.data) {
+        
+        if (consultRes.error) {
+          console.error('Consultations error:', consultRes.error);
+        } else if (consultRes.data) {
           setMonthlyConsultations(consultRes.data);
           generateVisitTrendsInsight(consultRes.data);
         }
-        if (perfRes.data) {
+        
+        if (perfRes.error) {
+          console.error('Performance error:', perfRes.error);
+        } else if (perfRes.data) {
           // Map week data to the same format as monthly data for the chart
           const mappedData = perfRes.data.map(item => ({
             month: item.week,
@@ -220,6 +244,7 @@ function Analytics() {
         }
       } catch (error) {
         console.error('Failed to load month data:', error);
+        setError(`Failed to load analytics data: ${error instanceof Error ? error.message : 'Unknown error'}`);
       } finally {
         setLoading(false);
       }
@@ -290,7 +315,7 @@ function Analytics() {
             onChange={e => setSelectedMonth(e.target.value)}
             sx={{ fontSize: { xs: '12px', sm: '14px' } }}
           >
-            {years.map(year => months.map((month, idx) => (
+            {years.flatMap(year => months.map((month, idx) => (
               <MenuItem key={`${month}-${year}`} value={`${idx + 1}-${year}`} sx={{ fontSize: { xs: '12px', sm: '14px' } }}>{`${month} ${year}`}</MenuItem>
             )))}
           </Select>

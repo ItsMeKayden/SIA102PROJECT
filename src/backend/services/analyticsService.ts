@@ -2,6 +2,22 @@ import { supabase, handleSupabaseError } from '../../lib/supabase-client';
 import type { AnalyticsStats } from '../../types';
 
 /**
+ * Helper function to safely parse date strings and extract month/year
+ * DATE fields from Supabase come back as "YYYY-MM-DD" strings
+ */
+const getMonthYearFromDateString = (dateStr: string): string => {
+  try {
+    // Parse YYYY-MM-DD format directly without Date object to avoid timezone issues
+    const [year, month] = dateStr.split('-');
+    const monthIndex = parseInt(month);
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return `${monthNames[monthIndex - 1]} ${year}`;
+  } catch {
+    return '';
+  }
+};
+
+/**
  * Fetches the numbers needed by the analytics/dashboards.
  *
  * The values are derived from the existing tables rather than stored
@@ -13,38 +29,38 @@ export const getAnalyticsStats = async (monthYear?: string): Promise<{ data: Ana
     // 1. total consultations = total number of completed appointments
     const { data: allAppts, error: apptError } = await supabase
       .from('appointments')
-      .select('patient_name, status, appointment_date');
+      .select('*');
 
     if (apptError) throw apptError;
 
     // Filter by month if provided
     let filteredAppts = allAppts || [];
-    if (monthYear) {
-      filteredAppts = filteredAppts.filter(appt => {
-        const date = new Date(appt.appointment_date);
-        const month = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+    if (monthYear && filteredAppts.length > 0) {
+      filteredAppts = filteredAppts.filter((appt: any) => {
+        if (!appt.appointment_date) return false;
+        const month = getMonthYearFromDateString(appt.appointment_date);
         return month === monthYear;
       });
     }
 
     // Only count completed appointments
-    const totalConsultations = filteredAppts.filter((appt: { status: string }) => appt.status === 'Completed').length;
+    const totalConsultations = filteredAppts.filter((appt: any) => appt.status === 'Completed').length;
 
     // 2. average patients per doctor = total consultations / number of doctors
-    const { data: doctorCountRes, error: docError } = await supabase
+    const { data: doctorRes, error: docError } = await supabase
       .from('staff')
-      .select('id', { count: 'exact' })
+      .select('id')
       .eq('role', 'Doctor');
 
     if (docError) throw docError;
-    const doctorCount = doctorCountRes?.length ?? 0;
+    const doctorCount = doctorRes?.length ?? 0;
     const avgPatientsPerDoctor = doctorCount > 0 ? totalConsultations / doctorCount : 0;
 
     // 3. patient return rate = percentage of returning patients out of all patients (only from completed appointments)
     const patientCounts: { [name: string]: number } = {};
     filteredAppts
-      .filter((appt: { status: string }) => appt.status === 'Completed')
-      .forEach((appt: { patient_name: string }) => {
+      .filter((appt: any) => appt.status === 'Completed' && appt.patient_name)
+      .forEach((appt: any) => {
         patientCounts[appt.patient_name] = (patientCounts[appt.patient_name] || 0) + 1;
       });
     const totalPatients = Object.keys(patientCounts).length;
@@ -64,8 +80,7 @@ export const getAnalyticsStats = async (monthYear?: string): Promise<{ data: Ana
     let filteredAttendance = attendanceAll || [];
     if (monthYear) {
       filteredAttendance = filteredAttendance.filter(record => {
-        const date = new Date(record.date);
-        const month = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+        const month = getMonthYearFromDateString(record.date);
         return month === monthYear;
       });
     }
@@ -107,17 +122,18 @@ export const getMonthlyConsultations = async (): Promise<{ data: { month: string
     // Group completed appointments by month and count
     const { data, error } = await supabase
       .from('appointments')
-      .select('appointment_date, status')
-      .eq('status', 'Completed');
+      .select('*');
 
     if (error) throw error;
 
-    // Aggregate counts by month
+    // Aggregate counts by month (only completed appointments)
     const monthCounts: { [key: string]: number } = {};
-    data?.forEach((appt: { appointment_date: string }) => {
-      const date = new Date(appt.appointment_date);
-      const month = date.toLocaleString('default', { month: 'short', year: 'numeric' });
-      monthCounts[month] = (monthCounts[month] || 0) + 1;
+    data?.forEach((appt: any) => {
+      if (appt.status !== 'Completed' || !appt.appointment_date) return;
+      const month = getMonthYearFromDateString(appt.appointment_date);
+      if (month) {
+        monthCounts[month] = (monthCounts[month] || 0) + 1;
+      }
     });
 
     // Convert to array sorted by date
@@ -155,34 +171,34 @@ export const getMonthlyPerformance = async (monthYear?: string): Promise<{ data:
     // Get completed appointments for consultations and patient returns by month
     const { data: allAppts, error: apptError } = await supabase
       .from('appointments')
-      .select('appointment_date, patient_name, status')
-      .eq('status', 'Completed');
+      .select('*');
     if (apptError) throw apptError;
 
     // Get all attendance records by month
     const { data: attendanceAll, error: attendanceError } = await supabase
       .from('attendance')
-      .select('date, status');
+      .select('*');
     if (attendanceError) throw attendanceError;
 
     // Calculate metrics by month
     const monthlyMetrics: { [month: string]: { consultations: number; returnPatients: number; uniquePatients: number; attended: number; total: number } } = {};
 
     // Group completed appointments by month
-    allAppts?.forEach((appt: { appointment_date: string; patient_name: string }) => {
-      const date = new Date(appt.appointment_date);
-      const month = date.toLocaleString('default', { month: 'long', year: 'numeric' });
-      if (!monthlyMetrics[month]) {
-        monthlyMetrics[month] = { consultations: 0, returnPatients: 0, uniquePatients: 0, attended: 0, total: 0 };
+    allAppts?.forEach((appt: any) => {
+      if (appt.status !== 'Completed' || !appt.appointment_date) return;
+      const month = getMonthYearFromDateString(appt.appointment_date);
+      if (month) {
+        if (!monthlyMetrics[month]) {
+          monthlyMetrics[month] = { consultations: 0, returnPatients: 0, uniquePatients: 0, attended: 0, total: 0 };
+        }
+        monthlyMetrics[month].consultations += 1;
       }
-      monthlyMetrics[month].consultations += 1;
     });
 
     // Calculate patient return rate per month
     Object.keys(monthlyMetrics).forEach(month => {
       const appts = allAppts?.filter(a => {
-        const date = new Date(a.appointment_date);
-        const aMonth = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+        const aMonth = getMonthYearFromDateString(a.appointment_date);
         return aMonth === month;
       }) ?? [];
       
@@ -197,14 +213,15 @@ export const getMonthlyPerformance = async (monthYear?: string): Promise<{ data:
 
     // Calculate attendance rate per month
     attendanceAll?.forEach((record: { date: string; status: string }) => {
-      const date = new Date(record.date);
-      const month = date.toLocaleString('default', { month: 'long', year: 'numeric' });
-      if (!monthlyMetrics[month]) {
-        monthlyMetrics[month] = { consultations: 0, returnPatients: 0, uniquePatients: 0, attended: 0, total: 0 };
-      }
-      monthlyMetrics[month].total += 1;
-      if (record.status === 'Present') {
-        monthlyMetrics[month].attended += 1;
+      const month = getMonthYearFromDateString(record.date);
+      if (month) {
+        if (!monthlyMetrics[month]) {
+          monthlyMetrics[month] = { consultations: 0, returnPatients: 0, uniquePatients: 0, attended: 0, total: 0 };
+        }
+        monthlyMetrics[month].total += 1;
+        if (record.status === 'Present') {
+          monthlyMetrics[month].attended += 1;
+        }
       }
     });
 
@@ -249,14 +266,13 @@ export const getWeeklyPerformance = async (monthYear: string): Promise<{ data: {
     // Get completed appointments for consultations and patient returns
     const { data: allAppts, error: apptError } = await supabase
       .from('appointments')
-      .select('appointment_date, patient_name, status')
-      .eq('status', 'Completed');
+      .select('*');
     if (apptError) throw apptError;
 
     // Get all attendance records
     const { data: attendanceAll, error: attendanceError } = await supabase
       .from('attendance')
-      .select('date, status');
+      .select('*');
     if (attendanceError) throw attendanceError;
 
     // Calculate metrics by week
@@ -264,24 +280,33 @@ export const getWeeklyPerformance = async (monthYear: string): Promise<{ data: {
 
     // Helper function to get week number and validate month
     const getWeekInfo = (dateStr: string): { weekNum: number; isInMonth: boolean } | null => {
-      const [month, year] = monthYear.split(' ');
-      const date = new Date(dateStr);
-      const dateMonth = date.toLocaleString('default', { month: 'long' });
-      const dateYear = date.getFullYear().toString();
+      const [monthStr, yearStr] = monthYear.split(' ');
       
-      // Check if date is in the selected month
-      if (dateMonth !== month || dateYear !== year) {
+      try {
+        // Parse date string YYYY-MM-DD
+        const [dateYear, dateMonth, dateDay] = dateStr.split('-');
+        
+        // Get month names
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const dateMonthName = monthNames[parseInt(dateMonth) - 1];
+        
+        // Check if date is in the selected month
+        if (dateMonthName !== monthStr || dateYear !== yearStr) {
+          return null;
+        }
+        
+        // Calculate week number (1-4 for weeks in the month)
+        const day = parseInt(dateDay);
+        const weekNum = Math.ceil((day + new Date(`${dateYear}-${dateMonth}-01`).getDay()) / 7);
+        return { weekNum, isInMonth: true };
+      } catch {
         return null;
       }
-      
-      // Calculate week number (1-4 for first week, etc.)
-      const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
-      const weekNum = Math.ceil((date.getDate() + firstDay.getDay()) / 7);
-      return { weekNum, isInMonth: true };
     };
 
     // Group completed appointments by week
-    allAppts?.forEach((appt: { appointment_date: string; patient_name: string }) => {
+    allAppts?.forEach((appt: any) => {
+      if (appt.status !== 'Completed' || !appt.appointment_date) return;
       const weekInfo = getWeekInfo(appt.appointment_date);
       if (weekInfo) {
         const weekLabel = `Week ${weekInfo.weekNum}`;
@@ -294,14 +319,17 @@ export const getWeeklyPerformance = async (monthYear: string): Promise<{ data: {
 
     // Calculate patient return rate per week
     Object.keys(weeklyMetrics).forEach(week => {
-      const appts = allAppts?.filter(a => {
+      const appts = allAppts?.filter((a: any) => {
+        if (a.status !== 'Completed' || !a.appointment_date) return false;
         const weekInfo = getWeekInfo(a.appointment_date);
         return weekInfo && `Week ${weekInfo.weekNum}` === week;
       }) ?? [];
       
       const patientCounts: { [name: string]: number } = {};
-      appts.forEach(appt => {
-        patientCounts[appt.patient_name] = (patientCounts[appt.patient_name] || 0) + 1;
+      appts.forEach((appt: any) => {
+        if (appt.patient_name) {
+          patientCounts[appt.patient_name] = (patientCounts[appt.patient_name] || 0) + 1;
+        }
       });
       
       weeklyMetrics[week].uniquePatients = Object.keys(patientCounts).length;

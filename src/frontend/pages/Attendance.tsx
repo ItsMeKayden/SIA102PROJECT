@@ -87,8 +87,8 @@ function Attendance() {
   const lastDateRef = useRef<string>(getTodayDateString());
   const [shiftSession, setShiftSession] = useState<'AM' | 'PM'>('AM');
   const [schedulesByStaffAndDay, setSchedulesByStaffAndDay] = useState<Map<string, Map<number, Schedule[]>>>(new Map());
-  const absentMarkingInProgressRef = useRef<Set<string>>(new Set()); // Track staff/date combos currently being marked absent
-  const attendanceDataJustFetchedRef = useRef<boolean>(false); // Flag to run absent marking only after fresh fetch
+  const absentMarkingCompleteRef = useRef<Set<string>>(new Set()); // Track staff/date combos already marked absent to prevent duplicates
+  const lastAbsentCheckTimeRef = useRef<number>(0); // Track when we last checked for absent marking (by date)
 
   // Fetch attendance data
   const fetchAttendanceData = useCallback(async () => {
@@ -206,7 +206,6 @@ function Attendance() {
       });
 
       setAttendanceData(completeRecords);
-      attendanceDataJustFetchedRef.current = true; // Mark that data was just fetched
       console.log('Set attendance data, count:', completeRecords.length);
 
       // Calculate stats for today only
@@ -253,6 +252,7 @@ function Attendance() {
   // Handle clock in/out
   const handleClockInOut = useCallback(
     async (staffId: string) => {
+      console.log('DEBUG: handleClockInOut called with staffId:', staffId);
       if (!staffId.trim()) {
         setSnackbar({
           open: true,
@@ -445,17 +445,26 @@ function Attendance() {
   }, [selectedDate, attendanceData, userRole, shiftSession, schedulesByStaffAndDay]);
 
   // Update status to Absent for staff past their scheduled end time without clocking in
-  // Only run this after fresh attendance data is fetched to prevent duplicate marking
+  // Run when attendance data loads, but only once per day
   useEffect(() => {
-    // Only proceed if we just fetched new data
-    if (!attendanceDataJustFetchedRef.current) return;
-    
-    attendanceDataJustFetchedRef.current = false; // Reset flag for next fetch
-    
     const updateAbsentStatus = async () => {
       const today = getTodayDateString();
       const currentTime = new Date().toTimeString().split(' ')[0];
       const dayOfWeek = new Date().getDay();
+
+      // Check if we've already done absent marking for today
+      const lastCheckTime = lastAbsentCheckTimeRef.current;
+      const today_timestamp = new Date(today).getTime();
+      const todayDate = Math.floor(today_timestamp / (1000 * 60 * 60 * 24));
+      const lastCheckDate = Math.floor(lastCheckTime / (1000 * 60 * 60 * 24));
+      
+      // Only run this check once per day (if we already checked today, skip)
+      if (lastCheckTime !== 0 && lastCheckDate === todayDate) {
+        console.log('Absent status already checked for today, skipping...');
+        return;
+      }
+      
+      lastAbsentCheckTimeRef.current = today_timestamp;
 
       // Fetch all schedules once
       const { data: allSchedules } = await getAllSchedules();
@@ -464,7 +473,10 @@ function Attendance() {
       if (allSchedules) {
         allSchedules.forEach(schedule => {
           if (schedule.day_of_week === dayOfWeek && schedule.is_active) {
-            scheduleMap.set(schedule.staff_id, schedule);
+            // Only keep the first schedule for each staff (in case there are multiple)
+            if (!scheduleMap.has(schedule.staff_id)) {
+              scheduleMap.set(schedule.staff_id, schedule);
+            }
           }
         });
       }
@@ -472,14 +484,21 @@ function Attendance() {
       const staffToMarkAbsent: { staffId: string; date: string }[] = [];
       const staffDateKey = (staffId: string, date: string) => `${staffId}-${date}`;
 
+      // Only process if we have attendance data
+      if (!attendanceData || attendanceData.length === 0) {
+        console.log('No attendance data to process for absent marking');
+        return;
+      }
+
       // Check today's records with Pending status and no clock-in
       for (const record of attendanceData) {
         if (record.date === today && record.status === 'Pending' && !record.time_in) {
           const todaySchedule = scheduleMap.get(record.staff_id);
           const key = staffDateKey(record.staff_id, today);
           
-          // Skip if we're already in the process of marking this staff/date as absent
-          if (absentMarkingInProgressRef.current.has(key)) {
+          // Skip if we've already marked this staff/date as absent
+          if (absentMarkingCompleteRef.current.has(key)) {
+            console.log(`Already processed ${record.staff_id} for absent marking`);
             continue;
           }
           
@@ -493,22 +512,31 @@ function Attendance() {
             
             // If current time is past scheduled end time, mark as Absent
             if (currentMinutes >= schedEndMinutes) {
+              console.log(`Staff ${record.staff_id} is past end time (${todaySchedule.end_time} < ${currentTime}), marking absent`);
               staffToMarkAbsent.push({ staffId: record.staff_id, date: today });
-              absentMarkingInProgressRef.current.add(key);
+              absentMarkingCompleteRef.current.add(key); // Mark as processed
             }
           }
         }
       }
 
       // Save each absent record to database without triggering state updates
-      for (const { staffId, date } of staffToMarkAbsent) {
-        await markStaffAbsent(staffId, date, 'Automatically marked as absent after scheduled end time');
+      if (staffToMarkAbsent.length > 0) {
+        console.log(`Marking ${staffToMarkAbsent.length} staff as absent...`);
+        for (const { staffId, date } of staffToMarkAbsent) {
+          await markStaffAbsent(staffId, date, 'Automatically marked as absent after scheduled end time');
+        }
+        console.log('Absent marking complete');
+      } else {
+        console.log('No staff to mark as absent at this time');
       }
     };
 
-    // Run the update only once after fresh data loads
-    updateAbsentStatus();
-  }, [attendanceData]);
+    // Run the update
+    if (attendanceData && attendanceData.length > 0) {
+      updateAbsentStatus();
+    }
+  }, [attendanceData]); // Run when attendance data changes
 
   const handleGenerateQRCode = async (staff: Staff) => {
     setQrCodeLoading(true);
@@ -597,6 +625,7 @@ function Attendance() {
     if (uuidMatch && uuidMatch[1]) {
       staffId = uuidMatch[1];
       console.log('✓ Successfully extracted staff ID from QR code:', staffId);
+      console.log('DEBUG: Full staff ID in handleClockInOut will be:', staffId);
     } else {
       console.error('✗ Could not extract UUID from QR code');
       console.error('  Full QR value:', trimmedCode);
