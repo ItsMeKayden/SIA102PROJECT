@@ -79,6 +79,7 @@ const EMPTY_SERVICE_FORM: ServiceFormData = {
   price: 0,
   downpayment: 0,
   status: "Available",
+  service_type: "Consultation",
   description: "",
 };
 
@@ -329,6 +330,31 @@ function ServiceMobileCard({
                   }}
                 >
                   {service.specialization}
+                </Box>
+              )}
+              {service.service_type && (
+                <Box
+                  sx={{
+                    backgroundColor:
+                      service.service_type === "Consultation"
+                        ? "#e0e7ff"
+                        : service.service_type === "Laboratory"
+                          ? "#fef3c7"
+                          : "#f3e8ff",
+                    color:
+                      service.service_type === "Consultation"
+                        ? "#4f46e5"
+                        : service.service_type === "Laboratory"
+                          ? "#d97706"
+                          : "#7c3aed",
+                    borderRadius: "4px",
+                    px: "6px",
+                    py: "1px",
+                    fontSize: "11px",
+                    fontWeight: 500,
+                  }}
+                >
+                  {service.service_type}
                 </Box>
               )}
             </Box>
@@ -1616,6 +1642,7 @@ function ServicesTab() {
       price: service.price,
       downpayment: service.downpayment,
       status: service.status,
+      service_type: service.service_type || "Consultation",
       description: service.description || "",
     });
     setOpenModal(true);
@@ -1843,6 +1870,7 @@ function ServicesTab() {
                   { label: "Name", w: "20%" },
                   { label: "Department", w: "12%" },
                   { label: "Specialization", w: "12%" },
+                  { label: "Service Type", w: "10%" },
                   { label: "Duration", w: "9%" },
                   { label: "Price (₱)", w: "9%" },
                   { label: "Downpayment (₱)", w: "11%" },
@@ -1931,6 +1959,45 @@ function ServicesTab() {
                     ) : (
                       <span style={{ color: "#9ca3af", fontSize: "11px" }}>
                         All
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: "#6b7280",
+                      fontSize: "11px",
+                      padding: "10px 8px",
+                    }}
+                  >
+                    {service.service_type ? (
+                      <Box
+                        sx={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          backgroundColor:
+                            service.service_type === "Consultation"
+                              ? "#e0e7ff"
+                              : service.service_type === "Laboratory"
+                                ? "#fef3c7"
+                                : "#f3e8ff",
+                          color:
+                            service.service_type === "Consultation"
+                              ? "#4f46e5"
+                              : service.service_type === "Laboratory"
+                                ? "#d97706"
+                                : "#7c3aed",
+                          borderRadius: "4px",
+                          px: "6px",
+                          py: "2px",
+                          fontSize: "11px",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {service.service_type}
+                      </Box>
+                    ) : (
+                      <span style={{ color: "#9ca3af", fontSize: "11px" }}>
+                        —
                       </span>
                     )}
                   </TableCell>
@@ -2161,6 +2228,28 @@ function ServicesTab() {
                 </FormControl>
               </Box>
             </Box>
+            <Box>
+              {fieldLabel("Service Type", true)}
+              <FormControl fullWidth size="small">
+                <Select
+                  value={formData.service_type || "Consultation"}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      service_type: e.target.value as
+                        | "Consultation"
+                        | "Laboratory"
+                        | "Procedure",
+                    })
+                  }
+                  sx={{ borderRadius: "6px" }}
+                >
+                  <MenuItem value="Consultation">Consultation</MenuItem>
+                  <MenuItem value="Laboratory">Laboratory</MenuItem>
+                  <MenuItem value="Procedure">Procedure</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
             <Box
               sx={{
                 display: "flex",
@@ -2215,24 +2304,6 @@ function ServicesTab() {
                   sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
                 />
               </Box>
-            </Box>
-            <Box>
-              {fieldLabel("Status")}
-              <FormControl fullWidth size="small">
-                <Select
-                  value={formData.status}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      status: e.target.value as "Available" | "Unavailable",
-                    })
-                  }
-                  sx={{ borderRadius: "6px" }}
-                >
-                  <MenuItem value="Available">Available</MenuItem>
-                  <MenuItem value="Unavailable">Unavailable</MenuItem>
-                </Select>
-              </FormControl>
             </Box>
             <Box>
               {fieldLabel("Description (Optional)")}

@@ -1312,6 +1312,25 @@ function Appointments() {
     );
   };
 
+  // Helper function to get service type for an appointment
+  const getServiceType = (appt: Appointment) => {
+    const service = services.find((s) => s.id === (appt as any).service_id);
+    return service?.service_type || "Consultation";
+  };
+
+  // Helper function to get start action label based on service type
+  const getStartLabel = (appt: Appointment) => {
+    const serviceType = getServiceType(appt);
+    switch (serviceType) {
+      case "Laboratory":
+        return "Start Test";
+      case "Procedure":
+        return "Start Procedure";
+      default:
+        return "Start Appointment";
+    }
+  };
+
   const renderStaffActions = (appt: Appointment) => {
     if (isAdmin || appt.doctor_id !== staffProfile?.id) return null;
     if (appt.status !== "Approved" && appt.status !== "Accepted") return null;
@@ -1368,7 +1387,7 @@ function Appointments() {
                 <FiPlay size={13} color="#16a34a" />
               </ListItemIcon>
               <ListItemText primaryTypographyProps={{ fontSize: "13px" }}>
-                Start
+                {getStartLabel(appt)}
               </ListItemText>
             </MenuItem>,
             <MenuItem
@@ -1441,23 +1460,30 @@ function Appointments() {
             </MenuItem>,
           ]}
           {appt.status === "Accepted" && [
-            <MenuItem
-              key="prescription"
-              onClick={() => {
-                setPrescriptionModal({ open: true, appt, text: "" });
-                setActionsMenu({ anchor: null, appt: null });
-              }}
-              sx={{ fontSize: "13px", gap: 1, py: 1 }}
-            >
-              <ListItemIcon sx={{ minWidth: 0 }}>
-                <FiClipboard size={13} color="#3b82f6" />
-              </ListItemIcon>
-              <ListItemText
-                primaryTypographyProps={{ fontSize: "13px", color: "#3b82f6" }}
-              >
-                Prescription
-              </ListItemText>
-            </MenuItem>,
+            ...(getServiceType(appt) === "Consultation"
+              ? [
+                  <MenuItem
+                    key="prescription"
+                    onClick={() => {
+                      setPrescriptionModal({ open: true, appt, text: "" });
+                      setActionsMenu({ anchor: null, appt: null });
+                    }}
+                    sx={{ fontSize: "13px", gap: 1, py: 1 }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 0 }}>
+                      <FiClipboard size={13} color="#3b82f6" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primaryTypographyProps={{
+                        fontSize: "13px",
+                        color: "#3b82f6",
+                      }}
+                    >
+                      Prescription
+                    </ListItemText>
+                  </MenuItem>,
+                ]
+              : []),
             <MenuItem
               key="billing"
               onClick={() => {
